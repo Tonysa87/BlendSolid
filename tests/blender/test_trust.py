@@ -29,7 +29,7 @@ def save_stale_part_and_reload():
     """A file whose part's script differs from the script its mesh was computed from."""
     obj = part.new_part(bpy.context)
     wait_for(lambda: up_to_date(obj))
-    part.set_param(obj, "length", 45.0)  # never ticked: the saved mesh is stale
+    part.set_param(obj, "box_1_length", 45.0)  # never ticked: the saved mesh is stale
     path = os.path.join(tempfile.mkdtemp(), "stale.blend")
     bpy.ops.wm.save_as_mainfile(filepath=path)
     bpy.ops.wm.open_mainfile(filepath=path)
@@ -46,7 +46,7 @@ def test_loaded_part_is_not_run_without_auto_run(clean, auto_run):
     assert runtime.client().submitted == submitted
     assert not up_to_date(obj) and len(obj.data.polygons) == polys  # cached mesh kept
     assert runtime.part_status(obj) == "untrusted"
-    obj.blendsolid_params["width"].value = 31.0  # a param edit must not run it either
+    obj.blendsolid_params["box_1_width"].value = 31.0  # a param edit must not run it either
     for _ in range(20):
         runtime.tick()
     assert runtime.client().submitted == submitted
@@ -73,7 +73,7 @@ def test_new_part_in_untrusted_file_computes(clean, auto_run):
     dup.data = fresh.data.copy()
     bpy.context.collection.objects.link(dup)
     runtime.tick()
-    dup.blendsolid_params["length"].value = 52.0
+    dup.blendsolid_params["box_1_length"].value = 52.0
     wait_for(lambda: up_to_date(dup))
 
 

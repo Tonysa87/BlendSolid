@@ -33,13 +33,13 @@ def test_new_part_builds_mesh_with_face_ids(clean):
     ids = {v.value for v in obj.data.attributes[part.FACE_ATTR].data}
     assert ids == set(range(len(ids))) and len(ids) >= 9
     assert [p.name for p in obj.blendsolid_params] == [
-        "length", "width", "height", "boss_radius", "boss_height", "fillet_radius"]
+        "box_1_length", "box_1_width", "box_1_height", "boss_1_radius", "boss_1_height", "fillet_1_radius"]
     assert obj.blendsolid_error == ""
 
 
 def test_param_edit_rewrites_script_and_recomputes(clean):
     obj = new_part()
-    obj.blendsolid_params["height"].value = 22.0
+    obj.blendsolid_params["box_1_height"].value = 22.0
     assert "height = 22.0\n" in part.source_of(obj)
     wait_for(lambda: up_to_date(obj))
     assert abs(mm3(obj) - expected_volume(height=22.0)) / expected_volume(height=22.0) < 0.01
@@ -67,10 +67,10 @@ def test_stale_result_is_discarded(clean, monkeypatch):
         orig_apply(obj_, event, factor)
 
     monkeypatch.setattr(part, "apply_result", recording_apply)
-    obj.blendsolid_params["length"].value = 50.0
+    obj.blendsolid_params["box_1_length"].value = 50.0
     tag50 = part.current_tag(obj)
     runtime.tick()                                   # submits length=50
-    obj.blendsolid_params["length"].value = 60.0     # before the first result arrives
+    obj.blendsolid_params["box_1_length"].value = 60.0     # before the first result arrives
     wait_for(lambda: up_to_date(obj))
     assert "length = 60.0\n" in part.source_of(obj)
     assert abs(mm3(obj) - expected_volume(length=60.0)) / expected_volume(length=60.0) < 0.01
@@ -81,7 +81,7 @@ def test_stale_result_is_discarded(clean, monkeypatch):
 def test_reconcile_after_simulated_undo(clean):
     obj = new_part()
     source_a = part.source_of(obj)
-    obj.blendsolid_params["width"].value = 35.0
+    obj.blendsolid_params["box_1_width"].value = 35.0
     wait_for(lambda: up_to_date(obj))
     # an undo step can restore the script while the mesh is one step behind: the tick must repair it
     obj.blendsolid_script.from_string(source_a)
@@ -109,7 +109,7 @@ def test_duplicate_gets_own_script(clean):
     bpy.context.collection.objects.link(dup)
     runtime.tick()
     assert dup.blendsolid_script != obj.blendsolid_script
-    dup.blendsolid_params["length"].value = 70.0
+    dup.blendsolid_params["box_1_length"].value = 70.0
     wait_for(lambda: up_to_date(dup))
     assert "length = 40.0\n" in part.source_of(obj)
 
@@ -131,7 +131,7 @@ def test_shared_mesh_is_one_part(clean):
     part, so tick() must unify their scripts and submit only once, never ping-ponging between them."""
     a = new_part()
     b = part.new_part(bpy.context, name="Part2")
-    part.set_param(b, "length", 55.0)  # diverge b's script from a's before linking data
+    part.set_param(b, "box_1_length", 55.0)  # diverge b's script from a's before linking data
     b.data = a.data                    # simulated Ctrl+L Link Object Data
     runtime.tick()
     assert b.blendsolid_script == a.blendsolid_script
@@ -145,14 +145,14 @@ def test_shared_mesh_is_one_part(clean):
 def test_param_edit_on_broken_script_does_not_raise(clean):
     obj = new_part()
     obj.blendsolid_script.from_string("this is not valid python(\n")
-    obj.blendsolid_params["height"].value = 21.0  # must not raise into the RNA update
+    obj.blendsolid_params["box_1_height"].value = 21.0  # must not raise into the RNA update
     assert obj.blendsolid_error != ""
 
 
 def test_param_edit_with_no_script_does_not_raise(clean):
     obj = new_part()
     obj.blendsolid_script = None
-    obj.blendsolid_params["length"].value = 41.0  # must not raise: nothing to write to
+    obj.blendsolid_params["box_1_length"].value = 41.0  # must not raise: nothing to write to
 
 
 def test_param_error_from_ui_survives_ticks(clean):
@@ -165,7 +165,7 @@ def test_param_error_from_ui_survives_ticks(clean):
 
     class FakeItem:
         id_data = obj
-        name = "length"
+        name = "box_1_length"
         value = float("inf")
 
     ui._on_param_value(FakeItem(), bpy.context)
@@ -182,7 +182,7 @@ def test_ui_error_clears_when_script_returns_to_applied_source(clean):
     obj = new_part()
     good_source = part.source_of(obj)
     obj.blendsolid_script.from_string("this is not valid python(\n")
-    obj.blendsolid_params["height"].value = 21.0  # triggers _on_param_value -> SyntaxError, caught
+    obj.blendsolid_params["box_1_height"].value = 21.0  # triggers _on_param_value -> SyntaxError, caught
     assert obj.blendsolid_error != ""
     obj.blendsolid_script.from_string(good_source)  # back to exactly the already-applied source
     wait_for(lambda: obj.blendsolid_error == "")
@@ -196,7 +196,7 @@ def test_ui_error_on_sibling_is_not_overwritten_by_primary_mirroring(clean):
     primary, sibling = sorted([a, b], key=lambda o: o.name)
 
     sibling.blendsolid_script.from_string("this is not valid python(\n")
-    sibling.blendsolid_params["height"].value = 21.0  # triggers _on_param_value on the sibling object
+    sibling.blendsolid_params["box_1_height"].value = 21.0  # triggers _on_param_value on the sibling object
     assert sibling.blendsolid_error != ""
     assert primary.blendsolid_error == sibling.blendsolid_error  # written to the whole mesh group already
     runtime.tick()
@@ -205,7 +205,7 @@ def test_ui_error_on_sibling_is_not_overwritten_by_primary_mirroring(clean):
 
 def test_reconcile_exception_after_tag_known_marks_failed(clean, monkeypatch):
     obj = new_part()
-    obj.blendsolid_params["length"].value = 47.0
+    obj.blendsolid_params["box_1_length"].value = 47.0
     tag = part.current_tag(obj)
 
     def boom(obj_, source=None):
@@ -234,8 +234,8 @@ def test_object_error_does_not_stop_other_objects_reconciling(clean, monkeypatch
     a = new_part()
     b = part.new_part(bpy.context, name="Part2")
     wait_for(lambda: up_to_date(b))
-    a.blendsolid_params["length"].value = 41.0
-    b.blendsolid_params["length"].value = 42.0
+    a.blendsolid_params["box_1_length"].value = 41.0
+    b.blendsolid_params["box_1_length"].value = 42.0
 
     orig_sync = part.sync_params
 
@@ -257,9 +257,9 @@ def test_mesh_sibling_mirrors_params_and_error(clean):
     bpy.context.collection.objects.link(b)
     assert b.data == a.data
 
-    a.blendsolid_params["height"].value = 23.0
+    a.blendsolid_params["box_1_height"].value = 23.0
     wait_for(lambda: up_to_date(a))
-    assert abs(b.blendsolid_params["height"].value - 23.0) < 1e-6
+    assert abs(b.blendsolid_params["box_1_height"].value - 23.0) < 1e-6
 
     a.blendsolid_script.from_string(part.source_of(a).replace("result = part.part", "result = part.prt"))
     wait_for(lambda: a.blendsolid_error != "")
@@ -291,7 +291,7 @@ def test_handle_exception_marks_failed_to_avoid_resubmit_loop(clean, monkeypatch
     # the fix (the resubmit-loop bug is real but timing-dependent to observe from the outside), so assert
     # the actual mechanism directly: _failed must be recorded for the tag that just failed to handle.
     obj = new_part()
-    obj.blendsolid_params["length"].value = 45.0
+    obj.blendsolid_params["box_1_length"].value = 45.0
     tag = part.current_tag(obj)
 
     def boom(obj_, event, factor):
@@ -311,8 +311,8 @@ def test_worker_start_error_marks_remaining_objects_failed_without_retrying(clea
     a = new_part()
     b = part.new_part(bpy.context, name="Part2")
     wait_for(lambda: up_to_date(b))
-    a.blendsolid_params["length"].value = 41.0
-    b.blendsolid_params["length"].value = 42.0
+    a.blendsolid_params["box_1_length"].value = 41.0
+    b.blendsolid_params["box_1_length"].value = 42.0
 
     calls = []
 
