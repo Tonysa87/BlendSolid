@@ -39,28 +39,59 @@ class WorkerClient:
         if self.state != "stopped":
             return
         token = secrets.token_hex(16)
-        server = socket.create_server(("127.0.0.1", 0))
-        server.settimeout(self.start_timeout)
+        listener = socket.create_server(("127.0.0.1", 0))
         self._stderr = tempfile.TemporaryFile()
         env = dict(os.environ, BLENDSOLID_WORKER_TOKEN=token)
-        self._proc = subprocess.Popen(
-            [self.python, "-I", self.server, str(server.getsockname()[1]), self.libs, self.pycache_dir],
-            env=env, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=self._stderr)
+        deadline = time.monotonic() + self.start_timeout
         try:
-            sock, _ = server.accept()
-        except OSError as e:
-            self._kill()
-            raise WorkerStartError(f"the worker did not connect: {e}") from None
+            try:
+                self._proc = subprocess.Popen(
+                    [self.python, "-I", self.server, str(listener.getsockname()[1]), self.libs, self.pycache_dir],
+                    env=env, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=self._stderr,
+                    creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+            except OSError as e:
+                self._fail(f"could not start the worker process: {e}")
+            sock = self._accept(listener, deadline)
         finally:
-            server.close()
+            listener.close()
+
         conn = Connection(sock.detach())
-        if not conn.poll(self.start_timeout) or not hmac.compare_digest(conn.recv_bytes(), token.encode("ascii")):
+        remaining = max(0.0, deadline - time.monotonic())
+        try:
+            token_ok = (conn.poll(remaining)
+                        and hmac.compare_digest(conn.recv_bytes(maxlength=64), token.encode("ascii")))
+        except (OSError, EOFError):
+            token_ok = False
+        if not token_ok:
             conn.close()
-            self._kill()
-            raise WorkerStartError("the worker failed the handshake")
+            self._fail("the worker failed the handshake")
+
         self._conn = conn
         self.state = "starting"
         self._ready_at = time.monotonic()
+
+    def _accept(self, listener, deadline):
+        """Accept in short slices against a single deadline, so a worker that exits before connecting (a
+        bad interpreter path, a bad server script) is reported almost immediately rather than after the
+        full start_timeout."""
+        while True:
+            if self._proc.poll() is not None:
+                self._fail(f"the worker exited with code {self._proc.returncode} before connecting")
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                self._fail(f"the worker did not connect within {self.start_timeout:.0f} s")
+            listener.settimeout(min(0.1, remaining))
+            try:
+                sock, _ = listener.accept()
+                return sock
+            except OSError:
+                continue
+
+    def _fail(self, message):
+        """Read the worker's stderr tail before _kill() discards it, then raise WorkerStartError."""
+        tail = self._stderr_tail()
+        self._kill()
+        raise WorkerStartError(message + (f"\n{tail}" if tail else ""))
 
     def stop(self):
         if self._conn is not None and self._proc is not None and self._proc.poll() is None:
@@ -77,7 +108,12 @@ class WorkerClient:
             self._proc.wait()
         if self._conn is not None:
             self._conn.close()
-        self._proc = self._conn = None
+        if self._stderr is not None:
+            try:
+                self._stderr.close()
+            except OSError:
+                pass
+        self._proc = self._conn = self._stderr = None
         self._running = None
         self.state = "stopped"
 
@@ -95,11 +131,21 @@ class WorkerClient:
         if self.state != "idle" or not self._pending:
             return
         key, req = self._pending.popitem(last=False)
-        req["job"] = self._next_job
+        job = self._next_job
         self._next_job += 1
-        protocol.send_message(self._conn, req)
+        req["job"] = job
+        try:
+            protocol.send_message(self._conn, req)
+        except OSError:
+            # the worker died between becoming idle and us sending: keep the request (the next poll()
+            # will detect the dead process and report it, via `dropped` or as the running job) and don't
+            # raise into submit()'s caller.
+            del req["job"]
+            self._pending[key] = req
+            self._pending.move_to_end(key, last=False)
+            return
         self.submitted += 1
-        self._running = (req["job"], key, req["tag"], time.monotonic())
+        self._running = (job, key, req["tag"], time.monotonic())
         self.state = "busy"
 
     # -- events ------------------------------------------------------------------------------------------

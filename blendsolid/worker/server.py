@@ -54,11 +54,22 @@ def main():
                 protocol.send_message(conn, {"type": "error", "error": f"unknown request {kind!r}"})
         except Exception as e:
             # runner.run_script never raises; this guards against a bug while building/sending the reply
-            # itself, so a single malformed request can't take the whole worker process down with it.
-            try:
-                protocol.send_message(conn, {"type": "error", "error": f"{type(e).__name__}: {e}"})
-            except Exception:
-                return 1
+            # itself, so a single malformed request can't take the whole worker process down with it. A
+            # failed "run" is answered as a `result` (ok=False) so the client leaves "busy" immediately;
+            # `error` is reserved for requests of an unknown type.
+            if kind == "run":
+                reply = {"type": "result", "job": header.get("job"), "key": header.get("key"),
+                         "tag": header.get("tag"), "ok": False, "error": f"{type(e).__name__}: {e}",
+                         "line": None, "volume": 0.0, "faces": 0, "timing": {}}
+                try:
+                    protocol.send_message(conn, reply)
+                except Exception:
+                    return 1
+            else:
+                try:
+                    protocol.send_message(conn, {"type": "error", "error": f"{type(e).__name__}: {e}"})
+                except Exception:
+                    return 1
 
 
 if __name__ == "__main__":

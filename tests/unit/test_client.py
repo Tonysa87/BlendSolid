@@ -1,9 +1,16 @@
+import hmac
+import os
+import secrets
+import socket
+import subprocess
 import time
+from multiprocessing.connection import Connection
 
 import pytest
 
+import protocol  # imported as the worker does (blendsolid/worker on sys.path); used to talk to a raw worker
 from blendsolid import paths
-from blendsolid.client import WorkerClient
+from blendsolid.client import WorkerClient, WorkerStartError
 
 BOX = "size = 10.0\nresult = Box(size, size, size)\n"
 
@@ -104,3 +111,89 @@ def test_stop_is_idempotent(client):
     client.stop()
     client.stop()
     assert client.state == "stopped"
+
+
+# -- fix round 1: start() must never block past start_timeout, and must clean up properly ------------------
+
+def test_start_with_bad_python_raises_quickly():
+    c = WorkerClient("/nonexistent/blendsolid-test-python", paths.server_script(), paths.worker_libs(),
+                     paths.pycache_dir("blendsolid"), start_timeout=10.0)
+    t0 = time.monotonic()
+    with pytest.raises(WorkerStartError):
+        c.start()
+    assert time.monotonic() - t0 < 5.0
+    assert c.state == "stopped"
+
+
+def test_start_with_exiting_server_script_raises_before_timeout(tmp_path):
+    bad_server = tmp_path / "bad_server.py"
+    bad_server.write_text("import sys\nsys.exit(2)\n")
+    c = WorkerClient(paths.python_executable(), str(bad_server), paths.worker_libs(),
+                     paths.pycache_dir("blendsolid"), start_timeout=10.0)
+    t0 = time.monotonic()
+    with pytest.raises(WorkerStartError) as exc_info:
+        c.start()
+    assert time.monotonic() - t0 < 5.0
+    assert "2" in str(exc_info.value)
+    assert c.state == "stopped"
+
+
+def test_dispatch_puts_request_back_when_send_fails(client, monkeypatch):
+    """If sending a request fails (the worker died between becoming idle and us sending), the request
+    must not be lost and _dispatch() must not raise into submit()'s caller."""
+    client.submit("A", BOX, "t1")
+    collect(client, 1)
+    assert client.state == "idle"
+
+    from blendsolid import client as client_module
+    real_send = client_module.protocol.send_message
+
+    def boom(conn, header, arrays=None):
+        if header.get("type") == "run" and header.get("key") == "B":
+            raise OSError("simulated broken pipe")
+        return real_send(conn, header, arrays)
+
+    monkeypatch.setattr(client_module.protocol, "send_message", boom)
+    client.submit("B", BOX, "t2")  # must not raise
+    assert client.state == "idle"
+    assert client._pending["B"]["tag"] == "t2" and "job" not in client._pending["B"]
+
+    monkeypatch.undo()
+    client._dispatch()  # now succeeds against the real (still-alive) worker
+    (r,) = results(collect(client, 1))
+    assert r["ok"] and r["tag"] == "t2"
+
+
+def test_server_run_failure_is_a_result_not_a_crash():
+    """A malformed 'run' request (missing job/key/tag) makes server.py raise while building the reply;
+    it must still answer with a `result` (ok=False), not crash the worker or send an `error` message."""
+    token = secrets.token_hex(16)
+    listener = socket.create_server(("127.0.0.1", 0))
+    listener.settimeout(30)
+    env = dict(os.environ, BLENDSOLID_WORKER_TOKEN=token)
+    proc = subprocess.Popen(
+        [paths.python_executable(), "-I", paths.server_script(), str(listener.getsockname()[1]),
+         paths.worker_libs(), paths.pycache_dir("blendsolid")],
+        env=env, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    try:
+        sock, _ = listener.accept()
+        conn = Connection(sock.detach())
+        assert hmac.compare_digest(conn.recv_bytes(), token.encode("ascii"))
+        header, _ = protocol.recv_message(conn)
+        assert header["type"] == "ready"
+
+        protocol.send_message(conn, {"type": "run", "source": BOX})  # no job/key/tag
+        header, arrays = protocol.recv_message(conn)
+
+        assert header["type"] == "result"
+        assert header["ok"] is False
+        assert header["job"] is None and header["key"] is None and header["tag"] is None
+        assert "KeyError" in header["error"]
+        assert header["line"] is None and header["volume"] == 0.0 and header["faces"] == 0
+        assert header["timing"] == {}
+        conn.close()
+    finally:
+        listener.close()
+        if proc.poll() is None:
+            proc.kill()
+        proc.wait()
