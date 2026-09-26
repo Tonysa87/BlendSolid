@@ -186,5 +186,8 @@ def test_millimetre_scene(clean):
         plane = drawing.plane_on_face(box.matrix_world @ Vector((5, 5, 20)), (0, 0, 1), box.matrix_world)
         drawn = drawing.drawn_solid("BOX", plane, (0, 0), (4, 2), 3, part.unit_factor())
         assert (drawn.length, drawn.width, drawn.height) == pytest.approx((4, 2, 3))  # 1 unit = 1 mm
+        props = ops_draw.drawn_properties(drawn, box, part.unit_factor())
+        assert props["mode"] == "UNION" and props["target"] == box.name
+        assert props["location"] == pytest.approx((7, 6, 20), abs=1e-4)  # millimetres, in the part's frame
     finally:
         units.scale_length = saved
