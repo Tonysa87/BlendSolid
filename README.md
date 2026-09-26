@@ -104,8 +104,8 @@ The spike ran on Blender 5.2.2 LTS (Windows portable + Linux) with `cadquery-ocp
 - **Package size**: Windows zip 47.7 MB, Linux 66.8 MB, macOS arm64 63.0 MB (limit 100 MB).
 
 **Main open issue:** build123d with its dependencies weighs ~200 MB per platform and does not fit the 100 MB
-extensions.blender.org limit. Options (trimmed vendored build123d, a thin in-house API over OCP, upstream optional
-extras) are discussed in the report.
+extensions.blender.org limit. Follow-up research ([ADR 0001](docs/decisions/0001-shipping-build123d.md)) shows that
+unmodified build123d with only its light dependencies runs in the worker process for +1.9 MB per platform.
 
 ## Supported platforms (planned)
 
@@ -116,7 +116,7 @@ Blender 5.x; Windows ARM has no OCP wheel yet.
 
 Scope-changing choices still to be made before milestone 1:
 
-- [ ] build123d vs. an in-house API for the history script (size limit, see above)
+- [ ] How to ship build123d within the size limit — proposal in [ADR 0001](docs/decisions/0001-shipping-build123d.md)
 - [ ] Main use: rendering/kitbashing (loose tolerances) or production too (clean STEP, tight tolerances)?
 - [ ] History script visible and editable by the user, or hidden behind the UI?
 - [ ] Constrained sketches: integrate CAD Sketcher or write our own?
@@ -126,6 +126,7 @@ Scope-changing choices still to be made before milestone 1:
 
 ```
 docs/spec.md        project spec draft (vision, architecture, catalog, milestones, risks)
+docs/decisions/     architecture decision records (ADRs)
 SPIKE_REPORT.md     milestone 0 results: PASS/FAIL, timings, issues, proposed spec changes
 spike/              throwaway milestone-0 code (not the add-on)
   occ_model.py      OCP-only geometry: model, push face, tessellation
@@ -133,6 +134,7 @@ spike/              throwaway milestone-0 code (not the add-on)
   gui_session.py    interactive session: picking, proxy push, GN gizmo, undo logging
   worker.py         OCCT worker process + s07_worker_bench.py benchmark
   extension/        minimal extension manifest used for the packaging test
+  build123d_lite/   research for ADR 0001: build123d with stubbed heavy dependencies, in the worker
   logs/             raw test output (in Italian: recorded before the code was translated)
 CLAUDE.md           working notes and rules for AI-assisted development
 ```

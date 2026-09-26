@@ -66,4 +66,9 @@ spike/s08_build_extension.sh                                               # per
   `TopoDS.Face(x)` (not `TopoDS.Face_s`).
 - Blender 5.2: GN modifier inputs = `mod.properties.inputs.<identifier>.value` (no longer IDProperties).
 - `matrix_world` is not evaluated in `undo_post`: reconcile state only in `depsgraph_update_post`.
-- build123d with its dependencies ≈ 200 MB: doesn't fit the 100 MB limit (open decision, see the report).
+- build123d with its dependencies ≈ 200 MB: doesn't fit the 100 MB limit. Proposed fix in
+  `docs/decisions/0001-shipping-build123d.md`: unmodified build123d + light deps, only in the worker, heavy deps stubbed.
+- Extension site-packages precede Blender's in `sys.path`: a bundled wheel of a module Blender ships
+  (e.g. `typing_extensions`) overrides it for Blender and all add-ons.
+- extensions.blender.org forbids installing packages at runtime and changing Blender's `sys.path`/`sys.modules`.
+- build123d `Text` with the OS default font is not reproducible across platforms: always pass a bundled `font_path`.
