@@ -23,6 +23,9 @@ MODES = [("NEW", "New Part", "Make a new part", "ADD", 0),
          ("CUT", "Cut", "Cut the solid out of the part it is drawn on", "SELECT_SUBTRACT", 2)]
 KIND = {"BOX": "box", "CYLINDER": "cylinder"}
 COLORS = {"UNION": (0.35, 0.9, 0.45, 1.0), "CUT": (1.0, 0.35, 0.3, 1.0), "NEW": (0.35, 0.65, 1.0, 1.0)}
+MIN_MM = 0.001  # matches the size properties' `min`: a drag under this is treated as no drag at all
+NAV_EVENTS = {"MIDDLEMOUSE", "WHEELUPMOUSE", "WHEELDOWNMOUSE", "WHEELINMOUSE", "WHEELOUTMOUSE", "TRACKPADPAN",
+             "TRACKPADZOOM", "NDOF_MOTION"}  # viewport navigation: never swallowed by the modal
 
 
 def _local_part(name):
@@ -117,6 +120,8 @@ class BLENDSOLID_OT_draw_solid(bpy.types.Operator):
         return {"RUNNING_MODAL"}
 
     def modal(self, context, event):
+        if event.type in NAV_EVENTS:
+            return {"PASS_THROUGH"}  # let the viewport orbit/zoom/pan while the modal keeps running
         if event.type in {"ESC", "RIGHTMOUSE"} and event.value == "PRESS":
             self._finish(context)
             return {"CANCELLED"}
@@ -125,14 +130,14 @@ class BLENDSOLID_OT_draw_solid(bpy.types.Operator):
         elif event.type == "LEFTMOUSE" and event.value == "RELEASE" and self._stage == "BASE":
             self._update(context, event)
             d = self._drawn
-            if d is None or (d.radius <= 0 if d.shape == "CYLINDER" else min(d.length, d.width) <= 0):
+            if d is None or (d.radius < MIN_MM if d.shape == "CYLINDER" else min(d.length, d.width) < MIN_MM):
                 self._finish(context)
-                return {"CANCELLED"}  # a click without a drag: nothing drawn
+                return {"CANCELLED"}  # a click without a drag (or a sub-millimetre one): nothing drawn
             self._stage, self._base = "HEIGHT", d  # the base is final (snapped as it was on release)
         elif event.type == "LEFTMOUSE" and event.value == "PRESS" and self._stage == "HEIGHT":
             self._update(context, event)
             self._finish(context)
-            if abs(self._drawn.height) <= 0:
+            if abs(self._drawn.height) < MIN_MM:
                 self.report({"WARNING"}, "The solid has no height: nothing drawn")
                 return {"CANCELLED"}
             for key, value in drawn_properties(self._drawn, self._target, self._factor).items():

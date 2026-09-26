@@ -178,6 +178,52 @@ def test_zero_size_base_and_zero_height_draw_nothing(clean, rays):
     assert result == {"CANCELLED"} and d.executed is None
     assert part.source_of(box) == before and len(bpy.data.objects) == 1
 
+    d = Driver("BOX")  # an *unsnapped* height click right back at the base's own level: without Ctrl, the
+    # line/plane intersections don't cancel to a bit-exact 0.0 (float precision) but the sub-micron result
+    # must still be treated as "no height", not committed as a (clamped) 0.001 mm feature
+    result = d.run([
+        d.event("LEFTMOUSE", "PRESS", (-0.005, -0.005, 0.02)),
+        d.event("MOUSEMOVE", "NOTHING", (0.005, 0.005, 0.02)),
+        d.event("LEFTMOUSE", "RELEASE", (0.005, 0.005, 0.02)),
+        d.side_event("MOUSEMOVE", "NOTHING", (0.0, 0.0, 0.02)),
+        d.side_event("LEFTMOUSE", "PRESS", (0.0, 0.0, 0.02)),
+    ])
+    assert result == {"CANCELLED"} and d.executed is None
+
+    d = Driver("CYLINDER")  # a tiny but genuinely non-zero radius (0.0004 mm), below the property minimum
+    result = d.run([
+        d.event("LEFTMOUSE", "PRESS", (0.0, 0.0, 0.0)),
+        d.event("MOUSEMOVE", "NOTHING", (0.0000004, 0.0, 0.0)),
+        d.event("LEFTMOUSE", "RELEASE", (0.0000004, 0.0, 0.0)),
+    ])
+    assert result == {"CANCELLED"} and d.executed is None
+
+    d = Driver("BOX")  # dragged along one axis only: zero width
+    result = d.run([
+        d.event("LEFTMOUSE", "PRESS", (-0.005, 0.0, 0.02)),
+        d.event("MOUSEMOVE", "NOTHING", (0.005, 0.0, 0.02)),
+        d.event("LEFTMOUSE", "RELEASE", (0.005, 0.0, 0.02)),
+    ])
+    assert result == {"CANCELLED"} and d.executed is None
+
+    assert part.source_of(box) == before and len(bpy.data.objects) == 1
+
+
+def test_viewport_navigation_passes_through(clean, rays):
+    """Controller ruling: while the modal runs, viewport navigation events (middle-mouse orbit, wheel zoom,
+    trackpad pan/zoom, NDOF) must not be swallowed: they return PASS_THROUGH so the viewport still reacts,
+    and they must not disturb the in-progress drag."""
+    box_part()
+    d = Driver("BOX")
+    d.invoke(d.context, d.event("LEFTMOUSE", "PRESS", (-0.005, -0.005, 0.02)))
+    d.modal(d.context, d.event("MOUSEMOVE", "NOTHING", (0.005, 0.005, 0.02)))
+    before_drawn, before_stage = d._drawn, d._stage
+    for nav_type in ("MIDDLEMOUSE", "WHEELUPMOUSE", "WHEELDOWNMOUSE", "WHEELINMOUSE", "WHEELOUTMOUSE",
+                     "TRACKPADPAN", "TRACKPADZOOM", "NDOF_MOTION"):
+        event = SimpleNamespace(type=nav_type, value="NOTHING", ctrl=False, shift=False, ray=None)
+        assert d.modal(d.context, event) == {"PASS_THROUGH"}
+    assert d._drawn == before_drawn and d._stage == before_stage
+
 
 def test_cut_into_a_side_face_has_nonzero_rotation(clean, rays):
     """Controller ruling: drawing on a SIDE face (a non-zero rotation of the drawn frame) exercises the
