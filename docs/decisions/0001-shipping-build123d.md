@@ -1,6 +1,7 @@
-# ADR 0001 — Shipping build123d within the 100 MB package limit
+# ADR 0001 — Shipping build123d
 
-- **Status:** proposed, awaiting the maintainer's decision
+- **Status:** accepted (2026-09-26): ship build123d with **all** its dependencies, loaded only in the worker;
+  distribute from GitHub; the "lite" variant below stays documented as the fallback for extensions.blender.org
 - **Date:** 2026-09-26
 - **Context from:** [SPIKE_REPORT.md](../../SPIKE_REPORT.md), issue 1 ("build123d doesn't fit the 100 MB limit")
 - **Evidence:** `spike/build123d_lite/`, logs `spike/logs/b123d_lite_*.log`
@@ -25,7 +26,7 @@ Two more constraints came out of this research:
 
 ## Options
 
-### (a) Unmodified build123d, trimmed dependencies, loaded only in the worker — **recommended**
+### (a) Unmodified build123d, trimmed dependencies, loaded only in the worker — fallback for the store
 
 build123d and the few light pure-Python dependencies it needs at import time are vendored as a private library
 folder inside the extension. They are loaded **only by the OCCT worker process**, which has its own `sys.path`;
@@ -90,7 +91,7 @@ tested code, including exactly what milestones 1–2 need: the selector language
 `BRepTools_History`). It also loses a documented syntax that people and language models already know, which
 matters for "a script readable and editable by Claude via MCP". Months of work for no user-visible gain.
 
-### (c) Ask upstream to make heavy dependencies optional — recommended in parallel
+### (c) Ask upstream to make heavy dependencies optional — worth doing in parallel
 
 No issue about dependency weight exists in the build123d tracker yet. Proposal: lazy imports or `extras`
 (`build123d[export]`, `build123d[materials]`, …) for threejs_materials, scipy, scikit-learn, ezdxf, SVG libraries,
@@ -102,21 +103,49 @@ embedders too (web viewers, FreeCAD/Blender add-ons, serverless builds).
 Forbidden on extensions.blender.org ("Add-ons must not install Python modules, PIP packages, Python-wheels etc."),
 and it would need network access and a writable environment.
 
-## Decision (proposed)
+## Decision
 
-**(a) now, (c) in parallel.** Keep build123d unmodified, vendor it with its light dependencies as a private worker
-library, stub the heavy optional ones, and propose optional extras upstream.
+The maintainer chose **functionality first**: ship build123d **with all its dependencies**, and worry about
+extensions.blender.org afterwards (possibly with a lighter build there, pointing users to GitHub for the full one).
+
+What stays from the research above, because it's needed regardless of size:
+
+- **build123d and its dependencies are loaded only in the worker**, from a private library folder, never in
+  Blender's interpreter. The full set brings its own numpy 2.5, pillow and `typing_extensions` 4.16: installed as
+  wheels they would land in the extensions' site-packages, which comes before Blender's in `sys.path`, and silently
+  replace Blender's own copies (numpy 2.3.4, `typing_extensions` 4.14.1) for Blender and every other add-on.
+- Proposing optional extras upstream (option c) is still worth doing: it would let one package serve both channels.
+- The lite shim is kept as the plan for a store-sized build.
+
+**Full build, measured** (`spike/logs/b123d_full_*.log`):
+
+| Check | Result |
+| --- | --- |
+| Package size (OCP + build123d + all 57 dependencies, wheels) | Windows ~226 MB, Linux ~255 MB, macOS arm64 ~218 MB (−6 to −16 MB if the worker reuses Blender's numpy) |
+| 11 history scripts in the worker launched from Blender | identical to the reference on Linux 11/11 and Windows 10/11 (the OS-default-font text case again, as in lite mode) |
+| Blender's interpreter after the run | build123d, OCP: not loaded; Blender keeps its `typing_extensions` 4.14.1 |
+| Worker cold start | Linux ~2.0 s; Windows **7.9 s the first time** (bytecode compilation, likely antivirus scanning), 2.2 s afterwards |
+
+**Distribution:** Blender 4.2+ supports third-party extension repositories (a remote `index.json`). Hosting the
+index on GitHub Pages with the per-platform zips as GitHub release assets (2 GiB limit per asset) gives users
+one-time setup plus install and **automatic updates from inside Blender**, with no 100 MB limit. A store listing on
+extensions.blender.org must be a working, self-contained package, so it can't be a mere link: it would be the lite
+build (or no listing at all).
 
 ## Consequences for milestone 1
 
 - **Blender never imports OCP or build123d**: everything OCCT runs in the worker. The DLL-coexistence risk
   becomes moot (milestone 0 showed it was fine anyway), and a crash in OCCT can't take Blender down.
 - The worker is started in the background when the add-on is enabled, with the `.pyc` cache in the user extension
-  directory; a cold start costs ~1.5 s on Windows.
+  directory (or `.pyc` files precompiled at build time); with the full dependency set a cold start costs ~2 s,
+  ~8 s on the very first run on Windows. The UI must not wait for it.
+- Packaging: a build script that installs the full dependency set per platform into the extension's private
+  worker library folder (not as manifest wheels), plus the `index.json` for the GitHub-hosted repository.
 - **Text must use a bundled font.** With the OS default font, the same script gives a different solid on Windows
   and Linux (39 vs 34 faces, volume 5951.023 vs 5951.003); with the same TTF file the results are identical.
   Bundle a freely licensed font (e.g. DejaVu Sans) and always pass `font_path`.
-- Pin `build123d==0.13.*`, `cadquery-ocp-novtk==8.0.*`; CI job "build123d test suite in lite mode vs full".
+- Pin `build123d==0.13.*`, `cadquery-ocp-novtk==8.0.*`; CI keeps the "lite vs full test suite" job only if a store
+  build is pursued.
 - For milestone 2 (selectors), build on build123d's `ShapeHistory` and follow upstream issue
   [#1454 "Persistent tags on sub-shapes"](https://github.com/gumyr/build123d/issues/1454) (opened 2026-09-13 by
   build123d's author), which proposes exactly the persistent naming our selectors need.

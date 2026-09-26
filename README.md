@@ -104,19 +104,23 @@ The spike ran on Blender 5.2.2 LTS (Windows portable + Linux) with `cadquery-ocp
 - **Package size**: Windows zip 47.7 MB, Linux 66.8 MB, macOS arm64 63.0 MB (limit 100 MB).
 
 **Main open issue:** build123d with its dependencies weighs ~200 MB per platform and does not fit the 100 MB
-extensions.blender.org limit. Follow-up research ([ADR 0001](docs/decisions/0001-shipping-build123d.md)) shows that
-unmodified build123d with only its light dependencies runs in the worker process for +1.9 MB per platform.
+extensions.blender.org limit. Decision ([ADR 0001](docs/decisions/0001-shipping-build123d.md)): ship
+build123d with all its dependencies (~220–255 MB per platform), loaded only in the worker process, and distribute
+it from GitHub as a Blender extension repository; a lighter build for extensions.blender.org is researched and
+documented as a fallback.
 
 ## Supported platforms (planned)
 
-Blender **5.2 LTS** or newer on **Windows x64**, **Linux x64** and **macOS arm64**. Intel Macs are not supported by
+Blender **5.2 LTS** or newer on **Windows x64**, **Linux x64** and **macOS arm64**, installed from a BlendSolid
+extension repository hosted on GitHub (Blender 4.2+ supports third-party repositories with automatic updates). Intel Macs are not supported by
 Blender 5.x; Windows ARM has no OCP wheel yet.
 
 ## Open decisions
 
 Scope-changing choices still to be made before milestone 1:
 
-- [ ] How to ship build123d within the size limit — proposal in [ADR 0001](docs/decisions/0001-shipping-build123d.md)
+- [x] How to ship build123d: all dependencies, loaded only in the worker, distributed from GitHub — [ADR 0001](docs/decisions/0001-shipping-build123d.md)
+- [ ] Whether and how to list on extensions.blender.org (100 MB limit: a lighter build would be needed)
 - [ ] Main use: rendering/kitbashing (loose tolerances) or production too (clean STEP, tight tolerances)?
 - [ ] History script visible and editable by the user, or hidden behind the UI?
 - [ ] Constrained sketches: integrate CAD Sketcher or write our own?

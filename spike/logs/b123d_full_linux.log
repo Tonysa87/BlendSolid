@@ -1,0 +1,15 @@
+[b123d] platform linux; worker cold start 1907 ms (imports inside worker 1899 ms), build123d 0.13.0
+[b123d] typing_extensions: Blender 4.14.1 | worker 4.16.0 from <scratch>/full_site/typing_extensions.py
+[b123d] spike_model                    ok   valid=True faces=  9 volume=   24458.186 ref=   24458.186 script=  32.1 ms round trip=  37.0 ms stubs=[]
+[b123d] sketch_extrude_holes_chamfer   ok   valid=True faces= 34 volume=   34317.192 ref=   34317.192 script=  36.5 ms round trip=  48.0 ms stubs=[]
+[b123d] revolve                        ok   valid=True faces=  5 volume=   15582.300 ref=   15582.300 script=   4.1 ms round trip=   6.7 ms stubs=[]
+[b123d] loft                           ok   valid=True faces=  7 volume=   23391.321 ref=   23391.321 script=   6.4 ms round trip=  10.5 ms stubs=[]
+[b123d] shell                          ok   valid=True faces= 11 volume=    7152.000 ref=    7152.000 script=   5.4 ms round trip=   7.7 ms stubs=[]
+[b123d] sweep                          ok   valid=True faces=  3 volume=    1710.849 ref=    1710.849 script=   8.9 ms round trip=  40.7 ms stubs=[]
+[b123d] mirror_boolean                 ok   valid=True faces=  7 volume=    7214.602 ref=    7214.602 script=  16.5 ms round trip=  19.5 ms stubs=[]
+[b123d] text_engrave                   ok   valid=True faces= 34 volume=    5951.003 ref=    5951.003 script= 120.0 ms round trip= 131.2 ms stubs=[]
+[b123d] text_engrave_fixed_font        ok   valid=True faces= 34 volume=    5951.003 ref=    5951.003 script=  23.9 ms round trip=  34.8 ms stubs=[]
+[b123d] step_roundtrip                 ok   valid=True faces=  7 volume=    4492.036 ref=    4492.036 script=  30.8 ms round trip=  33.6 ms stubs=[]
+[b123d] param_at_point                 ok   valid=True faces=  6 volume=       1.000 ref=       1.000 script=   0.7 ms round trip=   2.0 ms stubs=[]
+[b123d] modules loaded in Blender's interpreter: none
+[b123d] RESULT PASS

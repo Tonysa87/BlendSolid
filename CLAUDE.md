@@ -17,7 +17,8 @@ Chat with the maintainer is in Italian.
   Geometry Nodes gizmos, `WorkSpaceTool`, picking via BRep IDs stored as mesh attributes + `ray_cast`.
 - **Separate process** for OCCT computation (Blender doesn't support Python threads): the worker returns the
   tessellated mesh + face/edge map.
-- Distributed on extensions.blender.org: **max 100 MB per zip**, one zip per platform (`--split-platforms`).
+- Distribution: GitHub-hosted Blender extension repository, one zip per platform (~220–255 MB, ADR 0001);
+  extensions.blender.org (max 100 MB per zip) only with a lighter build, still to be decided.
 - Milestones: 0 spike → 1 history as code → 2 selectors from clicks → 3 publishable MVP → 4 SubD→NURBS
   → 5 G2 surfaces → 6 G2 fillets.
 
@@ -66,8 +67,8 @@ spike/s08_build_extension.sh                                               # per
   `TopoDS.Face(x)` (not `TopoDS.Face_s`).
 - Blender 5.2: GN modifier inputs = `mod.properties.inputs.<identifier>.value` (no longer IDProperties).
 - `matrix_world` is not evaluated in `undo_post`: reconcile state only in `depsgraph_update_post`.
-- build123d with its dependencies ≈ 200 MB: doesn't fit the 100 MB limit. Proposed fix in
-  `docs/decisions/0001-shipping-build123d.md`: unmodified build123d + light deps, only in the worker, heavy deps stubbed.
+- build123d ships with all its dependencies (~220–255 MB per platform), loaded **only in the worker** from a private
+  library folder, distributed from GitHub (ADR 0001). A lite build for extensions.blender.org is documented there.
 - Extension site-packages precede Blender's in `sys.path`: a bundled wheel of a module Blender ships
   (e.g. `typing_extensions`) overrides it for Blender and all add-ons.
 - extensions.blender.org forbids installing packages at runtime and changing Blender's `sys.path`/`sys.modules`.

@@ -179,9 +179,9 @@ numpy arrays as raw bytes. Medians over 20–30 recomputes (build + tessellation
    - (d) install build123d into a separate worker environment downloaded on first run: simpler, but probably against
      extensions.blender.org rules (dependencies must be bundled as wheels). To be checked.
    Recommendation: try (a) as the first task of milestone 1, with (b) as fallback, and open (c) in parallel.
-   **Update:** (a) has since been tested — see [ADR 0001](docs/decisions/0001-shipping-build123d.md): unmodified
-   build123d with light dependencies runs in the worker for +1.9 MB per platform; (d) is forbidden by the
-   extensions.blender.org guidelines.
+   **Update:** decided in [ADR 0001](docs/decisions/0001-shipping-build123d.md): ship build123d with all its
+   dependencies, loaded only in the worker, distributed from GitHub; a lite build (+1.9 MB) is documented as the
+   fallback for extensions.blender.org; (d) is forbidden by the store guidelines.
 2. **Technical constraints:** add `cadquery-ocp-proxy`; pin **OCP 8.0.x** (the API changed from 7);
    `typing_extensions` conflict; platforms = `windows-x64`, `linux-x64`, `macos-arm64`; actual zip sizes
    (47.7 / 66.8 / 63.0 MB). The "DLL conflicts" row can become **verified: no conflict**.
