@@ -229,7 +229,13 @@ _last_activity = None
 
 
 def _reset_trust():
-    trust.reset_for_file(bpy.context.preferences, bpy.data.filepath)
+    try:
+        filepath = bpy.data.filepath
+    except AttributeError:
+        # enabled during Blender's startup, while bpy.data is still restricted: no file is open yet, and the
+        # startup/command-line file's load_post (_on_load) will apply the rule to it. Until then: unsaved file.
+        filepath = ""
+    trust.reset_for_file(bpy.context.preferences, filepath)
 
 
 @persistent
