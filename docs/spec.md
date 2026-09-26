@@ -38,6 +38,8 @@ Four pillars on top of OCCT, plus a computation process separate from Blender.
 
 **Processes.** Blender (UI, gizmos, display mesh) talks to an OCCT worker in a separate process; the worker returns the tessellated mesh + face/edge map.
 
+**Performance (note, 2026-09-26).** OCCT runs on the CPU: use its multi-core options (parallel booleans and meshing) first. GPU acceleration (e.g. CUDA) is not planned for the kernel; it is an **R&D item to evaluate later** for the fairing solver and SubD → NURBS fitting on dense meshes, only if profiling shows them as the bottleneck, and always with a CPU fallback (CUDA is NVIDIA-only and its libraries weigh hundreds of MB). Viewport analysis (zebra, curvature) uses Blender's vendor-neutral `gpu` module.
+
 ## UX and Blender integration
 
 The interface uses only native Blender 5.2 components; no modes in the mode drop-down menu, which Python cannot add.
