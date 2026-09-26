@@ -6,7 +6,7 @@ From `docs/spec.md`'s milestone table, milestone 1's success criterion, verbatim
 
 > build123d script saved in the `.blend`; changing a parameter → correct recomputation; worker in a separate process
 
-**Met.** The part's history is a build123d script stored as a Blender text datablock referenced from the object
+**Met** (automated tests, smoke tests on Windows and Linux, and the manual GUI test on Windows). The part's history is a build123d script stored as a Blender text datablock referenced from the object
 (`blendsolid/part.py`); every parameter change (panel widgets, undo/redo, or a hand-edited script) is applied by
 re-running that script in a persistent worker process (`blendsolid/worker/`, `blendsolid/client.py`,
 `blendsolid/runtime.py`) and produces a numerically correct mesh — verified in this task by a headless smoke test
@@ -130,8 +130,23 @@ Only the portable Windows Blender at `/mnt/e/blender-5.2.2-windows-x64` was used
 
 ## Step 5: Manual GUI test (Windows)
 
-**Pending** — the controller runs this step directly with the maintainer, using the zip installed in Step 4
-(`E:\blender-5.2.2-windows-x64\blender.exe`). Not executed as part of this task.
+**Done on 2026-09-26 by the maintainer**, guided step by step, on the Windows portable Blender with the zip built
+after the final review fixes (the installed sources were checked file by file against the repository).
+
+| # | Step | Result |
+| --- | --- | --- |
+| 1 | New Part: "Starting geometry engine…" / "Computing…", solid appears, 6 parameters listed; no console window | OK |
+| 2 | Drag parameters (Height, Width, boss, fillet) | OK — solid follows, ends on the final value, no freezes |
+| 3 | `Ctrl+Z` ×3, `Ctrl+Shift+Z` ×2 | OK — solid matches the panel at every step |
+| 4 | Edit Mode: "Leave Edit Mode to rebuild", edit Length, back to Object Mode | OK — rebuilds on leaving Edit Mode |
+| 5 | No *Edit Script* by default; enable *Show history scripts*; edit `fillet_radius` in the Text Editor | OK — change nearly instantaneous |
+| 6 | `result = part.prt` → error with line, old solid kept; fix → error cleared | OK |
+| 7 | `Shift+D` copy + Length change affects only the copy; `Alt+D` linked copy changes both | OK |
+| 8 | Save, quit, reopen: parts appear immediately; untrusted notice; edits don't recompute; *Trust Scripts in This File* → recomputes | OK |
+
+Also observed: after quitting Blender no worker process was left running. The maintainer reported an error with
+`Ctrl+D`, which is not a duplicate shortcut in Blender 5.2's default keymap (nothing from BlendSolid appeared in the
+console log); not investigated further.
 
 ## Review fix: false PASS against a stale install
 
@@ -234,6 +249,6 @@ second Blender with the add-on enabled from the command line.
 Both: volume 24454.7 mm³ (expected 24458.2). With the trust rule the smoke test still passes because it creates
 its part in the session (trusted).
 
-**Manual GUI test (Windows) — still pending** (Step 5 above), now also covering: the trust notice and button on
+**Manual GUI test (Windows) — done, 8/8 OK** (Step 5 above), covering: the trust notice and button on
 a file opened with Auto Run off, "Leave Edit Mode to rebuild", "Computing…", integer parameter dragging, and a
 millimetre scene (`Unit Scale` 0.001).
