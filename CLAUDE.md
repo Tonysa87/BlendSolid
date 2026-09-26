@@ -47,6 +47,9 @@ Chat with the maintainer is in Italian.
 BW=/mnt/e/blender-5.2.2-windows-x64/blender.exe          # Windows
 BL=~/blender/blender-5.2.2-linux-x64/blender              # Linux (WSL)
 
+tools/setup_dev.sh      # once: .dev/worker_libs (build123d + deps) and .dev/pytest for Linux Blender
+tools/test.sh           # unit tests (Blender's Python) + Blender tests (blender -b); extra args go to pytest
+
 "$BL" -b --factory-startup --python spike/<script>.py                      # headless test, Linux
 "$BW" -b --factory-startup --python "$(wslpath -w spike/<script>.py)"     # headless test, Windows
 "$BW" --factory-startup --python "$(wslpath -w spike/gui_session.py)" > spike/logs/gui.log 2>&1   # GUI session

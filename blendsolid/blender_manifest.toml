@@ -1,0 +1,19 @@
+schema_version = "1.0.0"
+
+id = "blendsolid"
+version = "0.1.0"
+name = "BlendSolid"
+tagline = "Exact BRep/NURBS CAD modeling with a parametric history written as code"
+maintainer = "Antonio Sartini <antonio.sartini@gmail.com>"
+type = "add-on"
+website = "https://github.com/Tonysa87/BlendSolid"
+tags = ["Modeling", "Mesh"]
+
+blender_version_min = "5.2.0"
+license = ["SPDX:GPL-3.0-or-later"]
+
+# tools/build_extension.py narrows this to the one platform of each zip
+platforms = ["windows-x64", "linux-x64", "macos-arm64"]
+
+[build]
+paths_exclude_pattern = ["__pycache__/", "*.pyc"]
