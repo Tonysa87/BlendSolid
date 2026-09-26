@@ -63,3 +63,12 @@ def test_result_without_solid():
 def test_sys_exit_in_script_is_an_error_not_an_exit():
     r = runner.run_script("import sys\nsys.exit(3)\n")
     assert not r.ok and "sys.exit" in r.error
+
+
+def test_tessellation_failure_is_reported_not_raised(monkeypatch):
+    def boom(*args, **kwargs):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(runner.tessellate, "tessellate", boom)
+    r = runner.run_script("with BuildPart() as p:\n    Box(1, 2, 3)\nresult = p\n")
+    assert not r.ok and "RuntimeError: boom" in r.error and r.line is None

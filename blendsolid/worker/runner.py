@@ -46,20 +46,24 @@ def run_script(source, lin_defl=0.1, ang_defl=0.3):
         return RunResult(False, f"{type(e).__name__}: {e}", _script_line(e.__traceback__))
     t1 = time.perf_counter()
 
-    if "result" not in ns:
-        return RunResult(False, "the script must assign the final shape to `result`")
-    shape = ns["result"]
-    if not hasattr(shape, "wrapped") and hasattr(shape, "part"):  # a BuildPart builder
-        shape = shape.part
-    wrapped = getattr(shape, "wrapped", None)
-    if wrapped is None:
-        return RunResult(False, f"`result` must be a build123d shape, not {type(shape).__name__}")
-    info = tessellate.check(wrapped)
-    if info["solids"] == 0:
-        return RunResult(False, "`result` contains no solid")
-    if not info["valid"]:
-        return RunResult(False, "`result` is not a valid solid (BRepCheck failed)")
-    verts, tris, tri_face = tessellate.tessellate(wrapped, lin_defl, ang_defl)
-    t2 = time.perf_counter()
-    return RunResult(True, volume=info["volume"], faces=info["faces"], verts=verts, tris=tris, tri_face=tri_face,
-                     timing={"script": t1 - t0, "tessellate": t2 - t1})
+    try:
+        if "result" not in ns:
+            return RunResult(False, "the script must assign the final shape to `result`")
+        shape = ns["result"]
+        if not hasattr(shape, "wrapped") and hasattr(shape, "part"):  # a BuildPart builder
+            shape = shape.part
+        wrapped = getattr(shape, "wrapped", None)
+        if wrapped is None:
+            return RunResult(False, f"`result` must be a build123d shape, not {type(shape).__name__}")
+        info = tessellate.check(wrapped)
+        if info["solids"] == 0:
+            return RunResult(False, "`result` contains no solid")
+        if not info["valid"]:
+            return RunResult(False, "`result` is not a valid solid (BRepCheck failed)")
+        verts, tris, tri_face = tessellate.tessellate(wrapped, lin_defl, ang_defl)
+        t2 = time.perf_counter()
+        return RunResult(True, volume=info["volume"], faces=info["faces"], verts=verts, tris=tris, tri_face=tri_face,
+                         timing={"script": t1 - t0, "tessellate": t2 - t1})
+    except Exception as e:
+        # tessellate.check/tessellate (and any OCCT call here) must never take down the worker process.
+        return RunResult(False, f"{type(e).__name__}: {e}")
