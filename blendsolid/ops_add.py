@@ -13,15 +13,15 @@ ICONS = {"box": "MESH_CUBE", "cylinder": "MESH_CYLINDER", "sphere": "MESH_UVSPHE
          "torus": "MESH_TORUS", "wedge": "OBJECT_DATAMODE"}
 
 
-def add_primitive_part(context, kind, values):
-    """A new part whose script is primitive `kind` with `values` (suffix -> mm), at the 3D cursor with the
-    cursor's rotation (object transform, not script), selected and active. Returns the object."""
+def add_primitive_part(context, kind, values, matrix=None):
+    """A new part whose script is primitive `kind` with `values` (suffix -> mm), placed at `matrix` (object
+    transform, not script; None: the 3D cursor's matrix), selected and active. Returns the object."""
     prim = primitives.PRIMITIVES[kind]
     source, _ = script_model.new_script(primitives.feature_spec(kind, values))
     for obj in context.selected_objects:
         obj.select_set(False)
     obj = part.new_part(context, source, name=prim.label)
-    obj.matrix_world = context.scene.cursor.matrix
+    obj.matrix_world = context.scene.cursor.matrix if matrix is None else matrix
     obj.select_set(True)
     context.view_layer.objects.active = obj
     return obj
