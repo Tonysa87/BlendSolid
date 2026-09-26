@@ -476,13 +476,15 @@ def step3():
     expect(len([i for i in menu.items if i[0] == "op"]) == 6, f"Shift+A menu {menu.items}")
     add_draws = bpy.types.VIEW3D_MT_add._dyn_ui_initialize()
     expect(bs.ops_add._add_menu_entry in add_draws, "BlendSolid is not in the Shift+A menu")
-    # the real sidebar: open it on the BlendSolid tab and let it draw
+    # the real sidebar: open it (it starts on the Item tab; a script can't switch tabs, so the check-only panel
+    # registered by register_sidebar_copy() lives there too) and let it draw
     win, area, _ = ctx()
     area.spaces.active.show_region_ui = True
     select(ob(names["cone"]))
     rec.panel.clear()
     yield from frames(4)
     drew = bool(rec.panel) and not rec.errors
+    expect(drew, f"the real sidebar panel was not drawn (recorded {rec.panel}, errors {rec.errors})")
     yield from set_view((20, 60, 10), dist=0.45)
     screenshot("primitives")
     return f"{', '.join(details)} mm³; sidebar: 6 buttons, 'Cone 1 top radius'; real panel drawn: {drew}"
@@ -518,7 +520,7 @@ def step4():
     expect(all(v.length > 5 for v in starts.values()), "an arrow starts at the object origin (move gizmo)")
     detail = "3 arrows on the +X, +Y, top faces"
     if not SIM:
-        return detail + "; drag: needs --enable-event-simulate (manual test)"
+        return "PARTIAL: " + detail + "; drag: needs --enable-event-simulate (manual test)"
     before = bs.part.source_of(box)
     height_gz = gzs[2]
     base = px((0, 0, 20))
@@ -548,7 +550,8 @@ def step4():
     yield from settled("Box")
     box = ob("Box")
     h = box.blendsolid_params["box_1_height"].value
-    expect(h > 21 and heights == sorted(heights), f"height after the drag {h:.3f}, during {heights}")
+    expect(h > 21 and heights == sorted(heights) and len(set(heights)) > 1,
+           f"height after the drag {h:.3f}, during {heights}")
     expect(f"box_1_height = {bs.script_model.fmt(h)}\n" in bs.part.source_of(box) or
            abs(bs.params.parse_params(bs.part.source_of(box))[2].value - h) < 1e-6, "script != panel value")
     expect(close(mm3(box), 60 * 30 * h), f"volume {mm3(box):.1f} != {60 * 30 * h:.1f}")
@@ -699,7 +702,7 @@ def step7():
         yield from draw_events((-10, -5, 20), (10, 5, 20), (0, 0, 25))
         expect(any(h and "union with Box" in h for h in rec.headers), f"headers {set(rec.headers)}")
         expect("UNION" in rec.preview, f"preview modes {set(rec.preview)}")
-        how = "simulated mouse; header 'union with Box', green preview mode"
+        how = "simulated mouse; header 'union with Box', UNION preview mode"
     else:
         op(bpy.ops.blendsolid.draw_solid, shape="BOX", mode="UNION", target="Box", location=(0, 0, 20),
            rotation=(0, 0, 0), length=20, width=10, height=5)
@@ -726,7 +729,7 @@ def step8():
         yield from draw_events((20, 0, 20), (24, 0, 20), (20, 0, 14))
         expect(any(h and "cut from Box" in h for h in rec.headers), f"headers {set(rec.headers)}")
         expect("CUT" in rec.preview, f"preview modes {set(rec.preview)}")
-        how = "simulated mouse; header 'cut from Box', red preview mode"
+        how = "simulated mouse; header 'cut from Box', CUT preview mode"
     else:
         op(bpy.ops.blendsolid.draw_solid, shape="CYLINDER", mode="CUT", target="Box", location=(20, 0, 20),
            rotation=(0, 0, 0), radius=4, height=6)
@@ -874,8 +877,12 @@ def step12():
         cursor()
         click(ob(target), ob(cutter))
         if SIM:
+            before_sel = {o.name for o in bpy.context.selected_objects}
             yield from set_view((0, y, 0))
             yield from key(keyname, px((0, y, 0)), ctrl=True)
+            after_sel = {o.name for o in bpy.context.selected_objects}
+            expect(after_sel == before_sel, f"selection changed {before_sel} -> {after_sel}: "
+                                            f"object.select_more/select_less may have run instead")
         else:
             op(bpy.ops.blendsolid.boolean, operation=operation)
         mode = {"UNION": "ADD", "INTERSECT": "INTERSECT"}[operation]
@@ -897,8 +904,8 @@ def step12():
                                                                       "Screen", "3D View"):
                 others.append(f"{km.name}: {kmi.idname}")
     screenshot("booleans")
-    return (f"{', '.join(out)} mm³ ({'Ctrl+Numpad keys' if SIM else 'operator'}); Object menu entry present; "
-            f"other Ctrl+Numpad bindings: {others or 'none'}")
+    return (f"{', '.join(out)} mm³ ({'Ctrl+Numpad keys, boolean ran, selection unchanged' if SIM else 'operator'}); "
+            f"Object menu entry present; other Ctrl+Numpad bindings: {others or 'none'}")
 
 
 def step13():
@@ -1098,8 +1105,12 @@ def scenario():
         for n, fn in enumerate(STEPS, 1):
             try:
                 detail = yield from fn()
-                skip = str(detail).startswith("SKIP: ")
-                results.append((n, "SKIP" if skip else "OK", detail[6:] if skip else detail))
+                for prefix, status in (("SKIP: ", "SKIP"), ("PARTIAL: ", "PARTIAL")):
+                    if str(detail).startswith(prefix):
+                        results.append((n, status, detail[len(prefix):]))
+                        break
+                else:
+                    results.append((n, "OK", detail))
             except Fail as e:
                 results.append((n, "FAIL", str(e)))
             except Exception as e:
@@ -1119,6 +1130,11 @@ def scenario():
     for s in shots:
         print(f"SCREENSHOT {s}")
     failed = [r for r in results if r[1] == "FAIL"]
+    skipped = [r for r in results if r[1] == "SKIP"]
+    partial = [r for r in results if r[1] == "PARTIAL"]
+    if skipped or partial:
+        print(f"{len(skipped)} step(s) SKIP, {len(partial)} step(s) PARTIAL "
+              f"(no --enable-event-simulate)", flush=True)
     print("GUI CHECK PASS" if len(results) >= len(STEPS) and not failed else "GUI CHECK FAIL", flush=True)
 
 

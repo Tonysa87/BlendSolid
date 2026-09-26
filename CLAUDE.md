@@ -124,14 +124,16 @@ spike/s08_build_extension.sh                                               # per
 - **Undo restores stale derived data:** an operator's undo step is pushed before the next tick updates data
   derived from the script (the parameter mirror), and memfile undo only reloads IDs that differ between steps.
   Python caches keyed by script tag (`runtime._synced`) must be dropped in `undo_post`/`redo_post`.
-- **GUI checks:** `tools/gui_check.py` drives a real window with `--enable-event-simulate`; the first simulated
-  press only focuses the window, and a selection made from Python is not an undo step (push one, as a click does).
+- **GUI checks:** `tools/gui_check.py` drives a real window with `--enable-event-simulate`; under WSLg with
+  software OpenGL (`WAYLAND_DISPLAY= LIBGL_ALWAYS_SOFTWARE=1 blender --gpu-backend opengl`) simulated events
+  ARE delivered (contrary to an earlier finding), but the first simulated press after a pause only focuses the
+  window (a throwaway press/Esc must precede the real one there), and a selection made from Python is not an
+  undo step (push one, as a click does). The on-screen framebuffer reads back black in that session, so
+  screenshots fall back to an offscreen render (`gpu.types.GPUOffScreen`) when `screen.screenshot` comes back
+  blank.
 - An operator's `self.report({"ERROR"}, ...)` raises `RuntimeError` when the operator is called from Python.
 - Blender's zoom-dependent grid step isn't available to Python (`overlay.grid_scale_unit` is only the base cell).
 - Part identity is `Text["bs_part_id"]` (part.py): Shift+D copies get a new id, Alt+D/Ctrl+L share it.
-- GUI automation: `--enable-event-simulate` events were not delivered in a WSLg session with software OpenGL
-  (`WAYLAND_DISPLAY= LIBGL_ALWAYS_SOFTWARE=1 blender --gpu-backend opengl` does run the GUI, e.g. to smoke-test
-  draw callbacks and gizmo `draw_prepare`).
 - **`matrix_world` is float32:** a rotation passed to OCCT's `gp_Trsf.SetValues` gets a tiny non-unit scale and
   booleans become invalid; the worker re-orthonormalizes rotations (`runner._location`).
 - `part.is_local_part(obj)` is None-safe and is the one predicate for "writable local part"
