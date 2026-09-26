@@ -38,9 +38,20 @@ def autoexec_excluded(filepath, entries, windows=sys.platform == "win32"):
     return False
 
 
-def file_trusted_by_prefs(prefs, filepath):
-    """Blender's own rule for the file at `filepath` ("" for an unsaved file, e.g. the startup file)."""
+def autoexec_disabled_by_command_line(argv):
+    """Was Blender started with -Y/--disable-autoexec? It blocks auto-run for the whole session, overriding
+    the preference, but add-ons can't read that flag: only the command line. Arguments after "--" belong to
+    scripts, not to Blender."""
+    args = argv[:argv.index("--")] if "--" in argv else argv
+    return any(a in ("-Y", "--disable-autoexec") for a in args[1:])
+
+
+def file_trusted_by_prefs(prefs, filepath, argv=None):
+    """Blender's own rule for the file at `filepath` ("" for an unsaved file, e.g. the startup file).
+    `argv`: Blender's command line (default sys.argv)."""
     if not prefs.filepaths.use_scripts_auto_execute:
+        return False
+    if autoexec_disabled_by_command_line(sys.argv if argv is None else argv):
         return False
     if not filepath:
         return True

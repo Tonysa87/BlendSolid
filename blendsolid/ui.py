@@ -118,7 +118,13 @@ class BLENDSOLID_OT_recompute(bpy.types.Operator):
     @classmethod
     def poll(cls, context):
         obj = context.object
-        return obj is not None and obj.blendsolid_script is not None and not part.is_linked(obj)
+        if obj is None or obj.blendsolid_script is None or part.is_linked(obj):
+            return False
+        if not trust.is_trusted(obj):
+            cls.poll_message_set("Scripts in this file are not trusted: press Trust Scripts in This File first "
+                                 "(BlendSolid never runs them before that)")
+            return False
+        return True
 
     def execute(self, context):
         from . import runtime

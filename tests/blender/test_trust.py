@@ -103,3 +103,28 @@ def test_trust_is_not_saved(clean, auto_run):
     bpy.ops.wm.save_as_mainfile(filepath=path)
     bpy.ops.wm.open_mainfile(filepath=path)
     assert runtime.part_status(bpy.data.objects["Part"]) == "untrusted"
+
+
+def test_recompute_is_disabled_on_untrusted_parts(clean, auto_run):
+    auto_run.use_scripts_auto_execute = False
+    obj, _ = save_stale_part_and_reload()
+    bpy.context.view_layer.objects.active = obj
+    assert not bpy.ops.blendsolid.recompute.poll()
+    bpy.ops.blendsolid.trust_scripts()
+    assert bpy.ops.blendsolid.recompute.poll()
+
+
+@pytest.mark.parametrize("flag, expected", [("", "True"), ("-Y", "False")])
+def test_disable_autoexec_flag_is_honoured(flag, expected):
+    """Blender's -Y blocks auto-run even when the preference is on; BlendSolid must not run scripts then."""
+    import subprocess
+
+    root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    probe = ("import bpy; from blendsolid import trust; "
+             "bpy.context.preferences.filepaths.use_scripts_auto_execute = True; "
+             "trust.reset_for_file(bpy.context.preferences, ''); print('PROBE', trust.file_trusted())")
+    args = [bpy.app.binary_path, "-b", "--factory-startup", *([flag] if flag else []), "--python-use-system-env",
+            "--addons", "blendsolid", "--python-expr", probe]
+    out = subprocess.run(args, env=dict(os.environ, PYTHONPATH=root), stdout=subprocess.PIPE,
+                         stderr=subprocess.STDOUT, text=True, timeout=120).stdout
+    assert f"PROBE {expected}" in out, out
