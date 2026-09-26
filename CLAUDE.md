@@ -46,9 +46,19 @@ Chat with the maintainer is in Italian.
 ```bash
 BW=/mnt/e/blender-5.2.2-windows-x64/blender.exe          # Windows
 BL=~/blender/blender-5.2.2-linux-x64/blender              # Linux (WSL)
+PY=~/blender/blender-5.2.2-linux-x64/5.2/python/bin/python3.13   # Blender's own Python (pip downloads wheels)
 
 tools/setup_dev.sh      # once: .dev/worker_libs (build123d + deps) and .dev/pytest for Linux Blender
 tools/test.sh           # unit tests (Blender's Python) + Blender tests (blender -b); extra args go to pytest
+
+# tools/build_extension.py: builds one platform's extension zip, worker libraries bundled in worker_libs
+"$PY" tools/build_extension.py --platform linux-x64 --blender "$BL"     # → dist/blendsolid-<version>-linux-x64.zip
+"$PY" tools/build_extension.py --platform windows-x64 --blender "$BL"   # → dist/blendsolid-<version>-windows-x64.zip
+"$BL" --command extension install-file -r user_default -e dist/blendsolid-<version>-linux-x64.zip
+"$BW" --command extension install-file -r user_default -e "$(wslpath -w dist/blendsolid-<version>-windows-x64.zip)"
+# tools/smoke_installed.py: no --factory-startup (installed extensions are enabled through preferences)
+"$BL" -b --python tools/smoke_installed.py                       # prints SMOKE PASS/FAIL, Linux
+"$BW" -b --python "$(wslpath -w tools/smoke_installed.py)"       # prints SMOKE PASS/FAIL, Windows
 
 "$BL" -b --factory-startup --python spike/<script>.py                      # headless test, Linux
 "$BW" -b --factory-startup --python "$(wslpath -w spike/<script>.py)"     # headless test, Windows
