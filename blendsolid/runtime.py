@@ -208,8 +208,11 @@ def part_status(obj):
         return "untrusted"
     if obj.data.is_editmode and part.current_tag(obj) != part.applied_hash(obj):
         return "edit_mode"
-    if part.primary(obj).name in _inflight:
-        return "starting" if _client is not None and _client.state == "starting" else "computing"
+    mesh = obj.data
+    for key in _inflight:  # keyed by the part's primary, which shares obj's mesh (few entries: no full scan)
+        primary = _local_object(key)
+        if primary is not None and primary.data == mesh:
+            return "starting" if _client is not None and _client.state == "starting" else "computing"
     return None
 
 
