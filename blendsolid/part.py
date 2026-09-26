@@ -180,3 +180,11 @@ def mesh_siblings(obj):
     reconciled themselves (see primary_objects()), but their own blendsolid_params/blendsolid_error must
     still reflect the primary's state, since Task 7's panel shows them per object."""
     return [o for o in part_objects() if o is not obj and o.data.name == obj.data.name]
+
+
+def primary(obj):
+    """The primary object for obj's part: obj itself, or whichever object sharing its mesh sorts first by
+    name (see primary_objects()). runtime._inflight/_failed/_synced are keyed by the primary's object name,
+    so anything that must act on the actual part (e.g. the Recompute operator) needs to resolve this first
+    rather than acting on whatever object happens to be active."""
+    return min((obj, *mesh_siblings(obj)), key=lambda o: o.name)
