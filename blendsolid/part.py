@@ -1,6 +1,7 @@
 """BlendSolid parts: a mesh object whose geometry comes from a history script stored in a Text datablock.
 
-The script is the source of truth; the mesh is a cache tagged with the hash of the script that produced it.
+The script is the source of truth; the mesh is a cache tagged with the hash of the script that produced it
+and of the unit factor it was converted with (ADR 0003: scripts are in millimetres, meshes in Blender units).
 """
 import hashlib
 import os
@@ -34,14 +35,26 @@ def source_hash(source):
     return hashlib.sha1(source.encode("utf-8")).hexdigest()
 
 
-def tag_for(source):
-    """The tag stored on a mesh computed from `source` (see applied_hash())."""
-    return source_hash(source)
+def unit_factor(scene=None):
+    """Blender units per script millimetre (ADR 0003): 0.001 / scale_length, so a 40 mm box is 0.04 in a
+    default (metre) scene and 40 in a scene whose unit scale is 0.001. Parts follow the active scene."""
+    if scene is None:
+        scene = getattr(bpy.context, "scene", None)
+        if scene is None and bpy.data.scenes:
+            scene = bpy.data.scenes[0]
+    scale = scene.unit_settings.scale_length if scene is not None else 1.0
+    return 0.001 / scale if scale > 0 else 0.001
 
 
-def current_tag(obj):
+def tag_for(source, factor):
+    """The tag stored on a mesh computed from `source` and converted with `factor` (see applied_hash()):
+    changing either one makes the mesh stale."""
+    return source_hash(f"{source}\0unit-factor={factor!r}")
+
+
+def current_tag(obj, factor=None):
     """The tag a mesh computed from obj's current script carries (compare with applied_hash())."""
-    return tag_for(source_of(obj))
+    return tag_for(source_of(obj), unit_factor() if factor is None else factor)
 
 
 def applied_hash(obj):
@@ -60,8 +73,10 @@ def new_part(context, source=None, name="Part"):
     return obj
 
 
-def apply_result(obj, event):
-    fill_mesh(obj.data, event["verts"], event["tris"], event["tri_face"])
+def apply_result(obj, event, factor):
+    """`factor`: the unit factor event["tag"] was computed with (the caller checked it is still current)."""
+    verts = np.asarray(event["verts"], dtype=np.float64) * factor  # millimetres -> Blender units
+    fill_mesh(obj.data, verts, event["tris"], event["tri_face"])
     obj.data[HASH_KEY] = event["tag"]
     set_error(obj, "")
 

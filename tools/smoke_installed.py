@@ -56,9 +56,10 @@ while time.monotonic() - t0 < 180:
         break
     time.sleep(0.05)
 expected = 40 * 30 * 20 + math.pi * 36 * 5 - (1 - math.pi / 4) * 25 * 20
-vol = part.mesh_volume(obj.data) if part.applied_hash(obj) else 0.0
+# scripts are in millimetres, the mesh in scene units (ADR 0003): compare in mm³
+vol = part.mesh_volume(obj.data) / part.unit_factor() ** 3 if part.applied_hash(obj) else 0.0
 ok = not obj.blendsolid_error and abs(vol - expected) / expected < 0.01
-print(f"first result after {time.monotonic() - t0:.1f} s, volume {vol:.1f} (expected {expected:.1f}), "
+print(f"first result after {time.monotonic() - t0:.1f} s, volume {vol:.1f} mm³ (expected {expected:.1f}), "
       f"error: {obj.blendsolid_error or '-'}")
 print("SMOKE PASS" if ok else "SMOKE FAIL")
 runtime.unregister()

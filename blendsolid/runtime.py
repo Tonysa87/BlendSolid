@@ -49,7 +49,7 @@ def _local_object(name):
     return bpy.data.objects.get((name, None))
 
 
-def _handle(event):
+def _handle(event, factor):
     kind = event["type"]
     if kind == "crashed":
         for key, drop_tag in event.get("dropped", []):
@@ -70,13 +70,13 @@ def _handle(event):
     obj = _local_object(key)
     if obj is None or obj.blendsolid_script is None or part.is_linked(obj) or not trust.is_trusted(obj):
         return
-    if tag != part.current_tag(obj):
+    if tag != part.current_tag(obj, factor):
         return  # stale: the script changed meanwhile, the next tick submits the new one
     if obj.data.is_editmode:
         return  # a mesh can't be rebuilt in Edit Mode: drop it, the tick resubmits after leaving Edit Mode
     if kind == "result" and event["ok"]:
         _failed.pop(key, None)
-        part.apply_result(obj, event)
+        part.apply_result(obj, event, factor)
     else:
         _failed[key] = tag
         message = event["error"] if kind == "result" else f"The geometry worker crashed: {event['error']}"
@@ -100,12 +100,12 @@ def _mirror_to_siblings(primary, siblings, source, tag):
             part.set_error(sib, primary.blendsolid_error, primary.blendsolid_error_line, part.error_tag(primary))
 
 
-def _poll_events():
+def _poll_events(factor):
     if _client is None:
         return
     for event in _client.poll():
         try:
-            _handle(event)
+            _handle(event, factor)
         except Exception as e:  # one malformed/unexpected event must not stop the others from being applied
             key, tag = event.get("key"), event.get("tag")
             if key:
@@ -119,16 +119,17 @@ def _poll_events():
 
 
 def tick():
-    _poll_events()
+    factor = part.unit_factor()  # ADR 0003; part of every tag, so a unit scale change recomputes every part
+    _poll_events(factor)
     groups = part.part_groups()  # built once per tick: everything below is linear in the number of objects
-    part.ensure_unique_scripts(groups, lambda text: part.tag_for(text.as_string()))
+    part.ensure_unique_scripts(groups, lambda text: part.tag_for(text.as_string(), factor))
     worker_error = None  # once the worker itself fails to start, don't retry it for every other part
     for objs in sorted(groups.values(), key=lambda g: g[0].name):
         obj, siblings = objs[0], objs[1:]
         source = tag = None
         try:
             source = part.source_of(obj)
-            tag = part.tag_for(source)
+            tag = part.tag_for(source, factor)
 
             failed_tag = _failed.get(obj.name)
             if failed_tag is not None and failed_tag != tag:
@@ -169,7 +170,7 @@ def tick():
             _inflight.pop(obj.name, None)
             if tag is None:  # the exception happened before the tag was even computed: try once more
                 try:
-                    tag = part.tag_for(part.source_of(obj))
+                    tag = part.tag_for(part.source_of(obj), factor)
                 except Exception:
                     tag = None  # still unknown: leave the error untagged rather than guess wrong
             if tag is not None:

@@ -8,7 +8,7 @@ def test_new_part_operator(clean):
     assert bpy.ops.blendsolid.new_part() == {"FINISHED"}
     obj = bpy.context.view_layer.objects.active
     assert obj is not None and obj.blendsolid_script is not None and obj.select_get()
-    wait_for(lambda: part.applied_hash(obj) == part.source_hash(part.source_of(obj)))
+    wait_for(lambda: part.applied_hash(obj) == part.current_tag(obj))
 
 
 def test_recompute_operator_resubmits(clean):
@@ -53,7 +53,7 @@ def test_recompute_operator_on_sibling_forces_primary(clean):
     assert b.data == a.data
 
     primary, sibling = sorted([a, b], key=lambda o: o.name)
-    tag = part.source_hash(part.source_of(primary))
+    tag = part.current_tag(primary)
     runtime._failed[primary.name] = tag  # simulate: the primary previously failed to compute this exact tag
 
     bpy.context.view_layer.objects.active = sibling

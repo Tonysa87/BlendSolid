@@ -12,8 +12,13 @@ def expected_volume(length=40.0, width=30.0, height=20.0, r=6.0, bh=25.0, f=5.0)
     return length * width * height + math.pi * r * r * (bh - height) - (1 - math.pi / 4) * f * f * height
 
 
+def mm3(obj):
+    """Mesh volume in cubic millimetres, the script's units (ADR 0003)."""
+    return part.mesh_volume(obj.data) / part.unit_factor() ** 3
+
+
 def up_to_date(obj):
-    return part.applied_hash(obj) == part.source_hash(part.source_of(obj))
+    return part.applied_hash(obj) == part.current_tag(obj)
 
 
 def new_part():
@@ -24,7 +29,7 @@ def new_part():
 
 def test_new_part_builds_mesh_with_face_ids(clean):
     obj = new_part()
-    assert abs(part.mesh_volume(obj.data) - expected_volume()) / expected_volume() < 0.01
+    assert abs(mm3(obj) - expected_volume()) / expected_volume() < 0.01
     ids = {v.value for v in obj.data.attributes[part.FACE_ATTR].data}
     assert ids == set(range(len(ids))) and len(ids) >= 9
     assert [p.name for p in obj.blendsolid_params] == [
@@ -37,7 +42,7 @@ def test_param_edit_rewrites_script_and_recomputes(clean):
     obj.blendsolid_params["height"].value = 22.0
     assert "height = 22.0\n" in part.source_of(obj)
     wait_for(lambda: up_to_date(obj))
-    assert abs(part.mesh_volume(obj.data) - expected_volume(height=22.0)) / expected_volume(height=22.0) < 0.01
+    assert abs(mm3(obj) - expected_volume(height=22.0)) / expected_volume(height=22.0) < 0.01
 
 
 def test_error_keeps_previous_mesh(clean):
@@ -57,18 +62,18 @@ def test_stale_result_is_discarded(clean, monkeypatch):
     applied_tags = []
     orig_apply = part.apply_result
 
-    def recording_apply(obj_, event):
+    def recording_apply(obj_, event, factor):
         applied_tags.append(event["tag"])
-        orig_apply(obj_, event)
+        orig_apply(obj_, event, factor)
 
     monkeypatch.setattr(part, "apply_result", recording_apply)
     obj.blendsolid_params["length"].value = 50.0
-    tag50 = part.source_hash(part.source_of(obj))
+    tag50 = part.current_tag(obj)
     runtime.tick()                                   # submits length=50
     obj.blendsolid_params["length"].value = 60.0     # before the first result arrives
     wait_for(lambda: up_to_date(obj))
     assert "length = 60.0\n" in part.source_of(obj)
-    assert abs(part.mesh_volume(obj.data) - expected_volume(length=60.0)) / expected_volume(length=60.0) < 0.01
+    assert abs(mm3(obj) - expected_volume(length=60.0)) / expected_volume(length=60.0) < 0.01
     # the length=50 result must never have been applied to the mesh (discarded as stale in runtime._handle)
     assert tag50 not in applied_tags
 
@@ -82,7 +87,7 @@ def test_reconcile_after_simulated_undo(clean):
     obj.blendsolid_script.from_string(source_a)
     assert not up_to_date(obj)
     wait_for(lambda: up_to_date(obj))
-    assert abs(part.mesh_volume(obj.data) - expected_volume()) / expected_volume() < 0.01
+    assert abs(mm3(obj) - expected_volume()) / expected_volume() < 0.01
 
 
 def test_crash_does_not_loop(clean):
@@ -201,7 +206,7 @@ def test_ui_error_on_sibling_is_not_overwritten_by_primary_mirroring(clean):
 def test_reconcile_exception_after_tag_known_marks_failed(clean, monkeypatch):
     obj = new_part()
     obj.blendsolid_params["length"].value = 47.0
-    tag = part.source_hash(part.source_of(obj))
+    tag = part.current_tag(obj)
 
     def boom(obj_, source=None):
         raise RuntimeError("boom")
@@ -287,9 +292,9 @@ def test_handle_exception_marks_failed_to_avoid_resubmit_loop(clean, monkeypatch
     # the actual mechanism directly: _failed must be recorded for the tag that just failed to handle.
     obj = new_part()
     obj.blendsolid_params["length"].value = 45.0
-    tag = part.source_hash(part.source_of(obj))
+    tag = part.current_tag(obj)
 
-    def boom(obj_, event):
+    def boom(obj_, event, factor):
         raise RuntimeError("boom")
 
     monkeypatch.setattr(part, "apply_result", boom)

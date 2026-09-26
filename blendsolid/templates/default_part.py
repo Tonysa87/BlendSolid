@@ -1,4 +1,5 @@
 # BlendSolid part. The numbers below are its parameters: edit them here or in the BlendSolid panel.
+# All lengths are in millimetres (BlendSolid converts them to the scene's units).
 length = 40.0
 width = 30.0
 height = 20.0
