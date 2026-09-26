@@ -3,13 +3,9 @@ import bpy
 import pytest
 
 from blendsolid import part, runtime
-from conftest import wait_for
+from conftest import up_to_date, wait_for
 
 BOX = "length = 40.0\nwidth = 30.0\nheight = 20.0\nresult = Box(length, width, height)\n"
-
-
-def up_to_date(obj):
-    return part.applied_hash(obj) == part.current_tag(obj)
 
 
 @pytest.fixture

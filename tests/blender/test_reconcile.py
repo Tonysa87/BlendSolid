@@ -8,11 +8,7 @@ import bpy
 import pytest
 
 from blendsolid import part, runtime, trust
-from conftest import wait_for
-
-
-def up_to_date(obj):
-    return part.applied_hash(obj) == part.current_tag(obj)
+from conftest import up_to_date, wait_for
 
 
 def new_part(name="Part"):
