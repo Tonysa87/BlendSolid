@@ -85,8 +85,15 @@ def _location(matrix):
     rot = np.array([m[0:3], m[4:7], m[8:11]])
     if not np.allclose(rot @ rot.T, np.eye(3), atol=1e-5) or np.linalg.det(rot) < 0:
         raise RefError("a referenced part is scaled, sheared or mirrored: only moves and rotations are allowed")
+    # Blender's matrix_world is float32: a "pure" rotation's determinant differs from 1 by ~1e-8 once widened
+    # to float64 -- inside the tolerance above, but enough for gp_Trsf.SetValues to derive a non-unit scale
+    # factor from it and fail BRepCheck. Re-orthonormalize so OCCT sees an exact rotation (scale exactly 1).
+    u, _, vt = np.linalg.svd(rot)
+    rot = u @ np.diag([1, 1, np.sign(np.linalg.det(u @ vt))]) @ vt
     trsf = gp_Trsf()
-    trsf.SetValues(*m)
+    trsf.SetValues(rot[0, 0], rot[0, 1], rot[0, 2], m[3],
+                   rot[1, 0], rot[1, 1], rot[1, 2], m[7],
+                   rot[2, 0], rot[2, 1], rot[2, 2], m[11])
     return Location(trsf)
 
 

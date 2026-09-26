@@ -1,6 +1,8 @@
 """ref(): a part's script uses another part (a live cutter), placed by the matrix Blender sends."""
 import math
 
+import numpy as np
+
 import runner  # worker module, imported as the worker does
 
 PLATE = ("with BuildPart() as part:\n"
@@ -39,6 +41,21 @@ def test_rotated_cutter():
     r = runner.run_script(PLATE, deps=[dep(matrix=rot_y)], cache=runner.ShapeCache())
     assert r.ok, r.error
     assert abs(r.volume - (40 * 30 * 10 - math.pi * 9 * 10)) < 1e-6
+
+
+def test_float32_rounded_rotation_is_still_a_valid_solid():
+    # Blender's matrix_world is float32: a "pure" rotation's determinant differs from 1 by ~1e-8 once widened
+    # to float64 -- inside the orthonormality tolerance, but enough for gp_Trsf.SetValues to derive a
+    # non-unit scale factor from it and fail BRepCheck unless the rotation is re-orthonormalized first.
+    def rot_z(deg):
+        t = np.float32(math.radians(deg))
+        c, s = np.float32(np.cos(t)), np.float32(np.sin(t))
+        return [float(c), float(-s), 0.0, 5.0, float(s), float(c), 0.0, 0.0, 0.0, 0.0, 1.0, -5.0]
+
+    for deg in (30, 45):
+        r = runner.run_script(PLATE, deps=[dep(matrix=rot_z(deg))], cache=runner.ShapeCache())
+        assert r.ok, r.error
+        assert abs(r.volume - (40 * 30 * 10 - math.pi * 9 * 10)) < 1e-6
 
 
 def test_every_linked_duplicate_of_a_cutter_cuts():
