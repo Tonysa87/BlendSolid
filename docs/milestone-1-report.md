@@ -191,3 +191,49 @@ shows no changes), and the smoke test re-run once more to confirm it returns to 
   hosted on extensions.blender.org (100 MB limit) and must be distributed from GitHub, as already decided.
 - The manifest `tagline` fix is a small, low-risk content change; worth a quick look in review since it changes
   user-facing text (still English, still accurate).
+
+## Final review fixes
+
+A whole-branch review of milestone 1 found one critical, six important and seven minor issues; all were fixed
+on `milestone-1` with tests written first (full RED/GREEN evidence in the fix wave's working notes).
+
+| # | Finding | Fix |
+|---|---------|-----|
+| 1 | Opening a `.blend` exec'd its part scripts, bypassing *Auto Run Python Scripts* | ADR 0004 (`docs/decisions/0004-script-trust.md`): loaded parts run only if Auto Run is on and the file isn't excluded by `preferences.autoexec_paths`, or after the new *Trust Scripts in This File* operator (session only). Session-created scripts (New Part, copies of trusted scripts) are trusted by `Text.session_uid`. Untrusted parts keep their cached mesh, are never submitted, and the panel shows a notice with the trust button. New module `blendsolid/trust.py`. |
+| 2 | Edit Mode broke recompute (`Cannot add vertices in edit mode`) | Parts whose mesh is in Edit Mode are not submitted and their results are dropped (resubmitted after leaving Edit Mode); the panel says "Leave Edit Mode to rebuild". |
+| 3 | Ctrl+L picked the script by name order | The script whose tag equals the shared mesh's applied hash wins; name order only as fallback. |
+| 4 | Grouping by names; library parts written/submitted | Objects grouped by mesh `session_uid`, texts by identity; parts from a library are never written or submitted (panel: read-only notice); lookups are local-only (`objects.get((name, None))`). |
+| 5 | Tick was O(parts²) | One mesh→objects map per tick: 300 parts + 2000 objects tick in **~1.05 ms** median (was ~116 ms). |
+| 6 | An endless script outlived Blender | The worker gets Blender's PID and a watchdog thread exits it when the parent is gone (POSIX `getppid()`, plus `PR_SET_PDEATHSIG` on Linux; Windows `WaitForSingleObject`); the runtime also kills it from `atexit`. Verified on Linux by test and on Windows by hand (worker gone < 3 s after `taskkill /F` of its parent). |
+| 7 | Units | ADR 0003 (`docs/decisions/0003-units.md`): scripts in mm, vertices × `0.001 / scale_length`, factor in the mesh tag. |
+| 8 | Part scripts had a fake user | Cleared on `texts.new()` and every copy. |
+| 9 | No progress feedback | Panel shows "Starting geometry engine…" / "Computing…" (redrawn when that changes). |
+| 10 | 30 s "not ready" timeout | `ready_timeout` = 120 s; connect/handshake stays 30 s. |
+| 11 | Missing worker libraries printed every second | Reported once on the parts ("Cannot start the geometry worker: …"). |
+| 13 | Integer parameters shown as floats | `IntProperty` mirror (`value_int`) drawn when the parameter is an int. |
+| 14 | Unpinned transitive dependencies | `tools/worker-constraints.txt` (58 frozen packages + colorama), resolved for win_amd64, manylinux x86_64 and macOS arm64 cp313; used with `-c` by `tools/setup_dev.sh` and `tools/build_extension.py`. |
+
+The installed-extension smoke test also caught a regression introduced by fix 1 before anything shipped: add-ons
+enabled at Blender startup register while `bpy.data` is restricted, so reading `bpy.data.filepath` in
+`register()` failed. Fixed (the file's `load_post` applies the trust rule) with a regression test that starts a
+second Blender with the add-on enabled from the command line.
+
+### Tests after the fixes (`tools/test.sh`, two full runs)
+
+- Unit tests: **54 passed** (17.5 s, 17.2 s).
+- Blender tests: **51 passed** (13.8 s, 13.8 s).
+- Total **105 passed**, 0 failed; wall time ~32 s per run.
+
+### Builds and smoke tests after the fixes
+
+| Platform | Zip | Install | Smoke (`tools/smoke_installed.py`, no `--factory-startup`) |
+|----------|-----|---------|------------------------------------------------------------|
+| Windows x64 (portable Blender 5.2.2) | 225.8 MB | Reinstalled | cold: first result 13.5 s, **PASS**; warm: 1.7 s, **PASS** |
+| Linux x64 | 255.1 MB | Reinstalled | first result 3.4 s, **PASS**; second: 1.2 s, **PASS** |
+
+Both: volume 24454.7 mm³ (expected 24458.2). With the trust rule the smoke test still passes because it creates
+its part in the session (trusted).
+
+**Manual GUI test (Windows) — still pending** (Step 5 above), now also covering: the trust notice and button on
+a file opened with Auto Run off, "Leave Edit Mode to rebuild", "Computing…", integer parameter dragging, and a
+millimetre scene (`Unit Scale` 0.001).

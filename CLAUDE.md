@@ -86,3 +86,22 @@ spike/s08_build_extension.sh                                               # per
   (e.g. `typing_extensions`) overrides it for Blender and all add-ons.
 - extensions.blender.org forbids installing packages at runtime and changing Blender's `sys.path`/`sys.modules`.
 - build123d `Text` with the OS default font is not reproducible across platforms: always pass a bundled `font_path`.
+
+## Known pitfalls (milestone 1)
+
+- **Script trust (ADR 0004):** a part script is arbitrary Python. Parts of a loaded file run only if
+  *Auto Run Python Scripts* is on and the file isn't under `preferences.autoexec_paths` (a `PathCompare`
+  collection on `preferences`, not on `filepaths`), or after *Trust Scripts in This File* (session only).
+  Scripts created in the session are trusted by `Text.session_uid`. Headless tests run with
+  `--factory-startup` (Auto Run off): loaded parts are untrusted there unless a test turns it on.
+- **Edit Mode:** a mesh in Edit Mode can't be rebuilt (`Cannot add vertices in edit mode`); check
+  `mesh.is_editmode` (covers every object sharing the mesh) before submitting or applying a result.
+- **Units (ADR 0003):** scripts are in millimetres; meshes are scaled by `0.001 / scene.unit_settings.scale_length`
+  and that factor is part of the mesh tag. Compare volumes in mm³ (`mesh_volume / factor**3`).
+- Group parts by ID identity (`session_uid`), never by name: a linked library ID can share a local ID's name.
+  Library parts are read-only; look local objects up with `bpy.data.objects.get((name, None))`.
+- Add-ons enabled at startup register while `bpy.data` is restricted (no `bpy.data.filepath`): `register()`
+  must not read it; `load_post` follows.
+- `bpy.data.texts.new()` gives the Text a fake user; clear it or deleted parts leave their scripts in saved files.
+- Worker libraries are pinned by `tools/worker-constraints.txt` (`pip -c`); pip evaluates environment markers
+  for the build host, not the `--platform` target.
