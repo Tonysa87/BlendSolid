@@ -21,9 +21,13 @@ class WorkerStartError(RuntimeError):
 
 
 class WorkerClient:
-    def __init__(self, python, server, libs, pycache_dir="", start_timeout=30.0, job_timeout=120.0):
+    def __init__(self, python, server, libs, pycache_dir="", start_timeout=30.0, job_timeout=120.0,
+                 ready_timeout=120.0):
+        """start_timeout: to connect and pass the handshake (short: a broken interpreter or server script
+        fails fast). ready_timeout: from then on, to import build123d and report "ready" (long: a cold
+        start on a slow disk or a busy machine can take a minute)."""
         self.python, self.server, self.libs, self.pycache_dir = python, server, libs, pycache_dir
-        self.start_timeout, self.job_timeout = start_timeout, job_timeout
+        self.start_timeout, self.job_timeout, self.ready_timeout = start_timeout, job_timeout, ready_timeout
         self.state = "stopped"
         self.info = {}
         self.submitted = 0
@@ -183,8 +187,8 @@ class WorkerClient:
             events.append(self._crash(f"the worker exited with code {self._proc.returncode}"))
         elif self._running and now - self._running[3] > self.job_timeout:
             events.append(self._crash(f"the recompute timed out after {self.job_timeout:.0f} s"))
-        elif self.state == "starting" and now - self._ready_at > self.start_timeout:
-            events.append(self._crash(f"the worker was not ready after {self.start_timeout:.0f} s"))
+        elif self.state == "starting" and now - self._ready_at > self.ready_timeout:
+            events.append(self._crash(f"the worker was not ready after {self.ready_timeout:.0f} s"))
         return events
 
     def _crash(self, reason):

@@ -25,7 +25,8 @@ def worker_libs():
         if os.path.isdir(candidate):
             return candidate
     raise FileNotFoundError(
-        "BlendSolid worker libraries not found: run tools/setup_dev.sh or set BLENDSOLID_WORKER_LIBS")
+        "BlendSolid worker libraries not found: reinstall the extension (in a development checkout, run "
+        "tools/setup_dev.sh or set BLENDSOLID_WORKER_LIBS)")
 
 
 def pycache_dir(package):

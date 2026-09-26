@@ -6,11 +6,19 @@ from . import params, part, trust
 
 
 def _on_param_value(self, context):
-    obj = self.id_data
+    _write_param(self, self.value)
+
+
+def _on_param_value_int(self, context):
+    _write_param(self, self.value_int)
+
+
+def _write_param(item, value):
+    obj = item.id_data
     if part.is_syncing() or obj.blendsolid_script is None or part.is_linked(obj):
         return
     try:
-        part.set_param(obj, self.name, self.value)
+        part.set_param(obj, item.name, value)
     except (SyntaxError, params.ParamError) as e:
         # a broken script (SyntaxError) or a non-finite value (ParamError, e.g. from a driver/animation):
         # never let this escape into Blender's RNA update. Tag with the current (unwritten) source hash,
@@ -25,6 +33,7 @@ def _on_param_value(self, context):
 
 class BS_Param(bpy.types.PropertyGroup):
     value: FloatProperty(name="Value", update=_on_param_value, precision=3)
+    value_int: IntProperty(name="Value", update=_on_param_value_int)  # mirror shown when is_int
     is_int: BoolProperty(default=False)
 
 
@@ -137,12 +146,16 @@ class BLENDSOLID_PT_part(bpy.types.Panel):
         col = layout.column(align=True)
         col.enabled = status != "linked"  # a library part is read-only
         for item in obj.blendsolid_params:
-            col.prop(item, "value", text=item.name.replace("_", " ").capitalize())
+            col.prop(item, "value_int" if item.is_int else "value", text=item.name.replace("_", " ").capitalize())
         advanced = scripts_visible(context)
         if status == "linked":
             layout.label(text="Linked from a library: edit it in its own file", icon="LINKED")
         elif status == "edit_mode":
             layout.label(text="Leave Edit Mode to rebuild", icon="EDITMODE_HLT")
+        elif status == "starting":
+            layout.label(text="Starting geometry engine…", icon="SORTTIME")
+        elif status == "computing":
+            layout.label(text="Computing…", icon="SORTTIME")
         elif status == "untrusted":
             box = layout.box()
             box.label(text="Scripts in this file are not trusted", icon="LOCKED")

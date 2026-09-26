@@ -157,7 +157,7 @@ def tick():
             if worker_error is None:
                 try:
                     client().submit(obj.name, source, tag)
-                except WorkerStartError as e:
+                except (WorkerStartError, FileNotFoundError) as e:  # FileNotFoundError: no worker libraries
                     worker_error = e
             if worker_error is not None:
                 # the worker failed to start (in this tick): don't try again for every other part (it could
@@ -182,6 +182,11 @@ def tick():
                     _mirror_to_siblings(obj, siblings, source, tag)
                 except Exception:
                     pass  # mirroring must never make the remaining primaries in this tick get skipped
+    global _last_activity
+    activity = (frozenset(_inflight), _client.state if _client is not None else "stopped")
+    if activity != _last_activity:  # the panel's "Computing…" line only changes here: redraw it then
+        _last_activity = activity
+        _redraw_panels()
     return TICK_INTERVAL
 
 
@@ -195,14 +200,32 @@ def _timer():
 
 def part_status(obj):
     """What the panel says about obj's part beyond its error: "linked" (from a library, read-only),
-    "untrusted" (ADR 0004), "edit_mode" (stale, rebuilt after leaving Edit Mode), or None."""
+    "untrusted" (ADR 0004), "edit_mode" (stale, rebuilt after leaving Edit Mode), "starting" (being
+    computed while the worker is still starting), "computing", or None."""
     if part.is_linked(obj):
         return "linked"
     if not trust.is_trusted(obj):
         return "untrusted"
     if obj.data.is_editmode and part.current_tag(obj) != part.applied_hash(obj):
         return "edit_mode"
+    if part.primary(obj).name in _inflight:
+        return "starting" if _client is not None and _client.state == "starting" else "computing"
     return None
+
+
+def _redraw_panels():
+    wm = getattr(bpy.context, "window_manager", None)
+    for window in (wm.windows if wm is not None else ()):
+        if window.screen is None:
+            continue
+        for area in window.screen.areas:
+            if area.type == "VIEW_3D":
+                for region in area.regions:
+                    if region.type == "UI":
+                        region.tag_redraw()
+
+
+_last_activity = None
 
 
 def _reset_trust():

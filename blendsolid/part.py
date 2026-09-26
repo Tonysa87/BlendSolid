@@ -65,6 +65,7 @@ def new_part(context, source=None, name="Part"):
     source = default_source() if source is None else source
     text = bpy.data.texts.new(f".{name}.py")  # dot name: hidden from Blender's ID menus (ADR 0002)
     text.from_string(source)
+    text.use_fake_user = False  # texts.new() adds a fake user: a deleted part would leave its script behind
     trust.mark_trusted(text)  # created in this session: the user's own script (ADR 0004)
     obj = bpy.data.objects.new(name, bpy.data.meshes.new(name))
     context.collection.objects.link(obj)
@@ -145,6 +146,8 @@ def sync_params(obj, source=None):
                 item.is_int = p.is_int
             if abs(item.value - p.value) > 1e-6 * max(1.0, abs(p.value)):
                 item.value = p.value
+            if p.is_int and item.value_int != int(p.value):
+                item.value_int = int(p.value)  # the panel shows integer parameters through this mirror
     finally:
         _syncing = False
 
@@ -218,6 +221,7 @@ def ensure_unique_scripts(groups, tag_of):
 
 def copy_script(text):
     copy = text.copy()
+    copy.use_fake_user = False  # (copy() keeps the source's fake user)
     if trust.text_trusted(text):
         trust.mark_trusted(copy)  # a copy is exactly as trusted as its source (ADR 0004)
     return copy

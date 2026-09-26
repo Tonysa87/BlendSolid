@@ -197,3 +197,30 @@ def test_server_run_failure_is_a_result_not_a_crash():
         if proc.poll() is None:
             proc.kill()
         proc.wait()
+
+
+# -- final review: the ready phase has its own, longer timeout -------------------------------------------------------
+
+def test_default_timeouts():
+    c = WorkerClient("python", "server.py", "libs")
+    assert c.start_timeout == 30.0   # connect + handshake: fails fast on a broken interpreter or script
+    assert c.ready_timeout == 120.0  # importing build123d on a cold disk can take a long time
+
+
+def test_not_ready_uses_the_ready_timeout(tmp_path):
+    silent = tmp_path / "silent_server.py"
+    silent.write_text(
+        "import os, socket, sys, time\n"
+        "from multiprocessing.connection import Connection\n"
+        "c = Connection(socket.create_connection(('127.0.0.1', int(sys.argv[1]))).detach())\n"
+        "c.send_bytes(os.environ['BLENDSOLID_WORKER_TOKEN'].encode('ascii'))\n"
+        "time.sleep(60)\n")
+    c = WorkerClient(paths.python_executable(), str(silent), paths.worker_libs(), start_timeout=10.0,
+                     ready_timeout=1.0)
+    try:
+        c.submit("A", BOX, "t")
+        assert c.state == "starting"
+        (r,) = results(collect(c, 1, timeout=20))
+        assert r["type"] == "crashed" and "not ready after 1 s" in r["error"]
+    finally:
+        c.stop()
