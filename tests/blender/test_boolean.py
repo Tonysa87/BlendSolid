@@ -68,6 +68,14 @@ def test_poll_needs_a_target_and_a_cutter(clean):
     assert bpy.ops.blendsolid.boolean.poll()
 
 
+def test_poll_with_no_active_object(clean):
+    plate_and_pin()
+    for obj in bpy.context.view_layer.objects:
+        obj.select_set(False)
+    bpy.context.view_layer.objects.active = None
+    assert not bpy.ops.blendsolid.boolean.poll()  # must not raise (no active object is ordinary)
+
+
 def test_refuses_to_make_parts_depend_on_each_other(clean):
     plate, pin = plate_and_pin()
     select(plate, pin)
@@ -117,7 +125,7 @@ def test_refuses_a_scaled_target(clean):
     plate.scale = (1.0, 1.0, 2.0)
     bpy.context.view_layer.update()
     select(plate, pin)
-    with pytest.raises(RuntimeError, match="is scaled"):
+    with pytest.raises(RuntimeError, match=f"'{plate.name}' is scaled"):  # proves it names the target
         bpy.ops.blendsolid.boolean(operation="DIFFERENCE")
     assert "ref(" not in part.source_of(plate)
 

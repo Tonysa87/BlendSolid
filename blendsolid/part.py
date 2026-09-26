@@ -172,9 +172,10 @@ def is_linked(obj):
 
 def is_local_part(obj):
     """Is obj a BlendSolid part this session owns (a mesh object with a script, not linked from a library)?
-    Used wherever code needs to tell a real, writable part from anything else (part_groups(), and later
-    tools that scan bpy.data.objects for parts to offer as cutters/selectors)."""
-    return obj.type == "MESH" and obj.blendsolid_script is not None and not is_linked(obj)
+    obj=None (e.g. context.object with nothing active) is not a part, not an error. Used wherever code needs
+    to tell a real, writable part from anything else (part_groups(), and tools that scan bpy.data.objects, or
+    poll() context.object, for parts to offer as targets/cutters/selectors)."""
+    return obj is not None and obj.type == "MESH" and obj.blendsolid_script is not None and not is_linked(obj)
 
 
 def part_groups():
