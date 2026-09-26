@@ -3,6 +3,8 @@
 Open source (GPL) CAD/NURBS add-on for **Blender 5.2 LTS** (Python 3.13).
 Extension id and Python package: `blendsolid`. Full spec: `docs/spec.md` — read it before working.
 
+**Resuming work? Read `docs/NEXT.md` first** (current state, next step, working agreement).
+
 ## Language
 
 Everything in the repository is in **English**: docs, code comments, docstrings, UI/log strings, commit messages.
