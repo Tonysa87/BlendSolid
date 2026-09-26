@@ -2,9 +2,12 @@
 
 **Exact BRep/NURBS CAD modeling inside Blender, with a parametric history written as code and a 100% native Blender interface.**
 
-> **Status: early development (pre-alpha).** Milestones 0 (feasibility spike) and 1 (history as code) are done:
-> a part is a build123d script behind the scenes, with draggable parameters, undo and a separate geometry
-> process. It is a developer preview, not ready for production work — watch or star the repo to follow progress.
+> **Status: early development (pre-alpha).** Milestones 0 (feasibility spike) and 1 (history as code) are done;
+> 1.5 (build without selectors) is implemented, with its manual GUI test pending. A part is a build123d script
+> behind the scenes, with draggable parameters, undo and a separate geometry process; parts can now be built
+> with parametric primitives (Shift+A), the interactive Draw Solid tool and booleans between parts with live
+> cutters, no clicking on faces or edges yet. It is a developer preview, not ready for production work — watch
+> or star the repo to follow progress.
 
 BlendSolid is an open source (GPL) add-on for **Blender 5.2 LTS** built on the **OpenCASCADE (OCCT)** kernel.
 It aims to give Blender users CAD precision — fillets, booleans, shells, exact surfaces, clean STEP output —
@@ -68,7 +71,7 @@ Each milestone has a measurable success criterion.
 | --- | --- | --- | --- |
 | 0 | Feasibility spike | OCP runs in Blender 5.2; solid visible as mesh; `--split-platforms` build under 100 MB; no DLL conflicts; proxy and GN gizmos tested; undo doesn't corrupt state | ✅ **Done** — see [SPIKE_REPORT.md](SPIKE_REPORT.md) |
 | 1 | History as code | History script stored in the `.blend`; changing a parameter recomputes correctly; worker in a separate process | ✅ **Done** — see [docs/milestone-1-report.md](docs/milestone-1-report.md) |
-| 1.5 | Build without selectors | Parametric primitives (Shift+A), Draw Solid on a face or the grid (union/cut by drag direction), booleans between parts with live cutters — see [modeling workflows research](docs/research/2026-09-26-modeling-workflows.md) | ⏳ Next |
+| 1.5 | Build without selectors | Parametric primitives (Shift+A), Draw Solid on a face or the grid (union/cut by drag direction), booleans between parts with live cutters — see [modeling workflows research](docs/research/2026-09-26-modeling-workflows.md) | ⚠️ **Implemented** — manual GUI test pending, see [docs/milestone-1.5-report.md](docs/milestone-1.5-report.md) |
 | 2 | Selectors from clicks | Face/edge → feature provenance first; 95% of clicked edges and faces on a set of 20 parts produce a unique selector that survives 3 upstream changes | Planned |
 | 3 | Publishable MVP | MVP column of the feature catalog complete; published on extensions.blender.org | Planned |
 | 4 | SubD → NURBS | Regular faces converted within tolerance; solid valid for OCCT | Planned |
@@ -147,20 +150,22 @@ CLAUDE.md           working notes and rules for AI-assisted development
 
 ## Try it (developer preview)
 
-Milestone 1 builds a per-platform extension zip (~226 MB on Windows, ~255 MB on Linux: build123d and all its
+Milestone 1.5 builds a per-platform extension zip (~226 MB on Windows, ~255 MB on Linux: build123d and all its
 dependencies are bundled for the geometry process, see [ADR 0001](docs/decisions/0001-shipping-build123d.md)).
 With Blender 5.2's bundled Python:
 
 ```bash
 PY=<blender>/5.2/python/bin/python3.13
 $PY tools/build_extension.py --platform linux-x64 --blender <blender>/blender     # or windows-x64
-<blender>/blender --command extension install-file -r user_default -e dist/blendsolid-0.1.0-linux-x64.zip
+<blender>/blender --command extension install-file -r user_default -e dist/blendsolid-0.2.0-linux-x64.zip
 ```
 
 Then in Blender: 3D Viewport → `N` → **BlendSolid** → **New Part**. Parameters are in millimetres
 ([ADR 0003](docs/decisions/0003-units.md)). Scripts in files you open are only run if Blender's *Auto Run Python
 Scripts* is on or you press *Trust Scripts in This File* ([ADR 0004](docs/decisions/0004-script-trust.md)).
-Developers: `tools/setup_dev.sh` then `tools/test.sh`.
+Then Shift+A → BlendSolid for primitives, the *Draw Solid* tool in the toolbar, and Ctrl+Numpad −/+/* for
+booleans with live cutters (select the cutters, then the target). Developers: `tools/setup_dev.sh` then
+`tools/test.sh`.
 
 ## Running the spike
 
