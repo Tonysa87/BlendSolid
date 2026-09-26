@@ -117,14 +117,10 @@ def test_recompute_is_disabled_on_untrusted_parts(clean, auto_run):
 @pytest.mark.parametrize("flag, expected", [("", "True"), ("-Y", "False")])
 def test_disable_autoexec_flag_is_honoured(flag, expected):
     """Blender's -Y blocks auto-run even when the preference is on; BlendSolid must not run scripts then."""
-    import subprocess
+    from conftest import run_probe
 
-    root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     probe = ("import bpy; from blendsolid import trust; "
              "bpy.context.preferences.filepaths.use_scripts_auto_execute = True; "
              "trust.reset_for_file(bpy.context.preferences, ''); print('PROBE', trust.file_trusted())")
-    args = [bpy.app.binary_path, "-b", "--factory-startup", *([flag] if flag else []), "--python-use-system-env",
-            "--addons", "blendsolid", "--python-expr", probe]
-    out = subprocess.run(args, env=dict(os.environ, PYTHONPATH=root), stdout=subprocess.PIPE,
-                         stderr=subprocess.STDOUT, text=True, timeout=120).stdout
+    out = run_probe([flag] if flag else [], probe)
     assert f"PROBE {expected}" in out, out

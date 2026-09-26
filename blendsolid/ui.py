@@ -145,10 +145,17 @@ class BLENDSOLID_PT_part(bpy.types.Panel):
         layout = self.layout
         obj = context.object
         layout.operator("blendsolid.new_part", icon="ADD")
+        from . import ops_add
+        ops_add.draw_add_buttons(layout)
         if obj is None or obj.blendsolid_script is None:
             return
         from . import runtime
         status = runtime.part_status(obj)
+        if part.is_scaled(obj):
+            box = layout.box()
+            box.label(text="This part is scaled", icon="ERROR")
+            box.label(text="Keep scale 1 and change its size parameters:", icon="BLANK1")
+            box.label(text="gizmos and cutters don't work on scaled parts.", icon="BLANK1")
         col = layout.column(align=True)
         col.enabled = status != "linked"  # a library part is read-only
         for item in obj.blendsolid_params:

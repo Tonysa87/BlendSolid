@@ -123,6 +123,7 @@ def tick():
     _poll_events(factor)
     groups = part.part_groups()  # built once per tick: everything below is linear in the number of objects
     part.ensure_unique_scripts(groups, lambda text: part.tag_for(text.as_string(), factor))
+    part.ensure_unique_part_ids(groups)
     worker_error = None  # once the worker itself fails to start, don't retry it for every other part
     for objs in sorted(groups.values(), key=lambda g: g[0].name):
         obj, siblings = objs[0], objs[1:]
