@@ -12,6 +12,7 @@ from . import params
 
 FACE_ATTR = "brep_face_id"
 HASH_KEY = "bs_source_hash"
+ERROR_TAG_KEY = "bs_error_tag"
 _TEMPLATE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "templates", "default_part.py")
 _syncing = False
 
@@ -55,13 +56,25 @@ def new_part(context, source=None, name="Part"):
 def apply_result(obj, event):
     fill_mesh(obj.data, event["verts"], event["tris"], event["tri_face"])
     obj.data[HASH_KEY] = event["tag"]
-    obj.blendsolid_error = ""
-    obj.blendsolid_error_line = 0
+    set_error(obj, "")
 
 
-def set_error(obj, message, line=None):
+def set_error(obj, message, line=None, tag=None):
+    """Set (or clear, with message="") the part's error. `tag` records the script hash a runtime-set error
+    refers to, as an ID property (not a registered RNA field): tick() clears the error once the object's
+    current script tag no longer matches it. UI-set errors (e.g. a ParamError from ui._on_param_value) pass
+    no tag, so they are never cleared this way and survive until the script itself changes."""
     obj.blendsolid_error = message
     obj.blendsolid_error_line = line or 0
+    if tag is None:
+        if ERROR_TAG_KEY in obj:
+            del obj[ERROR_TAG_KEY]
+    else:
+        obj[ERROR_TAG_KEY] = tag
+
+
+def error_tag(obj):
+    return obj.get(ERROR_TAG_KEY)
 
 
 def fill_mesh(mesh, verts, tris, tri_face):
@@ -158,3 +171,10 @@ def primary_objects():
         if current is None or obj.name < current.name:
             by_mesh[obj.data.name] = obj
     return sorted(by_mesh.values(), key=lambda o: o.name)
+
+
+def mesh_siblings(obj):
+    """Other part objects sharing obj's mesh (e.g. after Ctrl+L Link Object Data, or Alt+D). These are not
+    reconciled themselves (see primary_objects()), but their own blendsolid_params/blendsolid_error must
+    still reflect the primary's state, since Task 7's panel shows them per object."""
+    return [o for o in part_objects() if o is not obj and o.data.name == obj.data.name]

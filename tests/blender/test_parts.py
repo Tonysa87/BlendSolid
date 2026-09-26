@@ -192,6 +192,60 @@ def test_object_error_does_not_stop_other_objects_reconciling(clean, monkeypatch
     wait_for(lambda: up_to_date(b))
 
 
+def test_mesh_sibling_mirrors_params_and_error(clean):
+    a = new_part()
+    b = a.copy()  # Alt+D-style: shares a's mesh (and, from the copy, a's script too)
+    bpy.context.collection.objects.link(b)
+    assert b.data == a.data
+
+    a.blendsolid_params["height"].value = 23.0
+    wait_for(lambda: up_to_date(a))
+    assert abs(b.blendsolid_params["height"].value - 23.0) < 1e-6
+
+    a.blendsolid_script.from_string(part.source_of(a).replace("result = part.part", "result = part.prt"))
+    wait_for(lambda: a.blendsolid_error != "")
+    assert b.blendsolid_error == a.blendsolid_error and b.blendsolid_error_line == a.blendsolid_error_line
+
+    a.blendsolid_script.from_string(part.source_of(a).replace("part.prt", "part.part"))
+    wait_for(lambda: a.blendsolid_error == "" and up_to_date(a))
+    assert b.blendsolid_error == ""
+
+
+def test_error_tag_clears_when_script_tag_changes_away(clean):
+    obj = new_part()
+    part.set_error(obj, "simulated runtime error", tag="some-other-tag")
+    assert obj.blendsolid_error != "" and part.error_tag(obj) == "some-other-tag"
+    runtime.tick()  # current tag == applied hash, which differs from the error's tag -> must clear
+    assert obj.blendsolid_error == "" and part.error_tag(obj) is None
+
+
+def test_ui_error_without_tag_survives_ticks_while_script_unchanged(clean):
+    obj = new_part()
+    part.set_error(obj, "simulated UI error")  # no tag, like ui._on_param_value's ParamError path
+    for _ in range(5):
+        runtime.tick()
+    assert obj.blendsolid_error == "simulated UI error"
+
+
+def test_handle_exception_marks_failed_to_avoid_resubmit_loop(clean, monkeypatch):
+    # A tight loop of tick() calls with no delay may not give the worker time to reply again even without
+    # the fix (the resubmit-loop bug is real but timing-dependent to observe from the outside), so assert
+    # the actual mechanism directly: _failed must be recorded for the tag that just failed to handle.
+    obj = new_part()
+    obj.blendsolid_params["length"].value = 45.0
+    tag = part.source_hash(part.source_of(obj))
+
+    def boom(obj_, event):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(part, "apply_result", boom)
+    wait_for(lambda: "boom" in obj.blendsolid_error)
+    assert runtime._failed.get(obj.name) == tag
+    submitted = runtime.client().submitted
+    runtime.tick()  # deterministic regardless of worker timing: _failed alone must block this resubmission
+    assert runtime.client().submitted == submitted
+
+
 def test_worker_start_error_marks_remaining_objects_failed_without_retrying(clean, monkeypatch):
     from blendsolid.client import WorkerClient, WorkerStartError
 

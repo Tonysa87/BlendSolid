@@ -42,14 +42,14 @@ def force(obj):
 def _handle(event):
     kind = event["type"]
     if kind == "crashed":
-        for key, tag in event.get("dropped", []):
-            if _inflight.get(key) == tag:
+        for key, drop_tag in event.get("dropped", []):
+            if _inflight.get(key) == drop_tag:
                 del _inflight[key]      # resubmitted by the next tick (restarting the worker)...
             if event["key"] is None:    # ...unless the worker can't even start: don't loop
-                _failed[key] = tag
+                _failed[key] = drop_tag
                 obj = bpy.data.objects.get(key)
                 if obj is not None:
-                    part.set_error(obj, f"The geometry worker failed: {event['error']}")
+                    part.set_error(obj, f"The geometry worker failed: {event['error']}", tag=drop_tag)
     if kind not in ("result", "crashed") or not event.get("key"):
         return
     key, tag = event["key"], event["tag"]
@@ -66,7 +66,24 @@ def _handle(event):
     else:
         _failed[key] = tag
         message = event["error"] if kind == "result" else f"The geometry worker crashed: {event['error']}"
-        part.set_error(obj, message, event.get("line"))
+        part.set_error(obj, message, event.get("line"), tag)
+
+
+def _mirror_to_siblings(primary, source, tag):
+    """Objects sharing primary's mesh are never reconciled themselves (see part.primary_objects()), but
+    their own blendsolid_params/blendsolid_error must still reflect the primary's current state. `source`
+    and `tag` are whatever tick() already computed for primary (possibly None, if that failed early)."""
+    siblings = part.mesh_siblings(primary)
+    if not siblings:
+        return
+    for sib in siblings:
+        if source is not None and _synced.get(sib.name) != tag:
+            try:
+                part.sync_params(sib, source)
+                _synced[sib.name] = tag
+            except Exception:
+                pass  # mirroring must never break the tick over a params-parsing hiccup on a sibling
+        part.set_error(sib, primary.blendsolid_error, primary.blendsolid_error_line, part.error_tag(primary))
 
 
 def tick():
@@ -75,26 +92,33 @@ def tick():
         try:
             _handle(event)
         except Exception as e:  # one malformed/unexpected event must not stop the others from being applied
-            key = event.get("key")
+            key, tag = event.get("key"), event.get("tag")
             if key:
                 _inflight.pop(key, None)
+                if tag is not None:
+                    _failed[key] = tag  # don't resubmit the exact tag whose result we just failed to handle
                 obj = bpy.data.objects.get(key)
                 if obj is not None:
-                    part.set_error(obj, f"Internal error handling the worker event: {type(e).__name__}: {e}")
+                    part.set_error(obj, f"Internal error handling the worker event: {type(e).__name__}: {e}",
+                                   event.get("line"), tag)
 
     part.ensure_unique_scripts()
     worker_start_error = None  # once the worker itself fails to start, don't retry it for every other part
     for obj in part.primary_objects():
+        source = tag = None
         try:
             source = part.source_of(obj)
             tag = part.source_hash(source)
 
             failed_tag = _failed.get(obj.name)
             if failed_tag is not None and failed_tag != tag:
+                del _failed[obj.name]  # that record no longer refers to the current script: drop it
+
+            error_tag = part.error_tag(obj)
+            if error_tag is not None and error_tag != tag:
                 # the runtime error on record was for a script that's no longer current: it is now stale.
-                # A UI-set error (e.g. a ParamError from ui._on_param_value) is never tracked in _failed,
-                # so it is never touched here and survives until the script it refers to actually changes.
-                del _failed[obj.name]
+                # A UI-set error (e.g. a ParamError from ui._on_param_value) carries no tag, so it is never
+                # touched here and survives until the script it refers to actually changes.
                 part.set_error(obj, "")
 
             if _synced.get(obj.name) != tag:
@@ -110,19 +134,21 @@ def tick():
                 # the worker already failed to start earlier in this same tick: don't call submit() again
                 # (it would just block up to start_timeout once more); mark this part failed the same way.
                 _failed[obj.name] = tag
-                part.set_error(obj, f"Cannot start the geometry worker: {worker_start_error}")
+                part.set_error(obj, f"Cannot start the geometry worker: {worker_start_error}", tag=tag)
                 continue
             try:
                 c.submit(obj.name, source, tag)
             except WorkerStartError as e:
                 worker_start_error = e
                 _failed[obj.name] = tag
-                part.set_error(obj, f"Cannot start the geometry worker: {e}")
+                part.set_error(obj, f"Cannot start the geometry worker: {e}", tag=tag)
                 continue
             _inflight[obj.name] = tag
         except Exception as e:  # one object's failure must not stop the others from being reconciled
             _inflight.pop(obj.name, None)
-            part.set_error(obj, f"Internal error while reconciling: {type(e).__name__}: {e}")
+            part.set_error(obj, f"Internal error while reconciling: {type(e).__name__}: {e}", tag=tag)
+        finally:
+            _mirror_to_siblings(obj, source, tag)
     return TICK_INTERVAL
 
 
