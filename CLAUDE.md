@@ -107,3 +107,29 @@ spike/s08_build_extension.sh                                               # per
 - `bpy.data.texts.new()` gives the Text a fake user; clear it or deleted parts leave their scripts in saved files.
 - Worker libraries are pinned by `tools/worker-constraints.txt` (`pip -c`); pip evaluates environment markers
   for the build host, not the `--platform` target.
+
+## Known pitfalls (milestone 1.5)
+
+- **Undo in background mode:** call `bpy.ops.ed.undo_push()` once, then run operators as
+  `bpy.ops.x.y("EXEC_DEFAULT", True, ...)` (the `True` pushes the undo step); `bpy.ops.ed.undo()`/`redo()` then
+  work. Python references to IDs die on undo: look objects up again by name.
+- **Headless `matrix_world`:** after moving objects in a test call `bpy.context.view_layer.update()`.
+- **build123d 0.13:** `add()` is deprecated, use `insert()`; `Location((x, y, z), (a, b, c))` is intrinsic XYZ =
+  Blender `Euler((a, b, c), "ZYX")`; `Wedge` rises along Y and applies `align` before `rotation`; `insert()` inside
+  `with Locations(...)` is moved again by those locations.
+- **Gizmos:** an arrow with `transform={"CONSTRAIN"}` and no `range=` callback segfaults Blender;
+  `Gizmo.use_undo = True` gives one undo step per drag; gizmo groups don't appear in `bpy.types`.
+- **`gpu` is not initialized in background mode:** import it inside draw callbacks only.
+- `scene.ray_cast` hits wire-display objects (cutters) and returns world-space normals and original objects.
+- An operator's `self.report({"ERROR"}, ...)` raises `RuntimeError` when the operator is called from Python.
+- Blender's zoom-dependent grid step isn't available to Python (`overlay.grid_scale_unit` is only the base cell).
+- Part identity is `Text["bs_part_id"]` (part.py): Shift+D copies get a new id, Alt+D/Ctrl+L share it.
+- GUI automation: `--enable-event-simulate` events were not delivered in a WSLg session with software OpenGL
+  (`WAYLAND_DISPLAY= LIBGL_ALWAYS_SOFTWARE=1 blender --gpu-backend opengl` does run the GUI, e.g. to smoke-test
+  draw callbacks and gizmo `draw_prepare`).
+- **`matrix_world` is float32:** a rotation passed to OCCT's `gp_Trsf.SetValues` gets a tiny non-unit scale and
+  booleans become invalid; the worker re-orthonormalizes rotations (`runner._location`).
+- `part.is_local_part(obj)` is None-safe and is the one predicate for "writable local part"
+  (`poll()` receives `context.object = None`).
+- Headless tests of undo races must call `runtime.tick()` before `ed.undo()` to put a recompute in flight
+  (timers don't fire in background mode).

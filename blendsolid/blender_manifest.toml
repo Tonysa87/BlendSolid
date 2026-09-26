@@ -1,7 +1,7 @@
 schema_version = "1.0.0"
 
 id = "blendsolid"
-version = "0.1.0"
+version = "0.2.0"
 name = "BlendSolid"
 tagline = "Exact BRep/NURBS CAD modeling with history written as code"
 maintainer = "Antonio Sartini <antonio.sartini@gmail.com>"
