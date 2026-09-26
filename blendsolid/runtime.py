@@ -261,6 +261,16 @@ def _on_load(*_):
     _reset_trust()
 
 
+@persistent
+def _on_undo(*_):
+    """Undo/redo restore each part's parameter mirror as it was when its step was pushed, which can be before
+    the tick mirrored that script (an operator's step is pushed as soon as it has written the script). The
+    restored script may still carry the tag _synced remembers, so forget what was synced: the next tick
+    mirrors every part again (sync_params only writes what differs). Nothing else is decided here: evaluated
+    data isn't ready in undo handlers (spike finding)."""
+    _synced.clear()
+
+
 def _kill_worker_at_exit():
     """Blender doesn't call unregister() on quit: make sure the worker goes away with it (the worker also
     watches its parent by itself, for crashes and kills where atexit doesn't run)."""
@@ -272,6 +282,8 @@ def register():
     atexit.register(_kill_worker_at_exit)
     _reset_trust()  # the add-on may be enabled with a file already open: that file's parts came from disk
     bpy.app.handlers.load_post.append(_on_load)
+    bpy.app.handlers.undo_post.append(_on_undo)
+    bpy.app.handlers.redo_post.append(_on_undo)
     bpy.app.timers.register(_timer, first_interval=TICK_INTERVAL, persistent=True)
 
 
@@ -282,6 +294,9 @@ def unregister():
         bpy.app.timers.unregister(_timer)
     if _on_load in bpy.app.handlers.load_post:
         bpy.app.handlers.load_post.remove(_on_load)
+    for handlers in (bpy.app.handlers.undo_post, bpy.app.handlers.redo_post):
+        if _on_undo in handlers:
+            handlers.remove(_on_undo)
     if _client is not None:
         _client.stop()
         _client = None

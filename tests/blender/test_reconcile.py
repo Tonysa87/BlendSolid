@@ -173,3 +173,25 @@ def test_tick_is_fast_with_many_parts(clean):
           f"min {min(times) * 1000:.2f} ms, max {max(times) * 1000:.2f} ms")
     assert runtime.client().submitted == submitted
     assert median < 0.010
+
+
+# -- the parameter mirror after undo (found by tools/gui_check.py, step 15) ----------------------------------
+
+def test_undo_to_a_step_pushed_before_the_mirror_synced_resyncs_it(clean):
+    """An operator that edits a script pushes its undo step before the next tick mirrors the new parameters,
+    so that step holds a stale mirror. Undoing back to it restores the stale mirror with the script it belongs
+    to: the tick must mirror it again even though that script's tag is the one it last synced."""
+    bpy.ops.ed.undo_push(message="start")
+    bpy.ops.blendsolid.add_box("EXEC_DEFAULT", True, length=40, width=30, height=20)
+    box = bpy.context.view_layer.objects.active
+    runtime.tick()
+    bpy.ops.blendsolid.draw_solid("EXEC_DEFAULT", True, shape="BOX", mode="UNION", target=box.name,
+                                  location=(0, 0, 20), rotation=(0, 0, 0), length=10, width=10, height=5)
+    runtime.tick()  # mirrors box_2's parameters, after the step above was pushed
+    assert "box_2_height" in box.blendsolid_params
+    bpy.ops.blendsolid.add_cylinder("EXEC_DEFAULT", True)  # another step, the box unchanged
+    bpy.ops.ed.undo()
+    box = bpy.data.objects["Box"]
+    runtime.tick()
+    assert [p.name for p in box.blendsolid_params] == [
+        "box_1_length", "box_1_width", "box_1_height", "box_2_length", "box_2_width", "box_2_height"]
