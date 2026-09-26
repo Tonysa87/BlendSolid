@@ -1,0 +1,17 @@
+[BS    0.020] RECOMPUTE push=+0.000 h=25.000 faces=10 tris=308 occt=18.1ms (build 4.0, tess 14.1) mesh=1.3ms
+[BS    0.022] SESSIONE PRONTA. OCP occ_model Blender 5.2.2 LTS
+[BS    0.027] START    : applied push=+0.000 h=25.000 | proxy push=+0.000 GN h=25.000 | mesh vol=24454.7 expected=24458.2 | mesh↔params OK | controls↔params OK
+--- G Z 5 simulato
+[BS    0.027] CHANGE da proxy: push +0.000→+5.000, h 25.000→25.000
+[BS    0.038] RECOMPUTE push=+5.000 h=25.000 faces=8 tris=80 occt=11.5ms (build 10.3, tess 1.2) mesh=0.2ms
+--- G Z -8 simulato
+[BS    0.047] CHANGE da proxy: push +5.000→-3.000, h 25.000→25.000
+[BS    0.058] RECOMPUTE push=-3.000 h=25.000 faces=9 tris=224 occt=10.3ms (build 8.5, tess 1.8) mesh=0.2ms
+--- input GN = 30
+[BS    0.070] CHANGE da gizmo GN: push -3.000→-3.000, h 25.000→30.000
+[BS    0.082] RECOMPUTE push=-3.000 h=30.000 faces=9 tris=224 occt=11.7ms (build 9.5, tess 2.2) mesh=0.2ms
+--- push -25 (oltre il fondo)
+[BS    0.083] CHANGE da proxy: push -3.000→-25.000, h 30.000→30.000
+[BS    0.093] RECOMPUTE push=-25.000 h=30.000 faces=3 tris=164 occt=10.0ms (build 9.0, tess 1.0) mesh=0.2ms
+[BS    0.102] REPORT   : applied push=-25.000 h=30.000 | proxy push=-25.000 GN h=30.000 | mesh vol=3380.3 expected=3392.9 | mesh↔params OK | controls↔params OK
+evaluated mesh polys 164 has attr True

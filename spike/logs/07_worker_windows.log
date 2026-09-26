@@ -1,0 +1,18 @@
+[7] piattaforma win32, deflessione lin 0.1 ang 0.3, 30 ricalcoli, ultima mesh 240 vertici / 224 tri, payload medio 6.9 KiB
+[7] DIRETTO  (OCCT + mesh in Blender)      : mediana   10.6 ms  min    5.3  max   16.1
+[7] WORKER   avvio a freddo (spawn + import):  502.1 ms (import OCP nel worker 452.0 ms)
+[7] WORKER   round trip a caldo            : mediana   12.2 ms  min    6.3  max   16.4
+[7]            di cui OCCT nel worker       : mediana   11.9 ms  min    5.9  max   15.9
+[7]            di cui IPC (pipe + pickle)   : mediana    0.1 ms  min    0.1  max    0.2
+[7]            di cui mesh in Blender       : mediana    0.2 ms  min    0.2  max    0.3
+[7] overhead worker vs diretto (mediane)    : +1.6 ms
+[7] RESULT PASS
+[7] piattaforma win32, deflessione lin 0.002 ang 0.01, 20 ricalcoli, ultima mesh 6950 vertici / 6932 tri, payload medio 189.7 KiB
+[7] DIRETTO  (OCCT + mesh in Blender)      : mediana   59.6 ms  min   56.5  max   65.9
+[7] WORKER   avvio a freddo (spawn + import):  485.6 ms (import OCP nel worker 436.1 ms)
+[7] WORKER   round trip a caldo            : mediana   67.2 ms  min   63.7  max   73.0
+[7]            di cui OCCT nel worker       : mediana   63.5 ms  min   60.2  max   68.0
+[7]            di cui IPC (pipe + pickle)   : mediana    0.3 ms  min    0.3  max    0.4
+[7]            di cui mesh in Blender       : mediana    3.4 ms  min    3.1  max    5.1
+[7] overhead worker vs diretto (mediane)    : +7.6 ms
+[7] RESULT PASS

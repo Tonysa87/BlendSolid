@@ -1,0 +1,31 @@
+[7] piattaforma linux, deflessione 0.1, 30 ricalcoli, ultima mesh 240 vertici / 224 tri, payload medio 6.9 KiB
+[7] DIRETTO  (OCCT + mesh in Blender)      : mediana   10.3 ms  min    4.9  max   40.2
+[7] WORKER   avvio a freddo (spawn + import):  398.1 ms (import OCP nel worker 377.7 ms)
+[7] WORKER   round trip a caldo            : mediana   11.2 ms  min    5.5  max   13.7
+[7]            di cui OCCT nel worker       : mediana   10.6 ms  min    5.0  max   13.3
+[7]            di cui IPC (pipe + pickle)   : mediana    0.2 ms  min    0.1  max    0.4
+[7]            di cui mesh in Blender       : mediana    0.2 ms  min    0.2  max    0.3
+[7] overhead worker vs diretto (mediane)    : +0.9 ms
+[7] RESULT PASS
+[7] piattaforma linux, deflessione 0.01, 30 ricalcoli, ultima mesh 408 vertici / 392 tri, payload medio 11.9 KiB
+[7] DIRETTO  (OCCT + mesh in Blender)      : mediana   10.8 ms  min    5.7  max   37.8
+[7] WORKER   avvio a freddo (spawn + import):  343.6 ms (import OCP nel worker 332.2 ms)
+[7] WORKER   round trip a caldo            : mediana   12.3 ms  min    6.6  max   15.0
+[7]            di cui OCCT nel worker       : mediana   11.7 ms  min    5.9  max   14.4
+[7]            di cui IPC (pipe + pickle)   : mediana    0.2 ms  min    0.1  max    0.3
+[7]            di cui mesh in Blender       : mediana    0.4 ms  min    0.3  max    0.6
+[7] overhead worker vs diretto (mediane)    : +1.5 ms
+[7] RESULT PASS
+Traceback (most recent call last):
+  File "/home/tony/Projects/BlendSolid/spike/s07_worker_bench.py", line 60, in <module>
+  File "/home/tony/Projects/BlendSolid/spike/worker.py", line 24, in read_msg
+_pickle.UnpicklingError: pickle data was truncated
+[7] piattaforma linux, deflessione lin 0.002 ang 0.01, 20 ricalcoli, ultima mesh 6950 vertici / 6932 tri, payload medio 189.7 KiB
+[7] DIRETTO  (OCCT + mesh in Blender)      : mediana   54.3 ms  min   48.7  max   94.9
+[7] WORKER   avvio a freddo (spawn + import):  370.7 ms (import OCP nel worker 357.0 ms)
+[7] WORKER   round trip a caldo            : mediana   59.3 ms  min   52.6  max   70.4
+[7]            di cui OCCT nel worker       : mediana   52.3 ms  min   49.1  max   59.6
+[7]            di cui IPC (pipe + pickle)   : mediana    0.8 ms  min    0.4  max    9.1
+[7]            di cui mesh in Blender       : mediana    3.2 ms  min    2.9  max   11.8
+[7] overhead worker vs diretto (mediane)    : +5.1 ms
+[7] RESULT PASS

@@ -1,0 +1,26 @@
+SITE /home/tony/blender/blender-5.2.2-linux-x64/spike_site
+BLENDER 5.2.2 LTS background
+PYTHON 3.13.13 linux
+OCP 8.0.1.0.0 8.0.1.0
+IMPORT_TIME 0.405s
+BOX volume=6000.000 valid=True
+NEW_NATIVE_MODULES 79
+--- moduli rilevanti caricati DOPO l'import di OCP
+  + /home/tony/blender/blender-5.2.2-linux-x64/spike_site/cadquery_ocp_novtk.libs/libImath-2_2-e63a2f25.so.12.0.0
+  + /home/tony/blender/blender-5.2.2-linux-x64/spike_site/cadquery_ocp_novtk.libs/libfreetype-2f3b32b6.so.6.16.1
+  + /home/tony/blender/blender-5.2.2-linux-x64/spike_site/cadquery_ocp_novtk.libs/libjpeg-e87d2658.so.62.2.0
+  + /home/tony/blender/blender-5.2.2-linux-x64/spike_site/cadquery_ocp_novtk.libs/libjpegxr-d3532616.so.0.0.0
+  + /home/tony/blender/blender-5.2.2-linux-x64/spike_site/cadquery_ocp_novtk.libs/libpng16-ebd1fa42.so.16.34.0
+  + /home/tony/blender/blender-5.2.2-linux-x64/spike_site/cadquery_ocp_novtk.libs/libtiff-92a88e40.so.5.3.0
+--- moduli rilevanti già caricati da Blender
+  = /home/tony/blender/blender-5.2.2-linux-x64/5.2/python/lib/python3.13/lib-dynload/zlib.cpython-313-x86_64-linux-gnu.so
+  = /home/tony/blender/blender-5.2.2-linux-x64/lib/libImath.so.30.3.2.2
+  = /home/tony/blender/blender-5.2.2-linux-x64/lib/libOpenEXR.so.33.3.4.10
+  = /home/tony/blender/blender-5.2.2-linux-x64/lib/libOpenEXRCore.so.33.3.4.10
+  = /home/tony/blender/blender-5.2.2-linux-x64/lib/libtbb.so.12.17
+  = /home/tony/blender/blender-5.2.2-linux-x64/lib/libtbbmalloc.so.2.17
+  = /home/tony/blender/blender-5.2.2-linux-x64/lib/libtbbmalloc_proxy.so.2.17
+RESULT PASS
+Blender 5.2.2 LTS (hash d13f752e3b9c built 2026-09-15 01:34:58)
+
+Blender quit

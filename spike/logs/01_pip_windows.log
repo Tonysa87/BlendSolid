@@ -1,0 +1,13 @@
+Collecting cadquery-ocp-novtk==8.0.1
+  Downloading cadquery_ocp_novtk-8.0.1.0.0-cp313-cp313-win_amd64.whl.metadata (910 bytes)
+Collecting cadquery-ocp-proxy==8.0.1.0.0 (from cadquery-ocp-novtk==8.0.1)
+  Downloading cadquery_ocp_proxy-8.0.1.0.0-py3-none-any.whl.metadata (4.7 kB)
+Downloading cadquery_ocp_novtk-8.0.1.0.0-cp313-cp313-win_amd64.whl (47.7 MB)
+   ---------------------------------------- 47.7/47.7 MB 5.5 MB/s  0:00:08
+Downloading cadquery_ocp_proxy-8.0.1.0.0-py3-none-any.whl (3.2 kB)
+Installing collected packages: cadquery-ocp-proxy, cadquery-ocp-novtk
+
+Successfully installed cadquery-ocp-novtk-8.0.1.0.0 cadquery-ocp-proxy-8.0.1.0.0
+
+[notice] A new release of pip is available: 26.0.1 -> 26.2.1
+[notice] To update, run: E:\blender-5.2.2-windows-x64\5.2\python\bin\python.exe -m pip install --upgrade pip

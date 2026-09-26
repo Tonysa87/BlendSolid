@@ -1,0 +1,80 @@
+SITE E:\blender-5.2.2-windows-x64\spike_site
+BLENDER 5.2.2 LTS background
+PYTHON 3.13.13 win32
+OCP 8.0.1.0.0 8.0.1.0
+IMPORT_TIME 0.328s
+BOX volume=6000.000 valid=True
+NEW_NATIVE_MODULES 73
+--- moduli rilevanti caricati DOPO l'import di OCP
+  + E:\blender-5.2.2-windows-x64\spike_site\cadquery_ocp_novtk.libs\Imath-9b9c82f00ed9c45a0954774404023a2f.dll
+  + E:\blender-5.2.2-windows-x64\spike_site\cadquery_ocp_novtk.libs\OpenEXR-210cc62a9c46faa0d7e864fbe1130f16.dll
+  + E:\blender-5.2.2-windows-x64\spike_site\cadquery_ocp_novtk.libs\OpenEXRCore-68c33f2c309d9810ec2942109eb9ec80.dll
+  + E:\blender-5.2.2-windows-x64\spike_site\cadquery_ocp_novtk.libs\TKBO-a95b458a8a0a09f2f4757f6069ad9dba.dll
+  + E:\blender-5.2.2-windows-x64\spike_site\cadquery_ocp_novtk.libs\TKBRep-20caede04db0574b6f2b521398f81ed7.dll
+  + E:\blender-5.2.2-windows-x64\spike_site\cadquery_ocp_novtk.libs\TKBin-42544f47c1ce62d58e2358bde8a70799.dll
+  + E:\blender-5.2.2-windows-x64\spike_site\cadquery_ocp_novtk.libs\TKBinL-3a677d1dc409fde4231990695506aa0b.dll
+  + E:\blender-5.2.2-windows-x64\spike_site\cadquery_ocp_novtk.libs\TKBinTObj-d151db910be2dc48d978ad4cc6eba121.dll
+  + E:\blender-5.2.2-windows-x64\spike_site\cadquery_ocp_novtk.libs\TKBinXCAF-d7f257c2cec9e0b610753b7cbea0805e.dll
+  + E:\blender-5.2.2-windows-x64\spike_site\cadquery_ocp_novtk.libs\TKBool-c2bd6d783829939af6950f3f3752dce6.dll
+  + E:\blender-5.2.2-windows-x64\spike_site\cadquery_ocp_novtk.libs\TKCAF-16c90b962440f1f6fae1fae23b714a84.dll
+  + E:\blender-5.2.2-windows-x64\spike_site\cadquery_ocp_novtk.libs\TKCDF-59a26fedef1c7c95f1372e2284351598.dll
+  + E:\blender-5.2.2-windows-x64\spike_site\cadquery_ocp_novtk.libs\TKDE-0cd4945329557be6b1c8d1dd2ca2e07d.dll
+  + E:\blender-5.2.2-windows-x64\spike_site\cadquery_ocp_novtk.libs\TKDEGLTF-0b23bfea38f69a74c9f8b53d3b16b3e0.dll
+  + E:\blender-5.2.2-windows-x64\spike_site\cadquery_ocp_novtk.libs\TKDEIGES-666e35c81f85a510739d408965eed3f3.dll
+  + E:\blender-5.2.2-windows-x64\spike_site\cadquery_ocp_novtk.libs\TKDESTEP-ced4c552cb3b9fdd11c58811a0687692.dll
+  + E:\blender-5.2.2-windows-x64\spike_site\cadquery_ocp_novtk.libs\TKDESTL-96b1be4d80ff1fc4ea4f2cdfc23c45b8.dll
+  + E:\blender-5.2.2-windows-x64\spike_site\cadquery_ocp_novtk.libs\TKDEVRML-d51c11055e6ebe6a169cc89ea925966b.dll
+  + E:\blender-5.2.2-windows-x64\spike_site\cadquery_ocp_novtk.libs\TKExpress-766cd696d21c1fd9821cd828e6cd1652.dll
+  + E:\blender-5.2.2-windows-x64\spike_site\cadquery_ocp_novtk.libs\TKFeat-640d00abdddda474da8c70d065900a4b.dll
+  + E:\blender-5.2.2-windows-x64\spike_site\cadquery_ocp_novtk.libs\TKFillet-4b009784be6d899aba8088a8cbad3d1b.dll
+  + E:\blender-5.2.2-windows-x64\spike_site\cadquery_ocp_novtk.libs\TKG2d-1e54da8c6b67e5fe7ba55fcbffb7b2ef.dll
+  + E:\blender-5.2.2-windows-x64\spike_site\cadquery_ocp_novtk.libs\TKG3d-bffb89c7c7e2cacaee0cc7c7c6e47248.dll
+  + E:\blender-5.2.2-windows-x64\spike_site\cadquery_ocp_novtk.libs\TKGeomAlgo-b6e9f0c28e4f99fb84cd04d99edadd66.dll
+  + E:\blender-5.2.2-windows-x64\spike_site\cadquery_ocp_novtk.libs\TKGeomBase-8b58f2278befcdbb0db0b495fa8edc72.dll
+  + E:\blender-5.2.2-windows-x64\spike_site\cadquery_ocp_novtk.libs\TKHLR-e220492b2ff404ceb3fcdafb08220c66.dll
+  + E:\blender-5.2.2-windows-x64\spike_site\cadquery_ocp_novtk.libs\TKLCAF-b7d952635adc347c366edc6c05cefa55.dll
+  + E:\blender-5.2.2-windows-x64\spike_site\cadquery_ocp_novtk.libs\TKMath-0d10d50e60a7e204260555dd2c7f7658.dll
+  + E:\blender-5.2.2-windows-x64\spike_site\cadquery_ocp_novtk.libs\TKMesh-64e09f65c7520e415ae80487d09c4e08.dll
+  + E:\blender-5.2.2-windows-x64\spike_site\cadquery_ocp_novtk.libs\TKMeshVS-aabeec1b0c8b17d5edeeb7c6c80638a9.dll
+  + E:\blender-5.2.2-windows-x64\spike_site\cadquery_ocp_novtk.libs\TKOffset-eebd95066a0c2d93490e1e8560b6d3f3.dll
+  + E:\blender-5.2.2-windows-x64\spike_site\cadquery_ocp_novtk.libs\TKOpenGl-650182e5533b6eef47579f567f30d6a6.dll
+  + E:\blender-5.2.2-windows-x64\spike_site\cadquery_ocp_novtk.libs\TKPrim-589f02799da99d9c9e98c21153c29354.dll
+  + E:\blender-5.2.2-windows-x64\spike_site\cadquery_ocp_novtk.libs\TKRWMesh-d92d778afffa51000e75e3698d659e1c.dll
+  + E:\blender-5.2.2-windows-x64\spike_site\cadquery_ocp_novtk.libs\TKService-57a026e6c9f564f7bff3da4fbf653fad.dll
+  + E:\blender-5.2.2-windows-x64\spike_site\cadquery_ocp_novtk.libs\TKShHealing-a215489695703452d8496fd3fb2d7f8b.dll
+  + E:\blender-5.2.2-windows-x64\spike_site\cadquery_ocp_novtk.libs\TKStd-402ce37ac549002ab5d73c442255fce4.dll
+  + E:\blender-5.2.2-windows-x64\spike_site\cadquery_ocp_novtk.libs\TKStdL-a9aed0254307aff69896f6d7687abc20.dll
+  + E:\blender-5.2.2-windows-x64\spike_site\cadquery_ocp_novtk.libs\TKTObj-0f0c8c40b4211d9cb6a6d413f276cf68.dll
+  + E:\blender-5.2.2-windows-x64\spike_site\cadquery_ocp_novtk.libs\TKTopAlgo-460f2aa92fea698f34ad9ba71f476325.dll
+  + E:\blender-5.2.2-windows-x64\spike_site\cadquery_ocp_novtk.libs\TKV3d-c326513332e150d412c89535b5aa7f8d.dll
+  + E:\blender-5.2.2-windows-x64\spike_site\cadquery_ocp_novtk.libs\TKVCAF-78dc94484492bca94dbcc4004d321c2b.dll
+  + E:\blender-5.2.2-windows-x64\spike_site\cadquery_ocp_novtk.libs\TKXCAF-3217881ed637d8ffd45b74113263b5f7.dll
+  + E:\blender-5.2.2-windows-x64\spike_site\cadquery_ocp_novtk.libs\TKXMesh-b935e022f0526394c48211b2710e811f.dll
+  + E:\blender-5.2.2-windows-x64\spike_site\cadquery_ocp_novtk.libs\TKXSBase-a4787e4791ede412d991a92ab4e2659a.dll
+  + E:\blender-5.2.2-windows-x64\spike_site\cadquery_ocp_novtk.libs\TKXml-89c8995c37c0645b8fc0881b444dd97c.dll
+  + E:\blender-5.2.2-windows-x64\spike_site\cadquery_ocp_novtk.libs\TKXmlL-2cac42a17fccc74f80e89c41e4416f9a.dll
+  + E:\blender-5.2.2-windows-x64\spike_site\cadquery_ocp_novtk.libs\TKXmlTObj-b51e92d508a603104aa61ddb8599b1ba.dll
+  + E:\blender-5.2.2-windows-x64\spike_site\cadquery_ocp_novtk.libs\TKXmlXCAF-20729e5c8da3ca6f4132448add0151cd.dll
+  + E:\blender-5.2.2-windows-x64\spike_site\cadquery_ocp_novtk.libs\TKernel-17e892f6121e8374f3b4d3ceb3192aab.dll
+  + E:\blender-5.2.2-windows-x64\spike_site\cadquery_ocp_novtk.libs\freetype-8a5d2cbc4e7903be079780c3d8a94112.dll
+  + E:\blender-5.2.2-windows-x64\spike_site\cadquery_ocp_novtk.libs\jpeg8-c8ae4649b8bcf41ec8bfd359bd6239ff.dll
+  + E:\blender-5.2.2-windows-x64\spike_site\cadquery_ocp_novtk.libs\libpng16-e73ff83a2b29630137d35777129668c2.dll
+  + E:\blender-5.2.2-windows-x64\spike_site\cadquery_ocp_novtk.libs\msvcp140-7c26614e1d733892c2deac7e245ce115.dll
+  + E:\blender-5.2.2-windows-x64\spike_site\cadquery_ocp_novtk.libs\tiff-c9f1d4bd42b46208492c347254c25d5c.dll
+  + E:\blender-5.2.2-windows-x64\spike_site\cadquery_ocp_novtk.libs\vcomp140-95d4ce4a6802d1e18b5e0e1722cc30ea.dll
+  + E:\blender-5.2.2-windows-x64\spike_site\cadquery_ocp_novtk.libs\zlib-f4f26ea6300c8449daad4650915e01ac.dll
+--- moduli rilevanti già caricati da Blender
+  = C:\WINDOWS\System32\msvcp_win.dll
+  = E:\blender-5.2.2-windows-x64\blender.crt\MSVCP140.dll
+  = E:\blender-5.2.2-windows-x64\blender.crt\MSVCP140_2.dll
+  = E:\blender-5.2.2-windows-x64\blender.crt\MSVCP140_ATOMIC_WAIT.dll
+  = E:\blender-5.2.2-windows-x64\blender.shared\Imath.dll
+  = E:\blender-5.2.2-windows-x64\blender.shared\OpenEXR.dll
+  = E:\blender-5.2.2-windows-x64\blender.shared\OpenEXRCore.dll
+  = E:\blender-5.2.2-windows-x64\blender.shared\tbb12.dll
+  = E:\blender-5.2.2-windows-x64\blender.shared\tbbmalloc.dll
+  = E:\blender-5.2.2-windows-x64\blender.shared\tbbmalloc_proxy.dll
+RESULT PASS
+Blender 5.2.2 LTS (hash d13f752e3b9c built 2026-09-15 01:37:04)
+
+Blender quit

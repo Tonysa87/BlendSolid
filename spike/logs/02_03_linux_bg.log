@@ -1,0 +1,17 @@
+[2] check={'valid': True, 'volume': 24458.185759344888, 'faces': 10}
+[2] mesh: 324 vertici, 308 triangoli, facce BRep nell'attributo: 10
+[2] tempi ms: build=4.2 tessellate=8.1 totale OCCT=13.0 mesh Blender=1.2
+[2] volume BRep=24458.186 atteso=24458.186 mesh=24454.744
+[2] RESULT PASS
+[3] faccia 0:    GeomAbs_Plane ray → poly 1 → brep_face_id 0, distanza hit↔faccia BRep 0.0000 ok
+[3] faccia 1:    GeomAbs_Plane ray → poly 30 → brep_face_id 1, distanza hit↔faccia BRep 0.0000 ok
+[3] faccia 2: GeomAbs_Cylinder ray → poly 70 → brep_face_id 2, distanza hit↔faccia BRep 0.0113 ok
+[3] faccia 3:    GeomAbs_Plane ray → poly 82 → brep_face_id 3, distanza hit↔faccia BRep 0.0000 ok
+[3] faccia 4:    GeomAbs_Plane ray → poly 111 → brep_face_id 4, distanza hit↔faccia BRep 0.0000 ok
+[3] faccia 5:    GeomAbs_Plane ray → poly 141 → brep_face_id 5, distanza hit↔faccia BRep 0.0000 ok
+[3] faccia 6:    GeomAbs_Plane ray → poly 143 → brep_face_id 6, distanza hit↔faccia BRep 0.0000 ok
+[3] faccia 7: GeomAbs_Cylinder ray → poly 186 → brep_face_id 7, distanza hit↔faccia BRep 0.0149 ok
+[3] faccia 8:    GeomAbs_Plane ray → poly 248 → brep_face_id 8, distanza hit↔faccia BRep 0.0000 ok
+[3] faccia 9:    GeomAbs_Plane ray → poly 288 → brep_face_id 9, distanza hit↔faccia BRep 0.0000 ok
+[3] 10 facce, errori=0, errori con oggetto trasformato=0
+[3] RESULT PASS

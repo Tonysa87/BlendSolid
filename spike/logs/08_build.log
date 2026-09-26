@@ -1,0 +1,11 @@
+Success parsing TOML in "/home/tony/Projects/BlendSolid/dist/stage/blendsolid"
+building: blendsolid-0.0.1-windows_x64.zip
+complete
+building: blendsolid-0.0.1-linux_x64.zip
+complete
+building: blendsolid-0.0.1-macos_arm64.zip
+complete
+created: "/home/tony/Projects/BlendSolid/dist/blendsolid-0.0.1-macos_arm64.zip", 63048642
+-rw-r--r-- 1 tony tony 66763425 Sep 26 11:14 /home/tony/Projects/BlendSolid/dist/blendsolid-0.0.1-linux_x64.zip
+-rw-r--r-- 1 tony tony 63048642 Sep 26 11:14 /home/tony/Projects/BlendSolid/dist/blendsolid-0.0.1-macos_arm64.zip
+-rw-r--r-- 1 tony tony 47701322 Sep 26 11:14 /home/tony/Projects/BlendSolid/dist/blendsolid-0.0.1-windows_x64.zip

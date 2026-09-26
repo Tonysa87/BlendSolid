@@ -1,0 +1,33 @@
+SITE E:\blender-5.2.2-windows-x64\spike_site
+BLENDER 5.2.2 LTS GUI
+PYTHON 3.13.13 win32
+OCP 8.0.1.0.0 8.0.1.0
+IMPORT_TIME 0.359s
+BOX volume=6000.000 valid=True
+NEW_NATIVE_MODULES 73
+--- moduli rilevanti caricati DOPO l'import di OCP
+  + E:\blender-5.2.2-windows-x64\spike_site\cadquery_ocp_novtk.libs\Imath-9b9c82f00ed9c45a0954774404023a2f.dll
+  + E:\blender-5.2.2-windows-x64\spike_site\cadquery_ocp_novtk.libs\OpenEXR-210cc62a9c46faa0d7e864fbe1130f16.dll
+  + E:\blender-5.2.2-windows-x64\spike_site\cadquery_ocp_novtk.libs\OpenEXRCore-68c33f2c309d9810ec2942109eb9ec80.dll
+  + E:\blender-5.2.2-windows-x64\spike_site\cadquery_ocp_novtk.libs\freetype-8a5d2cbc4e7903be079780c3d8a94112.dll
+  + E:\blender-5.2.2-windows-x64\spike_site\cadquery_ocp_novtk.libs\jpeg8-c8ae4649b8bcf41ec8bfd359bd6239ff.dll
+  + E:\blender-5.2.2-windows-x64\spike_site\cadquery_ocp_novtk.libs\libpng16-e73ff83a2b29630137d35777129668c2.dll
+  + E:\blender-5.2.2-windows-x64\spike_site\cadquery_ocp_novtk.libs\msvcp140-7c26614e1d733892c2deac7e245ce115.dll
+  + E:\blender-5.2.2-windows-x64\spike_site\cadquery_ocp_novtk.libs\tiff-c9f1d4bd42b46208492c347254c25d5c.dll
+  + E:\blender-5.2.2-windows-x64\spike_site\cadquery_ocp_novtk.libs\vcomp140-95d4ce4a6802d1e18b5e0e1722cc30ea.dll
+  + E:\blender-5.2.2-windows-x64\spike_site\cadquery_ocp_novtk.libs\zlib-f4f26ea6300c8449daad4650915e01ac.dll
+--- moduli rilevanti già caricati da Blender
+  = C:\WINDOWS\System32\msvcp_win.dll
+  = E:\blender-5.2.2-windows-x64\blender.crt\MSVCP140.dll
+  = E:\blender-5.2.2-windows-x64\blender.crt\MSVCP140_2.dll
+  = E:\blender-5.2.2-windows-x64\blender.crt\MSVCP140_ATOMIC_WAIT.dll
+  = E:\blender-5.2.2-windows-x64\blender.shared\Imath.dll
+  = E:\blender-5.2.2-windows-x64\blender.shared\OpenEXR.dll
+  = E:\blender-5.2.2-windows-x64\blender.shared\OpenEXRCore.dll
+  = E:\blender-5.2.2-windows-x64\blender.shared\tbb12.dll
+  = E:\blender-5.2.2-windows-x64\blender.shared\tbbmalloc.dll
+  = E:\blender-5.2.2-windows-x64\blender.shared\tbbmalloc_proxy.dll
+RESULT PASS
+00:02.969  blend            | Saved session recovery to "C:\Users\Tony\AppData\Local\Temp\quit.blend"
+
+Blender quit
