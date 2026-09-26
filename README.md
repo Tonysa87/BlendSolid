@@ -167,7 +167,7 @@ OCCT, NURBS/SubD conversion, surface fairing or Blender add-on development.
 
 ## License
 
-GPL-3.0-or-later, as required for Blender add-ons. Dependencies are GPL-compatible: OCCT (LGPL 2.1 with exception),
+[GPL-3.0-or-later](LICENSE), as required for Blender add-ons. Dependencies are GPL-compatible: OCCT (LGPL 2.1 with exception),
 OCP (Apache 2.0), build123d (Apache 2.0).
 
 ## Acknowledgements
