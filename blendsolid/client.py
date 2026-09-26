@@ -128,9 +128,10 @@ class WorkerClient:
 
     # -- requests ----------------------------------------------------------------------------------------
 
-    def submit(self, key, source, tag, lin_defl=0.1, ang_defl=0.3):
+    def submit(self, key, source, tag, lin_defl=0.1, ang_defl=0.3, deps=None):
+        """`deps`: the parts the script's ref() calls may use (see worker/runner.py), JSON-serializable."""
         self._pending[key] = {"type": "run", "key": key, "tag": tag, "source": source,
-                              "lin_defl": lin_defl, "ang_defl": ang_defl}
+                              "lin_defl": lin_defl, "ang_defl": ang_defl, "deps": deps or []}
         self._pending.move_to_end(key)
         if self.state == "stopped":
             self.start()
