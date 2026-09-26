@@ -7,7 +7,7 @@ single path; nothing is decided in undo handlers (evaluated data isn't ready the
 import bpy
 from bpy.app.handlers import persistent
 
-from . import part, paths
+from . import part, paths, trust
 from .client import WorkerClient, WorkerStartError
 
 TICK_INTERVAL = 0.05
@@ -56,7 +56,7 @@ def _handle(event):
     if _inflight.get(key) == tag:
         del _inflight[key]
     obj = bpy.data.objects.get(key)
-    if obj is None or obj.blendsolid_script is None:
+    if obj is None or obj.blendsolid_script is None or not trust.is_trusted(obj):
         return
     if tag != part.source_hash(part.source_of(obj)):
         return  # stale: the script changed meanwhile, the next tick submits the new one
@@ -129,6 +129,8 @@ def tick():
 
             if tag == part.applied_hash(obj):
                 continue
+            if not trust.is_trusted(obj):
+                continue  # ADR 0004: keep showing the cached mesh, never run the script
             if tag in (_inflight.get(obj.name), _failed.get(obj.name)):
                 continue
 
@@ -172,12 +174,25 @@ def _timer():
         return 1.0
 
 
+def part_status(obj):
+    """What the panel says about obj's part beyond its error: "untrusted" (ADR 0004) or None."""
+    if not trust.is_trusted(obj):
+        return "untrusted"
+    return None
+
+
+def _reset_trust():
+    trust.reset_for_file(bpy.context.preferences, bpy.data.filepath)
+
+
 @persistent
 def _on_load(*_):
     reset_state()
+    _reset_trust()
 
 
 def register():
+    _reset_trust()  # the add-on may be enabled with a file already open: that file's parts came from disk
     bpy.app.handlers.load_post.append(_on_load)
     bpy.app.timers.register(_timer, first_interval=TICK_INTERVAL, persistent=True)
 

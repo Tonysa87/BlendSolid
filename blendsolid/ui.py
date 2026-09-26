@@ -2,7 +2,7 @@
 import bpy
 from bpy.props import BoolProperty, CollectionProperty, FloatProperty, IntProperty, PointerProperty, StringProperty
 
-from . import params, part
+from . import params, part, trust
 
 
 def _on_param_value(self, context):
@@ -41,6 +41,21 @@ class BLENDSOLID_OT_new_part(bpy.types.Operator):
         obj.location = context.scene.cursor.location
         obj.select_set(True)
         context.view_layer.objects.active = obj
+        return {"FINISHED"}
+
+
+class BLENDSOLID_OT_trust_scripts(bpy.types.Operator):
+    """Run the BlendSolid scripts of this file until another file is loaded. Scripts are Python code: only
+    trust files from sources you trust"""
+    bl_idname = "blendsolid.trust_scripts"
+    bl_label = "Trust Scripts in This File"
+
+    @classmethod
+    def poll(cls, context):
+        return not trust.file_trusted()
+
+    def execute(self, context):
+        trust.trust_file()  # session only, never saved (ADR 0004)
         return {"FINISHED"}
 
 
@@ -120,6 +135,14 @@ class BLENDSOLID_PT_part(bpy.types.Panel):
         for item in obj.blendsolid_params:
             col.prop(item, "value", text=item.name.replace("_", " ").capitalize())
         advanced = scripts_visible(context)
+        from . import runtime
+        status = runtime.part_status(obj)
+        if status == "untrusted":
+            box = layout.box()
+            box.label(text="Scripts in this file are not trusted", icon="LOCKED")
+            box.label(text="Auto Run Python Scripts is off or excludes this file:", icon="BLANK1")
+            box.label(text="the part keeps its saved mesh and won't rebuild.", icon="BLANK1")
+            box.operator("blendsolid.trust_scripts", icon="CHECKMARK")
         if obj.blendsolid_error:
             box = layout.box()
             box.label(text="The part could not be rebuilt", icon="ERROR")
@@ -132,7 +155,8 @@ class BLENDSOLID_PT_part(bpy.types.Panel):
         row.operator("blendsolid.recompute", icon="FILE_REFRESH")
 
 
-CLASSES = [BS_Param, BLENDSOLID_AP_preferences, BLENDSOLID_OT_new_part, BLENDSOLID_OT_edit_script,
+CLASSES = [BS_Param, BLENDSOLID_AP_preferences, BLENDSOLID_OT_new_part, BLENDSOLID_OT_trust_scripts,
+           BLENDSOLID_OT_edit_script,
            BLENDSOLID_OT_recompute, BLENDSOLID_PT_part]
 
 

@@ -8,7 +8,7 @@ import os
 import bpy
 import numpy as np
 
-from . import params
+from . import params, trust
 
 FACE_ATTR = "brep_face_id"
 HASH_KEY = "bs_source_hash"
@@ -38,6 +38,11 @@ def source_hash(source):
     return hashlib.sha1(source.encode("utf-8")).hexdigest()
 
 
+def current_tag(obj):
+    """The tag a mesh computed from obj's current script carries (compare with applied_hash())."""
+    return source_hash(source_of(obj))
+
+
 def applied_hash(obj):
     return obj.data.get(HASH_KEY)
 
@@ -46,6 +51,7 @@ def new_part(context, source=None, name="Part"):
     source = default_source() if source is None else source
     text = bpy.data.texts.new(f".{name}.py")  # dot name: hidden from Blender's ID menus (ADR 0002)
     text.from_string(source)
+    trust.mark_trusted(text)  # created in this session: the user's own script (ADR 0004)
     obj = bpy.data.objects.new(name, bpy.data.meshes.new(name))
     context.collection.objects.link(obj)
     obj.blendsolid_script = text
@@ -161,7 +167,10 @@ def ensure_unique_scripts():
         first_mesh = objs[0].data.name
         for obj in objs[1:]:
             if obj.data.name != first_mesh:  # an independent copy, not a linked duplicate
-                obj.blendsolid_script = obj.blendsolid_script.copy()
+                source_text = obj.blendsolid_script
+                obj.blendsolid_script = source_text.copy()
+                if trust.text_trusted(source_text):
+                    trust.mark_trusted(obj.blendsolid_script)  # a copy is exactly as trusted as its source
 
 
 def primary_objects():
