@@ -4,6 +4,7 @@ The docstring and imports may come first; the parameter block ends at the first 
 Editing a parameter rewrites only the number literal, keeping comments and formatting.
 """
 import ast
+import math
 from dataclasses import dataclass
 
 
@@ -56,6 +57,8 @@ def parse_params(source):
 
 
 def format_value(value, is_int):
+    if math.isnan(value) or math.isinf(value):
+        raise ParamError(f"parameter value must be finite, got {value}")
     if is_int:
         return str(int(round(value)))
     return repr(round(float(value), 6))  # drops float32 noise from Blender properties

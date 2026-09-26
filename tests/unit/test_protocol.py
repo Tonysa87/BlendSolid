@@ -57,3 +57,24 @@ def test_rejects_buffer_size_mismatch():
     a.send_bytes(np.zeros(5, dtype=np.float32).tobytes())
     with pytest.raises(protocol.ProtocolError):
         protocol.recv_message(b)
+
+
+def test_rejects_non_list_buffers():
+    a, b = Pipe()
+    a.send_bytes(json.dumps({"type": "r", "buffers": "oops"}).encode())
+    with pytest.raises(protocol.ProtocolError):
+        protocol.recv_message(b)
+
+
+def test_rejects_buffer_spec_missing_shape():
+    a, b = Pipe()
+    a.send_bytes(json.dumps({"type": "r", "buffers": [{"name": "v", "dtype": "float32"}]}).encode())
+    with pytest.raises(protocol.ProtocolError):
+        protocol.recv_message(b)
+
+
+def test_closed_peer_raises_eof_error():
+    a, b = Pipe()
+    a.close()
+    with pytest.raises(EOFError):
+        protocol.recv_message(b)

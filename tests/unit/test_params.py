@@ -64,3 +64,10 @@ def test_non_ascii_before_the_value():
 def test_invalid_python_raises_syntax_error():
     with pytest.raises(SyntaxError):
         params.parse_params("length = \n")
+
+
+def test_set_param_rejects_non_finite_values():
+    with pytest.raises(params.ParamError):
+        params.set_param(SCRIPT, "width", float("nan"))
+    with pytest.raises(params.ParamError):
+        params.set_param(SCRIPT, "width", float("inf"))
