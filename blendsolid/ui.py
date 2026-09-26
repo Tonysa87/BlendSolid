@@ -6,13 +6,15 @@ from . import params, part
 
 
 def _on_param_value(self, context):
-    if part.is_syncing():
+    obj = self.id_data
+    if part.is_syncing() or obj.blendsolid_script is None:
         return
     try:
-        part.set_param(self.id_data, self.name, self.value)
-    except params.ParamError as e:
-        # e.g. a non-finite value from a driver/animation: never let this escape into Blender's UI.
-        part.set_error(self.id_data, str(e))
+        part.set_param(obj, self.name, self.value)
+    except (SyntaxError, params.ParamError) as e:
+        # a broken script (SyntaxError) or a non-finite value (ParamError, e.g. from a driver/animation):
+        # never let this escape into Blender's RNA update.
+        part.set_error(obj, str(e))
 
 
 class BS_Param(bpy.types.PropertyGroup):

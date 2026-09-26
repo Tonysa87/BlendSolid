@@ -52,14 +52,25 @@ def test_error_keeps_previous_mesh(clean):
     wait_for(lambda: obj.blendsolid_error == "" and up_to_date(obj))
 
 
-def test_stale_result_is_discarded(clean):
+def test_stale_result_is_discarded(clean, monkeypatch):
     obj = new_part()
+    applied_tags = []
+    orig_apply = part.apply_result
+
+    def recording_apply(obj_, event):
+        applied_tags.append(event["tag"])
+        orig_apply(obj_, event)
+
+    monkeypatch.setattr(part, "apply_result", recording_apply)
     obj.blendsolid_params["length"].value = 50.0
+    tag50 = part.source_hash(part.source_of(obj))
     runtime.tick()                                   # submits length=50
     obj.blendsolid_params["length"].value = 60.0     # before the first result arrives
     wait_for(lambda: up_to_date(obj))
     assert "length = 60.0\n" in part.source_of(obj)
     assert abs(part.mesh_volume(obj.data) - expected_volume(length=60.0)) / expected_volume(length=60.0) < 0.01
+    # the length=50 result must never have been applied to the mesh (discarded as stale in runtime._handle)
+    assert tag50 not in applied_tags
 
 
 def test_reconcile_after_simulated_undo(clean):
@@ -108,3 +119,96 @@ def test_reload_does_not_recompute(clean):
         runtime.tick()
     obj = bpy.data.objects["Part"]
     assert up_to_date(obj) and runtime.client().submitted == submitted
+
+
+def test_shared_mesh_is_one_part(clean):
+    """Ctrl+L (Link Object Data) makes two objects share one mesh: controller ruling says they are ONE
+    part, so tick() must unify their scripts and submit only once, never ping-ponging between them."""
+    a = new_part()
+    b = part.new_part(bpy.context, name="Part2")
+    part.set_param(b, "length", 55.0)  # diverge b's script from a's before linking data
+    b.data = a.data                    # simulated Ctrl+L Link Object Data
+    runtime.tick()
+    assert b.blendsolid_script == a.blendsolid_script
+    wait_for(lambda: up_to_date(a) and up_to_date(b))
+    submitted = runtime.client().submitted
+    for _ in range(20):
+        runtime.tick()
+    assert runtime.client().submitted == submitted
+
+
+def test_param_edit_on_broken_script_does_not_raise(clean):
+    obj = new_part()
+    obj.blendsolid_script.from_string("this is not valid python(\n")
+    obj.blendsolid_params["height"].value = 21.0  # must not raise into the RNA update
+    assert obj.blendsolid_error != ""
+
+
+def test_param_edit_with_no_script_does_not_raise(clean):
+    obj = new_part()
+    obj.blendsolid_script = None
+    obj.blendsolid_params["length"].value = 41.0  # must not raise: nothing to write to
+
+
+def test_param_error_from_ui_survives_ticks(clean):
+    # Blender's FloatProperty clamps float("inf") to FLT_MAX (a finite value) before the update callback
+    # ever sees it, so the non-finite value can't be produced through the real property: call the update
+    # callback directly with a duck-typed item, as the brief's fallback for this case allows.
+    from blendsolid import ui
+
+    obj = new_part()
+
+    class FakeItem:
+        id_data = obj
+        name = "length"
+        value = float("inf")
+
+    ui._on_param_value(FakeItem(), bpy.context)
+    assert obj.blendsolid_error != ""
+    assert "length = 40.0\n" in part.source_of(obj)  # set_param rejected it before writing the script
+    for _ in range(5):
+        runtime.tick()
+    assert obj.blendsolid_error != ""  # a runtime tick must not wipe a UI-raised error
+
+
+def test_object_error_does_not_stop_other_objects_reconciling(clean, monkeypatch):
+    a = new_part()
+    b = part.new_part(bpy.context, name="Part2")
+    wait_for(lambda: up_to_date(b))
+    a.blendsolid_params["length"].value = 41.0
+    b.blendsolid_params["length"].value = 42.0
+
+    orig_sync = part.sync_params
+
+    def boom(obj, source=None):
+        if obj.name == "Part":
+            raise RuntimeError("boom")
+        return orig_sync(obj, source)
+
+    monkeypatch.setattr(part, "sync_params", boom)
+    runtime.tick()
+    assert "boom" in a.blendsolid_error
+    monkeypatch.undo()
+    wait_for(lambda: up_to_date(b))
+
+
+def test_worker_start_error_marks_remaining_objects_failed_without_retrying(clean, monkeypatch):
+    from blendsolid.client import WorkerClient, WorkerStartError
+
+    a = new_part()
+    b = part.new_part(bpy.context, name="Part2")
+    wait_for(lambda: up_to_date(b))
+    a.blendsolid_params["length"].value = 41.0
+    b.blendsolid_params["length"].value = 42.0
+
+    calls = []
+
+    def boom(self, key, source, tag, *args, **kwargs):
+        calls.append(key)
+        raise WorkerStartError("simulated: worker cannot start")
+
+    monkeypatch.setattr(WorkerClient, "submit", boom)
+    runtime.tick()
+    assert len(calls) == 1  # only the first object actually called submit()
+    assert "geometry worker" in a.blendsolid_error
+    assert "geometry worker" in b.blendsolid_error

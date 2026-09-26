@@ -14,6 +14,7 @@ TICK_INTERVAL = 0.05
 _client = None
 _inflight = {}  # object name -> script hash being computed
 _failed = {}    # object name -> script hash that failed (not resubmitted until the script changes)
+_synced = {}    # object name -> script hash its blendsolid_params were last synced from
 
 
 def client():
@@ -27,11 +28,13 @@ def client():
 def reset_state():
     _inflight.clear()
     _failed.clear()
+    _synced.clear()
 
 
 def force(obj):
     """Recompute even if the script is unchanged (the Recompute button)."""
     _failed.pop(obj.name, None)
+    _synced.pop(obj.name, None)
     if part.HASH_KEY in obj.data:
         del obj.data[part.HASH_KEY]
 
@@ -69,25 +72,57 @@ def _handle(event):
 def tick():
     c = client()
     for event in c.poll():
-        _handle(event)
-    part.ensure_unique_scripts()
-    for obj in part.part_objects():
-        source = part.source_of(obj)
-        tag = part.source_hash(source)
-        if tag == part.applied_hash(obj):
-            if obj.blendsolid_error:  # the script matches the mesh again: any earlier error is now stale
-                part.set_error(obj, "")
-            continue
-        if tag in (_inflight.get(obj.name), _failed.get(obj.name)):
-            continue
-        part.sync_params(obj, source)
         try:
-            c.submit(obj.name, source, tag)
-        except WorkerStartError as e:
-            _failed[obj.name] = tag
-            part.set_error(obj, f"Cannot start the geometry worker: {e}")
-            continue
-        _inflight[obj.name] = tag
+            _handle(event)
+        except Exception as e:  # one malformed/unexpected event must not stop the others from being applied
+            key = event.get("key")
+            if key:
+                _inflight.pop(key, None)
+                obj = bpy.data.objects.get(key)
+                if obj is not None:
+                    part.set_error(obj, f"Internal error handling the worker event: {type(e).__name__}: {e}")
+
+    part.ensure_unique_scripts()
+    worker_start_error = None  # once the worker itself fails to start, don't retry it for every other part
+    for obj in part.primary_objects():
+        try:
+            source = part.source_of(obj)
+            tag = part.source_hash(source)
+
+            failed_tag = _failed.get(obj.name)
+            if failed_tag is not None and failed_tag != tag:
+                # the runtime error on record was for a script that's no longer current: it is now stale.
+                # A UI-set error (e.g. a ParamError from ui._on_param_value) is never tracked in _failed,
+                # so it is never touched here and survives until the script it refers to actually changes.
+                del _failed[obj.name]
+                part.set_error(obj, "")
+
+            if _synced.get(obj.name) != tag:
+                part.sync_params(obj, source)
+                _synced[obj.name] = tag
+
+            if tag == part.applied_hash(obj):
+                continue
+            if tag in (_inflight.get(obj.name), _failed.get(obj.name)):
+                continue
+
+            if worker_start_error is not None:
+                # the worker already failed to start earlier in this same tick: don't call submit() again
+                # (it would just block up to start_timeout once more); mark this part failed the same way.
+                _failed[obj.name] = tag
+                part.set_error(obj, f"Cannot start the geometry worker: {worker_start_error}")
+                continue
+            try:
+                c.submit(obj.name, source, tag)
+            except WorkerStartError as e:
+                worker_start_error = e
+                _failed[obj.name] = tag
+                part.set_error(obj, f"Cannot start the geometry worker: {e}")
+                continue
+            _inflight[obj.name] = tag
+        except Exception as e:  # one object's failure must not stop the others from being reconciled
+            _inflight.pop(obj.name, None)
+            part.set_error(obj, f"Internal error while reconciling: {type(e).__name__}: {e}")
     return TICK_INTERVAL
 
 

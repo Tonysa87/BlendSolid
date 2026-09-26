@@ -117,8 +117,27 @@ def set_param(obj, name, value):
 
 
 def ensure_unique_scripts():
-    """Shift+D copies the object and its mesh but shares the Text: give each independent copy its own script.
-    Objects sharing the same mesh (Alt+D, linked duplicates) keep sharing the script."""
+    """Reconcile scripts after object/mesh operations BlendSolid doesn't observe directly:
+
+    - Ctrl+L (Link Object Data), or any other way several objects end up sharing one mesh: those objects
+      are ONE part (controller ruling), so they must share one script too. The later ones (sorted by name)
+      adopt the first one's script.
+    - Shift+D (full duplicate): the object and its mesh are copied but the Text is not; an independent copy
+      (ends up on a different mesh than the object it was copied from) gets its own script. Alt+D (linked
+      duplicate) already shares both mesh and script, so it is left untouched by this step.
+    """
+    by_mesh = {}
+    for obj in part_objects():
+        by_mesh.setdefault(obj.data.name, []).append(obj)
+    for objs in by_mesh.values():
+        if len(objs) < 2:
+            continue
+        objs.sort(key=lambda o: o.name)
+        first = objs[0]
+        for obj in objs[1:]:
+            if obj.blendsolid_script != first.blendsolid_script:
+                obj.blendsolid_script = first.blendsolid_script
+
     by_text = {}
     for obj in part_objects():
         by_text.setdefault(obj.blendsolid_script.name, []).append(obj)
@@ -128,3 +147,14 @@ def ensure_unique_scripts():
         for obj in objs[1:]:
             if obj.data.name != first_mesh:  # an independent copy, not a linked duplicate
                 obj.blendsolid_script = obj.blendsolid_script.copy()
+
+
+def primary_objects():
+    """One object per distinct mesh: the one whose name sorts first. Objects sharing a mesh are one part
+    (see ensure_unique_scripts): only the primary object needs to be reconciled/submitted for that part."""
+    by_mesh = {}
+    for obj in part_objects():
+        current = by_mesh.get(obj.data.name)
+        if current is None or obj.name < current.name:
+            by_mesh[obj.data.name] = obj
+    return sorted(by_mesh.values(), key=lambda o: o.name)

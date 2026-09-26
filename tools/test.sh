@@ -4,5 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 BL="${BL:-$HOME/blender/blender-5.2.2-linux-x64/blender}"
 PY="$(dirname "$BL")/5.2/python/bin/python3.13"
-PYTHONPATH="$ROOT:$ROOT/.dev/pytest" "$PY" -m pytest "$ROOT/tests/unit" -q -p no:cacheprovider "$@"
+# exit 5 = "no tests collected" (e.g. a -k filter that only matches Blender tests): don't let it abort
+# the script before the Blender stage below; any other nonzero exit (real failures) still does.
+PYTHONPATH="$ROOT:$ROOT/.dev/pytest" "$PY" -m pytest "$ROOT/tests/unit" -q -p no:cacheprovider "$@" || [ "$?" -eq 5 ]
 "$BL" -b --factory-startup --python-exit-code 1 --python "$ROOT/tests/blender/run.py" -- "$@"
