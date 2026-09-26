@@ -1,7 +1,8 @@
 """Runs a BlendSolid history script with build123d and turns `result` into a tessellated mesh.
 
 A script may use other parts with `ref("<part id>")` (live cutters): the request carries those parts as
-`deps`, a tree of {"id", "tag", "source", "matrices", "deps"} dicts. "matrices" holds one 3x4 row-major
+`deps`, a tree of {"id", "name", "tag", "source", "matrices", "deps"} dicts ("name": the part's object name, used
+in error messages). "matrices" holds one 3x4 row-major
 transform (millimetres) per object showing that part (linked duplicates), from the part's own frame to the frame
 of the part that references it. ref() builds the part (or takes it from the shape cache, by tag) and returns it
 placed there: one shape, or a compound of every placement.
@@ -75,16 +76,16 @@ def _script_line(tb):
     return line
 
 
-def _location(matrix):
+def _location(matrix, label):
     from build123d import Location
     from OCP.gp import gp_Trsf
 
     m = [float(v) for v in matrix]
     if len(m) != 12 or not all(math.isfinite(v) for v in m):
-        raise RefError("the placement of a referenced part is malformed")
+        raise RefError(f"the placement of {label} is malformed")
     rot = np.array([m[0:3], m[4:7], m[8:11]])
     if not np.allclose(rot @ rot.T, np.eye(3), atol=1e-5) or np.linalg.det(rot) < 0:
-        raise RefError("a referenced part is scaled, sheared or mirrored: only moves and rotations are allowed")
+        raise RefError(f"{label} is scaled, sheared or mirrored: only moves and rotations are allowed")
     # Blender's matrix_world is float32: a "pure" rotation's determinant differs from 1 by ~1e-8 once widened
     # to float64 -- inside the tolerance above, but enough for gp_Trsf.SetValues to derive a non-unit scale
     # factor from it and fail BRepCheck. Re-orthonormalize so OCCT sees an exact rotation (scale exactly 1).
@@ -102,23 +103,23 @@ def _make_ref(deps, cache, depth):
 
     def ref(part_id):
         dep = by_id.get(part_id)
-        if dep is None:
+        if dep is None:  # a malformed request, not a user error: the id is all there is to report
             raise RefError(f"ref({part_id!r}): no such part was sent with this script")
+        label = f"the cutter '{dep.get('name') or part_id}'"  # ADR 0002: users know parts by name, not by id
         shape = cache.get(dep["tag"])
         if shape is None:
             if depth >= MAX_DEPTH:
-                raise RefError(f"ref({part_id!r}): parts reference each other too deeply")
+                raise RefError(f"{label} uses parts that use each other too deeply")
             try:
                 shape = _build(dep["source"], f"<ref {part_id}>", dep.get("deps") or [], cache, depth + 1)
             except RefError:
-                raise
+                raise  # already names the part that failed (a nested ref)
             except Exception as e:
-                raise RefError(f"the part used by ref({part_id!r}) could not be built: "
-                               f"{type(e).__name__}: {e}") from None
+                raise RefError(f"{label} could not be built: {type(e).__name__}: {e}") from None
             cache.put(dep["tag"], shape)
-        placed = [shape.moved(_location(m)) for m in dep["matrices"]]
+        placed = [shape.moved(_location(m, label)) for m in dep["matrices"]]
         if not placed:
-            raise RefError(f"ref({part_id!r}): the part is not placed anywhere")
+            raise RefError(f"{label} is not placed anywhere")
         if len(placed) == 1:
             return placed[0]
         from build123d import Compound

@@ -84,6 +84,8 @@ def test_deleted_cutter_is_an_error_without_a_loop(clean):
     bpy.data.objects.remove(pin)
     runtime.tick()
     assert "no longer exists" in plate.blendsolid_error
+    # ADR 0002: only actions a standard user can take, no script vocabulary
+    assert "Ctrl+Z" in plate.blendsolid_error and "feature" not in plate.blendsolid_error
     submitted = runtime.client().submitted
     for _ in range(20):
         runtime.tick()
@@ -100,6 +102,7 @@ def test_parts_using_each_other_are_an_error_without_a_loop(clean):
     use(pin, plate, "ADD")
     runtime.tick()
     assert "loop" in plate.blendsolid_error and "loop" in pin.blendsolid_error
+    assert "Ctrl+Z" in plate.blendsolid_error and "feature" not in plate.blendsolid_error
     submitted = runtime.client().submitted
     for _ in range(20):
         runtime.tick()
@@ -166,6 +169,7 @@ def test_resolve_sends_the_cutter_in_the_target_frame(clean):
     resolved = deps.resolve(plate, part.source_of(plate), part.unit_factor(), deps.part_index())
     (d,) = resolved.deps
     assert d["id"] == part.part_id(pin) and d["source"] == part.source_of(pin) and d["deps"] == []
+    assert d["name"] == "Pin"  # for the worker's messages (ADR 0002: users know parts by name, not by id)
     assert d["matrices"] == [pytest.approx([1, 0, 0, 5, 0, 1, 0, 0, 0, 0, 1, -5], abs=1e-4)]  # millimetres
 
 

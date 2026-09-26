@@ -78,12 +78,12 @@ def resolve(obj, source, factor, index, memo=None, stack=()):
     for pid in ids:
         if pid in chain:
             names = [index[p][0].name if p in index else "?" for p in (*chain[chain.index(pid):], pid)]
-            raise DepError("Parts use each other in a loop (" + " -> ".join(names) + "): remove one of their "
-                           "boolean features")
+            raise DepError("Parts use each other in a loop (" + " -> ".join(names) + "): undo the change "
+                           "(Ctrl+Z)")
         instances = index.get(pid)
         if instances is None:
             raise DepError("This part uses a cutter part that no longer exists (deleted?): undo the deletion "
-                           "or remove the boolean feature")
+                           "(Ctrl+Z) or delete this part")
         dep = instances[0]
         if not trust.is_trusted(dep):
             raise DepError(f"This part uses '{dep.name}', whose script is not trusted: press Trust Scripts in "
@@ -98,8 +98,9 @@ def resolve(obj, source, factor, index, memo=None, stack=()):
         if isinstance(sub, DepError):
             raise DepError(f"'{dep.name}' can't be used: {sub}")
         matrices = [relative_matrix(obj, o, factor) for o in instances]
-        deps.append({"id": pid, "tag": sub.tag, "source": part.source_of(dep), "matrices": matrices,
-                     "deps": sub.deps})
+        # "name": for the worker's messages only (ADR 0002: users know parts by name); not part of the tag
+        deps.append({"id": pid, "name": dep.name, "tag": sub.tag, "source": part.source_of(dep),
+                     "matrices": matrices, "deps": sub.deps})
         keys.append(f"{pid}:{sub.tag}:" + ";".join(_matrix_key(m) for m in matrices))
     return Resolved(part.tag_for(source, factor, keys), deps)
 

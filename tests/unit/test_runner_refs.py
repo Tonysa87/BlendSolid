@@ -17,9 +17,9 @@ def moved(x, y, z):
     return [1, 0, 0, x, 0, 1, 0, y, 0, 0, 1, z]
 
 
-def dep(part_id="pin", source=PIN, tag="pin-1", matrix=None, deps=(), matrices=None):
-    return {"id": part_id, "source": source, "tag": tag, "matrices": matrices or [matrix or moved(5, 0, -5)],
-            "deps": list(deps)}
+def dep(part_id="pin", source=PIN, tag="pin-1", matrix=None, deps=(), matrices=None, name="Pin"):
+    return {"id": part_id, "name": name, "source": source, "tag": tag,
+            "matrices": [matrix or moved(5, 0, -5)] if matrices is None else matrices, "deps": list(deps)}
 
 
 def test_ref_subtracts_the_cutter_in_the_target_frame():
@@ -95,16 +95,31 @@ def test_unknown_reference_is_an_error_on_the_ref_line():
 
 
 def test_broken_dependency_is_reported_on_the_ref_line():
+    # ADR 0002: the cutter is named as the user knows it (its object name), never by its part id
     r = runner.run_script(PLATE, deps=[dep(source="result = Box(1, 1,\n")], cache=runner.ShapeCache())
-    assert not r.ok and "ref('pin')" in r.error and "SyntaxError" in r.error and r.line == 3
+    assert not r.ok and "the cutter 'Pin' could not be built" in r.error and "SyntaxError" in r.error
+    assert "ref(" not in r.error and r.line == 3
     r = runner.run_script(PLATE, deps=[dep(source="x = 1\n")], cache=runner.ShapeCache())
-    assert not r.ok and "`result`" in r.error and r.line == 3
+    assert not r.ok and "the cutter 'Pin'" in r.error and "`result`" in r.error and r.line == 3
+
+
+def test_a_nested_failure_names_the_part_that_failed():
+    holder = ("with BuildPart() as part:\n    insert(ref(\"pin\"))  # feature: bool_1\nresult = part.part\n")
+    deps = [dep("holder", holder, "holder-1", moved(0, 0, 0), deps=[dep(source="raise ValueError('bad')\n")],
+                name="Holder")]
+    r = runner.run_script(PLATE.replace('ref("pin")', 'ref("holder")'), deps=deps, cache=runner.ShapeCache())
+    assert not r.ok and "the cutter 'Pin' could not be built: ValueError: bad" in r.error and "ref(" not in r.error
+
+
+def test_unplaced_dependency_is_named():
+    r = runner.run_script(PLATE, deps=[dep(matrices=[])], cache=runner.ShapeCache())
+    assert not r.ok and "the cutter 'Pin' is not placed anywhere" in r.error and r.line == 3
 
 
 def test_scaled_placement_is_refused():
     r = runner.run_script(PLATE, deps=[dep(matrix=[2, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0])],
                           cache=runner.ShapeCache())
-    assert not r.ok and "scaled" in r.error and r.line == 3
+    assert not r.ok and "the cutter 'Pin' is scaled" in r.error and r.line == 3
 
 
 def test_cache_drops_the_least_recently_used():
