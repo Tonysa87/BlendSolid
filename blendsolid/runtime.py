@@ -4,6 +4,8 @@ A timer runs tick(): it applies worker events, then submits every part whose scr
 hash stored on its mesh. Parameter edits, script edits, undo/redo and file loads all converge through this
 single path; nothing is decided in undo handlers (evaluated data isn't ready there — spike finding).
 """
+import atexit
+
 import bpy
 from bpy.app.handlers import persistent
 
@@ -212,7 +214,15 @@ def _on_load(*_):
     _reset_trust()
 
 
+def _kill_worker_at_exit():
+    """Blender doesn't call unregister() on quit: make sure the worker goes away with it (the worker also
+    watches its parent by itself, for crashes and kills where atexit doesn't run)."""
+    if _client is not None:
+        _client.kill()
+
+
 def register():
+    atexit.register(_kill_worker_at_exit)
     _reset_trust()  # the add-on may be enabled with a file already open: that file's parts came from disk
     bpy.app.handlers.load_post.append(_on_load)
     bpy.app.timers.register(_timer, first_interval=TICK_INTERVAL, persistent=True)
@@ -220,6 +230,7 @@ def register():
 
 def unregister():
     global _client
+    atexit.unregister(_kill_worker_at_exit)
     if bpy.app.timers.is_registered(_timer):
         bpy.app.timers.unregister(_timer)
     if _on_load in bpy.app.handlers.load_post:

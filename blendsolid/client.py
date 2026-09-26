@@ -46,7 +46,8 @@ class WorkerClient:
         try:
             try:
                 self._proc = subprocess.Popen(
-                    [self.python, "-I", self.server, str(listener.getsockname()[1]), self.libs, self.pycache_dir],
+                    [self.python, "-I", self.server, str(listener.getsockname()[1]), self.libs, self.pycache_dir,
+                     str(os.getpid())],  # the worker exits by itself when this process is gone
                     env=env, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=self._stderr,
                     creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
             except OSError as e:
@@ -100,6 +101,10 @@ class WorkerClient:
                 self._proc.wait(timeout=2)
             except (OSError, subprocess.TimeoutExpired):
                 pass
+        self._kill()
+
+    def kill(self):
+        """Kill the worker right away (e.g. at interpreter exit), without asking it to quit first."""
         self._kill()
 
     def _kill(self):

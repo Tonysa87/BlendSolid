@@ -1,19 +1,91 @@
 """BlendSolid geometry worker: runs history scripts with build123d in its own Python process.
 
 Started by blendsolid.client with Blender's Python in isolated mode:
-    python -I server.py <port> <libs_dir> <pycache_dir>     (env: BLENDSOLID_WORKER_TOKEN)
+    python -I server.py <port> <libs_dir> <pycache_dir> <parent_pid>     (env: BLENDSOLID_WORKER_TOKEN)
 It connects back to Blender on 127.0.0.1:<port>, proves the token, imports build123d, reports "ready",
 then answers one request at a time. This process, not Blender, owns sys.path and the heavy imports.
+
+It never outlives Blender: a watchdog thread exits the process as soon as the parent is gone, even while a
+script is stuck in an endless loop (Blender doesn't call add-ons' unregister() on quit, and may crash).
 """
 import os
 import socket
 import sys
+import threading
 import time
 from multiprocessing.connection import Connection
+
+WATCH_INTERVAL = 0.25
+
+
+def _exit_with_parent_posix(parent_pid):
+    """Linux also gets PR_SET_PDEATHSIG, which works even while a C extension holds the GIL; the polling
+    thread below covers every POSIX system (the parent's death re-parents us: getppid() changes)."""
+    if sys.platform.startswith("linux"):
+        try:
+            import ctypes
+            import signal
+            ctypes.CDLL(None, use_errno=True).prctl(1, signal.SIGKILL)  # 1 = PR_SET_PDEATHSIG
+        except Exception:
+            pass
+    initial_ppid = os.getppid()
+
+    def parent_alive():
+        if os.getppid() != initial_ppid:
+            return False
+        if parent_pid == initial_ppid:
+            return True
+        try:  # started through some intermediate process: also watch the PID Blender passed explicitly
+            os.kill(parent_pid, 0)
+        except ProcessLookupError:
+            return False
+        except OSError:
+            pass
+        return True
+
+    def watch():
+        while parent_alive():
+            time.sleep(WATCH_INTERVAL)
+        os._exit(0)
+
+    if not parent_alive():
+        os._exit(0)
+    threading.Thread(target=watch, name="blendsolid-parent-watchdog", daemon=True).start()
+
+
+def _exit_with_parent_windows(parent_pid):
+    import ctypes
+    from ctypes import wintypes
+    synchronize, infinite, error_invalid_parameter = 0x00100000, 0xFFFFFFFF, 87
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32.OpenProcess.restype = wintypes.HANDLE
+    kernel32.OpenProcess.argtypes = (wintypes.DWORD, wintypes.BOOL, wintypes.DWORD)
+    kernel32.WaitForSingleObject.restype = wintypes.DWORD
+    kernel32.WaitForSingleObject.argtypes = (wintypes.HANDLE, wintypes.DWORD)
+    handle = kernel32.OpenProcess(synchronize, False, parent_pid)  # opened now, while the parent is alive
+    if not handle:
+        if ctypes.get_last_error() == error_invalid_parameter:
+            os._exit(0)  # no such process: the parent is already gone
+        return  # can't watch it (should not happen for our own parent): run unwatched rather than not at all
+
+    def watch():
+        kernel32.WaitForSingleObject(handle, infinite)
+        os._exit(0)
+
+    threading.Thread(target=watch, name="blendsolid-parent-watchdog", daemon=True).start()
+
+
+def exit_with_parent(parent_pid):
+    if sys.platform == "win32":
+        _exit_with_parent_windows(parent_pid)
+    else:
+        _exit_with_parent_posix(parent_pid)
 
 
 def main():
     port, libs = int(sys.argv[1]), sys.argv[2]
+    parent_pid = int(sys.argv[4]) if len(sys.argv) > 4 and sys.argv[4] else os.getppid()
+    exit_with_parent(parent_pid)
     if len(sys.argv) > 3 and sys.argv[3]:
         sys.pycache_prefix = sys.argv[3]
     here = os.path.dirname(os.path.abspath(__file__))

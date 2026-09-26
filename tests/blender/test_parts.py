@@ -320,3 +320,12 @@ def test_worker_start_error_marks_remaining_objects_failed_without_retrying(clea
     assert len(calls) == 1  # only the first object actually called submit()
     assert "geometry worker" in a.blendsolid_error
     assert "geometry worker" in b.blendsolid_error
+
+
+def test_exit_handler_kills_the_worker(clean):
+    new_part()
+    c = runtime.client()
+    proc = c._proc
+    assert proc is not None and proc.poll() is None
+    runtime._kill_worker_at_exit()  # registered with atexit: Blender never calls unregister() on quit
+    assert c.state == "stopped" and proc.poll() is not None
