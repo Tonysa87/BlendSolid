@@ -47,6 +47,14 @@ def mm3(obj):
     return part.mesh_volume(obj.data) / part.unit_factor() ** 3
 
 
+def select(active, *others):
+    for obj in bpy.context.view_layer.objects:
+        obj.select_set(False)
+    for obj in (active, *others):
+        obj.select_set(True)
+    bpy.context.view_layer.objects.active = active
+
+
 def run_probe(extra_args, probe):
     """Spawn a headless Blender with the add-on enabled and run `probe` (a --python-expr snippet) in it.
     `extra_args` are inserted before --python-expr (e.g. flags like "-Y"). Returns combined stdout/stderr."""

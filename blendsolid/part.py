@@ -314,3 +314,12 @@ def scaled_message(obj):
     """The message shown wherever a scaled part can't be used (gizmos, cutters): its own name, so callers can
     build a fuller sentence around it (e.g. deps.relative_matrix's "The cutter <this>")."""
     return f"'{obj.name}' is scaled: keep its scale 1 and change its size parameters instead"
+
+
+def not_canonical_message(obj, error, detail=False):
+    """The message shown wherever a tool refuses to edit obj's script because it isn't in the canonical
+    feature layout (script_model.NotCanonical). Non-canonical for standard users (ADR 0002: no script syntax
+    or line numbers); `detail`, when true (advanced users who can see scripts), appends str(error)."""
+    message = f"{obj.name} was made by an older BlendSolid version or edited by hand: the tools can't add " \
+              f"features to it"
+    return f"{message} ({error})" if detail else message

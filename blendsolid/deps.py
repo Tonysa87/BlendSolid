@@ -44,6 +44,10 @@ def references(source):
 
 def relative_matrix(target, dep, factor):
     """The 3x4 row-major transform from dep's frame to target's frame, translation in millimetres."""
+    if part.is_scaled(target):
+        # checked before composing the matrix: a scaled target skews the composed matrix's scale too, and
+        # would otherwise be misreported as a scaled cutter (whichever cutter happens to be resolved first).
+        raise DepError(f"This part {part.scaled_message(target)}")
     m = target.matrix_world.inverted_safe() @ dep.matrix_world
     if any(abs(s - 1.0) > SCALE_TOLERANCE for s in m.to_scale()):
         raise DepError(f"The cutter {part.scaled_message(dep)}")
@@ -111,3 +115,17 @@ def tag_of(obj, factor=None, index=None):
         return resolve(obj, source, factor, part_index() if index is None else index).tag
     except DepError as e:
         return error_tag(source, factor, str(e))
+
+
+def uses(obj, pid, index, _seen=None):
+    """Does obj's script use part `pid`, directly or through the parts it uses? (Tolerates loops.)"""
+    seen = set() if _seen is None else _seen
+    for ref_id in references(part.source_of(obj)):
+        if ref_id == pid:
+            return True
+        instances = index.get(ref_id)
+        if instances is not None and ref_id not in seen:
+            seen.add(ref_id)
+            if uses(instances[0], pid, index, seen):
+                return True
+    return False

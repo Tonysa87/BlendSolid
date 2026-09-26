@@ -117,6 +117,19 @@ def test_scaled_cutter_is_an_error(clean):
     wait_for(lambda: plate.blendsolid_error == "" and up_to_date(plate))
 
 
+def test_scaled_target_is_an_error(clean):
+    """A scaled TARGET must be reported as such, not misattributed to the (unscaled) cutter (the composed
+    matrix relative_matrix() checks is skewed by the target's own scale too)."""
+    plate, pin = plate_and_pin()
+    plate.scale = (2.0, 2.0, 2.0)
+    bpy.context.view_layer.update()
+    runtime.tick()
+    assert "This part 'Plate' is scaled" in plate.blendsolid_error
+    plate.scale = (1.0, 1.0, 1.0)
+    bpy.context.view_layer.update()
+    wait_for(lambda: plate.blendsolid_error == "" and up_to_date(plate))
+
+
 def test_untrusted_cutter_is_an_error_until_trusted(clean):
     fp = bpy.context.preferences.filepaths
     saved = fp.use_scripts_auto_execute
