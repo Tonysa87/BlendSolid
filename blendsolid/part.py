@@ -26,10 +26,6 @@ def is_syncing():
     return _syncing
 
 
-def part_objects():
-    return [o for o in bpy.data.objects if o.type == "MESH" and o.blendsolid_script is not None]
-
-
 def source_of(obj):
     return obj.blendsolid_script.as_string()
 
@@ -38,9 +34,14 @@ def source_hash(source):
     return hashlib.sha1(source.encode("utf-8")).hexdigest()
 
 
+def tag_for(source):
+    """The tag stored on a mesh computed from `source` (see applied_hash())."""
+    return source_hash(source)
+
+
 def current_tag(obj):
     """The tag a mesh computed from obj's current script carries (compare with applied_hash())."""
-    return source_hash(source_of(obj))
+    return tag_for(source_of(obj))
 
 
 def applied_hash(obj):
@@ -137,63 +138,88 @@ def set_param(obj, name, value):
     obj.blendsolid_script.from_string(params.set_param(source_of(obj), name, value))
 
 
-def ensure_unique_scripts():
-    """Reconcile scripts after object/mesh operations BlendSolid doesn't observe directly:
+def is_linked(obj):
+    """Does obj's part come (even partly) from a library? Such parts are read-only: never written to, never
+    submitted (their file's own session keeps them up to date)."""
+    script = obj.blendsolid_script
+    return bool(obj.library or obj.data.library or (script is not None and script.library))
+
+
+def part_groups():
+    """One pass over bpy.data.objects: every local part object, grouped by mesh IDENTITY (session_uid, not
+    name: a linked library mesh can share a local mesh's name), each group sorted by object name. Objects
+    sharing a mesh are one part; the first of each group is its primary, the only one reconciled/submitted.
+    Linked parts (is_linked) are left out entirely. tick() builds this once and passes it around, so the
+    tick stays linear in the number of objects."""
+    groups = {}
+    for obj in bpy.data.objects:
+        if obj.type != "MESH" or obj.blendsolid_script is None or is_linked(obj):
+            continue
+        groups.setdefault(obj.data.session_uid, []).append(obj)
+    for objs in groups.values():
+        if len(objs) > 1:
+            objs.sort(key=lambda o: o.name)
+    return groups
+
+
+def ensure_unique_scripts(groups, tag_of):
+    """Reconcile scripts after object/mesh operations BlendSolid doesn't observe directly. `groups` comes from
+    part_groups(); `tag_of(text)` gives the tag a mesh computed from that script would carry.
 
     - Ctrl+L (Link Object Data), or any other way several objects end up sharing one mesh: those objects
-      are ONE part (controller ruling), so they must share one script too. The later ones (sorted by name)
-      adopt the first one's script.
+      are ONE part (controller ruling), so they must share one script too. The winner is the script whose
+      tag equals the mesh's applied hash, i.e. the script the shared mesh was computed from (with Ctrl+L,
+      the active object's); only if none matches, the first object's by name.
     - Shift+D (full duplicate): the object and its mesh are copied but the Text is not; an independent copy
-      (ends up on a different mesh than the object it was copied from) gets its own script. Alt+D (linked
+      (a different mesh sharing the script of another part) gets its own copy of the script. Alt+D (linked
       duplicate) already shares both mesh and script, so it is left untouched by this step.
+    Texts are compared by identity, never by name.
     """
-    by_mesh = {}
-    for obj in part_objects():
-        by_mesh.setdefault(obj.data.name, []).append(obj)
-    for objs in by_mesh.values():
+    for objs in groups.values():
         if len(objs) < 2:
             continue
-        objs.sort(key=lambda o: o.name)
-        first = objs[0]
-        for obj in objs[1:]:
-            if obj.blendsolid_script != first.blendsolid_script:
-                obj.blendsolid_script = first.blendsolid_script
+        first_script = objs[0].blendsolid_script
+        if all(o.blendsolid_script == first_script for o in objs):
+            continue
+        applied = applied_hash(objs[0])
+        winner = next((o.blendsolid_script for o in objs if tag_of(o.blendsolid_script) == applied), first_script)
+        for obj in objs:
+            if obj.blendsolid_script != winner:
+                obj.blendsolid_script = winner
 
     by_text = {}
-    for obj in part_objects():
-        by_text.setdefault(obj.blendsolid_script.name, []).append(obj)
-    for objs in by_text.values():
-        objs.sort(key=lambda o: o.name)
-        first_mesh = objs[0].data.name
-        for obj in objs[1:]:
-            if obj.data.name != first_mesh:  # an independent copy, not a linked duplicate
-                source_text = obj.blendsolid_script
-                obj.blendsolid_script = source_text.copy()
-                if trust.text_trusted(source_text):
-                    trust.mark_trusted(obj.blendsolid_script)  # a copy is exactly as trusted as its source
+    for objs in groups.values():  # every object of a group now shares one script
+        by_text.setdefault(objs[0].blendsolid_script.session_uid, []).append(objs)
+    for group_list in by_text.values():
+        if len(group_list) < 2:
+            continue
+        group_list.sort(key=lambda g: g[0].name)
+        for objs in group_list[1:]:  # an independent copy, not a linked duplicate
+            source_text = objs[0].blendsolid_script
+            copy = copy_script(source_text)
+            for obj in objs:
+                obj.blendsolid_script = copy
 
 
-def primary_objects():
-    """One object per distinct mesh: the one whose name sorts first. Objects sharing a mesh are one part
-    (see ensure_unique_scripts): only the primary object needs to be reconciled/submitted for that part."""
-    by_mesh = {}
-    for obj in part_objects():
-        current = by_mesh.get(obj.data.name)
-        if current is None or obj.name < current.name:
-            by_mesh[obj.data.name] = obj
-    return sorted(by_mesh.values(), key=lambda o: o.name)
+def copy_script(text):
+    copy = text.copy()
+    if trust.text_trusted(text):
+        trust.mark_trusted(copy)  # a copy is exactly as trusted as its source (ADR 0004)
+    return copy
 
 
 def mesh_siblings(obj):
-    """Other part objects sharing obj's mesh (e.g. after Ctrl+L Link Object Data, or Alt+D). These are not
-    reconciled themselves (see primary_objects()), but their own blendsolid_params/blendsolid_error must
-    still reflect the primary's state, since Task 7's panel shows them per object."""
-    return [o for o in part_objects() if o is not obj and o.data.name == obj.data.name]
+    """Other local part objects sharing obj's mesh (e.g. after Ctrl+L Link Object Data, or Alt+D). A full
+    scan: for UI code acting on one object; tick() uses part_groups() instead."""
+    mesh = obj.data
+    return [o for o in bpy.data.objects
+            if o != obj and o.type == "MESH" and o.data == mesh and o.blendsolid_script is not None
+            and not is_linked(o)]
 
 
 def primary(obj):
     """The primary object for obj's part: obj itself, or whichever object sharing its mesh sorts first by
-    name (see primary_objects()). runtime._inflight/_failed/_synced are keyed by the primary's object name,
-    so anything that must act on the actual part (e.g. the Recompute operator) needs to resolve this first
-    rather than acting on whatever object happens to be active."""
+    name (see part_groups()). runtime state is keyed by the primary's object name, so anything that must act
+    on the actual part (e.g. the Recompute operator) needs to resolve this first rather than acting on
+    whatever object happens to be active."""
     return min((obj, *mesh_siblings(obj)), key=lambda o: o.name)

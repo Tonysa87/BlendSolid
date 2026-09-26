@@ -39,7 +39,7 @@ def test_script_is_hidden_by_default(clean):
 
 
 def test_recompute_operator_on_sibling_forces_primary(clean):
-    """Objects sharing a mesh are one part (part.primary_objects()): tick() only ever submits the primary,
+    """Objects sharing a mesh are one part (part.part_groups()): tick() only ever submits the primary,
     keyed by its own object name in runtime._inflight/_failed/_synced. If the primary previously failed and
     the user hits Recompute while a *non-primary* sibling is active, runtime.force() must still clear that
     failure record for the primary -- otherwise the shared mesh's applied hash is cleared but tick() keeps

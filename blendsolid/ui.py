@@ -7,7 +7,7 @@ from . import params, part, trust
 
 def _on_param_value(self, context):
     obj = self.id_data
-    if part.is_syncing() or obj.blendsolid_script is None:
+    if part.is_syncing() or obj.blendsolid_script is None or part.is_linked(obj):
         return
     try:
         part.set_param(obj, self.name, self.value)
@@ -18,7 +18,7 @@ def _on_param_value(self, context):
         # good source) rather than leaving it stuck forever. Written to every object sharing this mesh
         # (this object plus its siblings, if any), so tick()'s primary-to-sibling mirroring agrees with it
         # instead of overwriting it on the next tick.
-        tag = part.source_hash(part.source_of(obj))
+        tag = part.current_tag(obj)
         for target in (obj, *part.mesh_siblings(obj)):
             part.set_error(target, str(e), tag=tag)
 
@@ -108,11 +108,12 @@ class BLENDSOLID_OT_recompute(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return context.object is not None and context.object.blendsolid_script is not None
+        obj = context.object
+        return obj is not None and obj.blendsolid_script is not None and not part.is_linked(obj)
 
     def execute(self, context):
         from . import runtime
-        # objects sharing a mesh are one part (part.primary_objects()); tick() only ever submits/tracks the
+        # objects sharing a mesh are one part (part.part_groups()); tick() only ever submits/tracks the
         # primary by its own object name, so force() must act on the primary even when a non-primary
         # sibling happens to be the active object, or the Recompute click would silently do nothing.
         runtime.force(part.primary(context.object))
@@ -131,13 +132,18 @@ class BLENDSOLID_PT_part(bpy.types.Panel):
         layout.operator("blendsolid.new_part", icon="ADD")
         if obj is None or obj.blendsolid_script is None:
             return
+        from . import runtime
+        status = runtime.part_status(obj)
         col = layout.column(align=True)
+        col.enabled = status != "linked"  # a library part is read-only
         for item in obj.blendsolid_params:
             col.prop(item, "value", text=item.name.replace("_", " ").capitalize())
         advanced = scripts_visible(context)
-        from . import runtime
-        status = runtime.part_status(obj)
-        if status == "untrusted":
+        if status == "linked":
+            layout.label(text="Linked from a library: edit it in its own file", icon="LINKED")
+        elif status == "edit_mode":
+            layout.label(text="Leave Edit Mode to rebuild", icon="EDITMODE_HLT")
+        elif status == "untrusted":
             box = layout.box()
             box.label(text="Scripts in this file are not trusted", icon="LOCKED")
             box.label(text="Auto Run Python Scripts is off or excludes this file:", icon="BLANK1")

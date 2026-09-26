@@ -39,27 +39,39 @@ def force(obj):
         del obj.data[part.HASH_KEY]
 
 
+def _local_object(name):
+    """Runtime state is keyed by the primary's object NAME: stable within a session (across undo/redo, unlike
+    Python references), readable in errors, and unique, because only LOCAL objects are ever submitted
+    (part.part_groups() leaves library parts out) and local object names are unique. The lookup must
+    therefore also be local-only: a linked library object may carry the same name."""
+    return bpy.data.objects.get((name, None))
+
+
 def _handle(event):
     kind = event["type"]
     if kind == "crashed":
         for key, drop_tag in event.get("dropped", []):
-            if _inflight.get(key) == drop_tag:
-                del _inflight[key]      # resubmitted by the next tick (restarting the worker)...
+            if _inflight.get(key) != drop_tag:
+                continue
+            del _inflight[key]          # resubmitted by the next tick (restarting the worker)...
             if event["key"] is None:    # ...unless the worker can't even start: don't loop
                 _failed[key] = drop_tag
-                obj = bpy.data.objects.get(key)
+                obj = _local_object(key)
                 if obj is not None:
                     part.set_error(obj, f"The geometry worker failed: {event['error']}", tag=drop_tag)
     if kind not in ("result", "crashed") or not event.get("key"):
         return
     key, tag = event["key"], event["tag"]
-    if _inflight.get(key) == tag:
-        del _inflight[key]
-    obj = bpy.data.objects.get(key)
-    if obj is None or obj.blendsolid_script is None or not trust.is_trusted(obj):
+    if _inflight.get(key) != tag:
+        return  # not (or no longer) awaited, e.g. submitted before a file load reset the state: ignore it
+    del _inflight[key]
+    obj = _local_object(key)
+    if obj is None or obj.blendsolid_script is None or part.is_linked(obj) or not trust.is_trusted(obj):
         return
-    if tag != part.source_hash(part.source_of(obj)):
+    if tag != part.current_tag(obj):
         return  # stale: the script changed meanwhile, the next tick submits the new one
+    if obj.data.is_editmode:
+        return  # a mesh can't be rebuilt in Edit Mode: drop it, the tick resubmits after leaving Edit Mode
     if kind == "result" and event["ok"]:
         _failed.pop(key, None)
         part.apply_result(obj, event)
@@ -69,13 +81,10 @@ def _handle(event):
         part.set_error(obj, message, event.get("line"), tag)
 
 
-def _mirror_to_siblings(primary, source, tag):
-    """Objects sharing primary's mesh are never reconciled themselves (see part.primary_objects()), but
-    their own blendsolid_params/blendsolid_error must still reflect the primary's current state. `source`
-    and `tag` are whatever tick() already computed for primary (possibly None, if that failed early)."""
-    siblings = part.mesh_siblings(primary)
-    if not siblings:
-        return
+def _mirror_to_siblings(primary, siblings, source, tag):
+    """Objects sharing primary's mesh are never reconciled themselves (see part.part_groups()), but their
+    own blendsolid_params/blendsolid_error must still reflect the primary's current state. `source` and
+    `tag` are whatever tick() already computed for primary (possibly None, if that failed early)."""
     primary_state = (primary.blendsolid_error, primary.blendsolid_error_line, part.error_tag(primary))
     for sib in siblings:
         if source is not None and _synced.get(sib.name) != tag:
@@ -89,9 +98,10 @@ def _mirror_to_siblings(primary, source, tag):
             part.set_error(sib, primary.blendsolid_error, primary.blendsolid_error_line, part.error_tag(primary))
 
 
-def tick():
-    c = client()
-    for event in c.poll():
+def _poll_events():
+    if _client is None:
+        return
+    for event in _client.poll():
         try:
             _handle(event)
         except Exception as e:  # one malformed/unexpected event must not stop the others from being applied
@@ -100,18 +110,23 @@ def tick():
                 _inflight.pop(key, None)
                 if tag is not None:
                     _failed[key] = tag  # don't resubmit the exact tag whose result we just failed to handle
-                obj = bpy.data.objects.get(key)
+                obj = _local_object(key)
                 if obj is not None:
                     part.set_error(obj, f"Internal error handling the worker event: {type(e).__name__}: {e}",
                                    event.get("line"), tag)
 
-    part.ensure_unique_scripts()
-    worker_start_error = None  # once the worker itself fails to start, don't retry it for every other part
-    for obj in part.primary_objects():
+
+def tick():
+    _poll_events()
+    groups = part.part_groups()  # built once per tick: everything below is linear in the number of objects
+    part.ensure_unique_scripts(groups, lambda text: part.tag_for(text.as_string()))
+    worker_error = None  # once the worker itself fails to start, don't retry it for every other part
+    for objs in sorted(groups.values(), key=lambda g: g[0].name):
+        obj, siblings = objs[0], objs[1:]
         source = tag = None
         try:
             source = part.source_of(obj)
-            tag = part.source_hash(source)
+            tag = part.tag_for(source)
 
             failed_tag = _failed.get(obj.name)
             if failed_tag is not None and failed_tag != tag:
@@ -131,38 +146,39 @@ def tick():
                 continue
             if not trust.is_trusted(obj):
                 continue  # ADR 0004: keep showing the cached mesh, never run the script
+            if obj.data.is_editmode:
+                continue  # rebuilt once the mesh (shared by every object of the part) leaves Edit Mode
             if tag in (_inflight.get(obj.name), _failed.get(obj.name)):
                 continue
 
-            if worker_start_error is not None:
-                # the worker already failed to start earlier in this same tick: don't call submit() again
-                # (it would just block up to start_timeout once more); mark this part failed the same way.
+            if worker_error is None:
+                try:
+                    client().submit(obj.name, source, tag)
+                except WorkerStartError as e:
+                    worker_error = e
+            if worker_error is not None:
+                # the worker failed to start (in this tick): don't try again for every other part (it could
+                # block up to start_timeout each time); mark the part failed until its script changes.
                 _failed[obj.name] = tag
-                part.set_error(obj, f"Cannot start the geometry worker: {worker_start_error}", tag=tag)
-                continue
-            try:
-                c.submit(obj.name, source, tag)
-            except WorkerStartError as e:
-                worker_start_error = e
-                _failed[obj.name] = tag
-                part.set_error(obj, f"Cannot start the geometry worker: {e}", tag=tag)
+                part.set_error(obj, f"Cannot start the geometry worker: {worker_error}", tag=tag)
                 continue
             _inflight[obj.name] = tag
         except Exception as e:  # one object's failure must not stop the others from being reconciled
             _inflight.pop(obj.name, None)
             if tag is None:  # the exception happened before the tag was even computed: try once more
                 try:
-                    tag = part.source_hash(part.source_of(obj))
+                    tag = part.tag_for(part.source_of(obj))
                 except Exception:
                     tag = None  # still unknown: leave the error untagged rather than guess wrong
             if tag is not None:
                 _failed[obj.name] = tag  # don't resubmit the exact tag that just failed to reconcile
             part.set_error(obj, f"Internal error while reconciling: {type(e).__name__}: {e}", tag=tag)
         finally:
-            try:
-                _mirror_to_siblings(obj, source, tag)
-            except Exception:
-                pass  # mirroring must never make the remaining primaries in this tick get skipped
+            if siblings:
+                try:
+                    _mirror_to_siblings(obj, siblings, source, tag)
+                except Exception:
+                    pass  # mirroring must never make the remaining primaries in this tick get skipped
     return TICK_INTERVAL
 
 
@@ -175,9 +191,14 @@ def _timer():
 
 
 def part_status(obj):
-    """What the panel says about obj's part beyond its error: "untrusted" (ADR 0004) or None."""
+    """What the panel says about obj's part beyond its error: "linked" (from a library, read-only),
+    "untrusted" (ADR 0004), "edit_mode" (stale, rebuilt after leaving Edit Mode), or None."""
+    if part.is_linked(obj):
+        return "linked"
     if not trust.is_trusted(obj):
         return "untrusted"
+    if obj.data.is_editmode and part.current_tag(obj) != part.applied_hash(obj):
+        return "edit_mode"
     return None
 
 

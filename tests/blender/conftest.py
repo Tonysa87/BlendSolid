@@ -16,12 +16,8 @@ def addon():
 @pytest.fixture
 def clean(addon):
     """Empty scene and fresh runtime state for each test."""
-    for obj in list(bpy.data.objects):
-        bpy.data.objects.remove(obj)
-    for text in list(bpy.data.texts):
-        bpy.data.texts.remove(text)
-    for mesh in list(bpy.data.meshes):
-        bpy.data.meshes.remove(mesh)
+    for coll in (bpy.data.objects, bpy.data.texts, bpy.data.meshes, bpy.data.libraries):
+        bpy.data.batch_remove(list(coll))  # one pass: some tests create thousands of objects
     from blendsolid import runtime
     if hasattr(runtime, "reset_state"):
         runtime.reset_state()
