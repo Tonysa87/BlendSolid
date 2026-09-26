@@ -2,9 +2,9 @@
 
 ## Success criterion
 
-From `docs/spec.md`, milestone 1:
+From `docs/spec.md`'s milestone table, milestone 1's success criterion, verbatim:
 
-> History script saved in the `.blend`; changing a parameter recomputes correctly; worker in a separate process.
+> build123d script saved in the `.blend`; changing a parameter → correct recomputation; worker in a separate process
 
 **Met.** The part's history is a build123d script stored as a Blender text datablock referenced from the object
 (`blendsolid/part.py`); every parameter change (panel widgets, undo/redo, or a hand-edited script) is applied by
@@ -38,9 +38,14 @@ BL=~/blender/blender-5.2.2-linux-x64/blender tools/test.sh
 ## Smoke test (Step 2)
 
 `tools/smoke_installed.py`, run as `blender -b --python tools/smoke_installed.py` (**no** `--factory-startup`, so the
-extension enabled in the user's preferences stays enabled): finds the installed `bl_ext.*.blendsolid` module,
-calls `blendsolid.new_part()`, ticks the runtime until the worker returns a mesh or an error (180 s timeout),
-computes the mesh volume and compares it to the analytical volume of the default part
+extension enabled in the user's preferences stays enabled): finds the installed `bl_ext.*.blendsolid` module, then
+before running anything else, hashes (SHA-256) every `.py` file under the repo's `blendsolid/` (excluding
+`__pycache__` and `worker_libs`) and compares each against the file at the same relative path in the installed
+package directory (`os.path.dirname` of the module's `__file__`); any missing or differing file makes it print
+`SMOKE FAIL: installed extension doesn't match the repository` plus the list of differing files, and exit 1 —
+this guards against a false PASS from a stale install (see "Review fix" below). Only once the sources match does
+it call `blendsolid.new_part()`, tick the runtime until the worker returns a mesh or an error (180 s timeout),
+compute the mesh volume, and compare it to the analytical volume of the default part
 (box + boss above the box top − vertical fillet material), printing `SMOKE PASS`/`SMOKE FAIL` and exiting
 accordingly.
 
@@ -83,7 +88,7 @@ first result after 3.7 s, volume 24454.7 (expected 24458.2), error: -
 SMOKE PASS
 ```
 
-- Zip size: **255.1 MB** (matches the ~255 MB estimate in the task brief).
+- Zip size: **255.1 MB** (matches ADR 0001's "Package size" measurement of ~255 MB for Linux).
 - Install replaced the pre-existing 0.0.1 spike extension of the same id ("Reinstalled"), as expected.
 - First worker result: **3.7 s**; volume within 0.014% of the analytical expectation (tolerance 1%).
 - Build wall time ~1m19s (network wheel downloads dominate; no local wheel cache was reused between the two
@@ -111,7 +116,7 @@ first result after 1.7 s, volume 24454.7 (expected 24458.2), error: -
 SMOKE PASS
 ```
 
-- Zip size: **225.8 MB** (matches the ~226 MB estimate).
+- Zip size: **225.8 MB** (matches ADR 0001's "Package size" measurement of ~226 MB for Windows).
 - Install replaced the pre-existing 0.0.1 spike extension, as expected.
 - Cold run (first launch of Windows Blender after install, worker binaries not yet in the OS file cache):
   first worker result after **13.5 s**.
@@ -128,10 +133,49 @@ Only the portable Windows Blender at `/mnt/e/blender-5.2.2-windows-x64` was used
 **Pending** — the controller runs this step directly with the maintainer, using the zip installed in Step 4
 (`E:\blender-5.2.2-windows-x64\blender.exe`). Not executed as part of this task.
 
+## Review fix: false PASS against a stale install
+
+Code review found that `tools/smoke_installed.py` could report `SMOKE PASS` against a **stale** install: it only
+looked for *any* enabled `bl_ext.*.blendsolid` module, so if `extension install-file` silently failed to replace
+an already-installed extension, the smoke test would still run against the old code and pass.
+
+Fix: before running anything, the script now hashes (SHA-256) every `.py` file under the repo's `blendsolid/`
+(excluding `__pycache__` and `worker_libs`) and requires the file at the same relative path in the installed
+package directory to exist and match; on any mismatch it prints which files differ and
+`SMOKE FAIL: installed extension doesn't match the repository`, exit 1.
+
+Demonstrated on Linux:
+
+```
+BL=~/blender/blender-5.2.2-linux-x64/blender
+$BL --command extension install-file -r user_default -e dist/blendsolid-0.1.0-linux-x64.zip   # STATUS Reinstalled "blendsolid"
+$BL -b --python tools/smoke_installed.py
+```
+```
+first result after 3.3 s, volume 24454.7 (expected 24458.2), error: -
+SMOKE PASS
+```
+
+Then, without reinstalling, a comment line was added to the repo's `blendsolid/part.py` docstring and the smoke
+test re-run:
+
+```
+$BL -b --python tools/smoke_installed.py
+```
+```
+SMOKE FAIL: installed extension doesn't match the repository
+  part.py: content differs from the repository
+```
+(exit code 1, confirmed with `echo $?` after a non-piped run). The edit was then reverted (`git diff blendsolid/part.py`
+shows no changes), and the smoke test re-run once more to confirm it returns to `SMOKE PASS` (first result after 1.3 s).
+
+`tools/test.sh` was re-run after the fix: still 46 + 28 = 74 passed.
+
 ## Files changed in this task
 
 - `tools/build_extension.py` (new) — per-platform extension zip builder.
-- `tools/smoke_installed.py` (new) — headless smoke test of an installed extension.
+- `tools/smoke_installed.py` (new) — headless smoke test of an installed extension; hashes the repo's `.py`
+  files against the installed package before running the geometry check (review fix, see above).
 - `blendsolid/blender_manifest.toml` — shortened `tagline` to fit Blender's 64-character manifest limit
   (bug found while building, see above).
 - `docs/milestone-1-report.md` (new, this file).

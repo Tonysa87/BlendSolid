@@ -3,8 +3,10 @@
 Usage: blender -b --python tools/smoke_installed.py
 (no --factory-startup: it would skip the preferences, where installed extensions are enabled)
 """
+import hashlib
 import importlib
 import math
+import os
 import sys
 import time
 
@@ -14,6 +16,34 @@ mod = next((m for m in sys.modules if m.endswith(".blendsolid") and m.startswith
 if mod is None:
     print("SMOKE FAIL: the blendsolid extension is not enabled")
     sys.exit(1)
+pkg = importlib.import_module(mod)
+installed_dir = os.path.dirname(os.path.abspath(pkg.__file__))
+repo_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "blendsolid")
+
+
+def sha256(path):
+    with open(path, "rb") as f:
+        return hashlib.sha256(f.read()).hexdigest()
+
+
+diffs = []
+for root, dirs, files in os.walk(repo_dir):
+    dirs[:] = [d for d in dirs if d not in ("__pycache__", "worker_libs")]
+    for name in files:
+        if not name.endswith(".py"):
+            continue
+        rel = os.path.relpath(os.path.join(root, name), repo_dir)
+        installed_file = os.path.join(installed_dir, rel)
+        if not os.path.isfile(installed_file):
+            diffs.append(f"{rel}: missing from the installed extension")
+        elif sha256(os.path.join(root, name)) != sha256(installed_file):
+            diffs.append(f"{rel}: content differs from the repository")
+if diffs:
+    print("SMOKE FAIL: installed extension doesn't match the repository")
+    for d in diffs:
+        print(f"  {d}")
+    sys.exit(1)
+
 part = importlib.import_module(mod + ".part")
 runtime = importlib.import_module(mod + ".runtime")
 
