@@ -226,7 +226,7 @@ def ensure_unique_scripts(groups, tag_of):
     for group_list in by_text.values():
         if len(group_list) < 2:
             continue
-        group_list.sort(key=lambda g: g[0].name)
+        group_list.sort(key=lambda g: g[0].session_uid)  # by age, not name: see ensure_unique_part_ids()
         for objs in group_list[1:]:  # an independent copy, not a linked duplicate
             source_text = objs[0].blendsolid_script
             copy = copy_script(source_text)
@@ -239,22 +239,21 @@ def ensure_unique_part_ids(groups):
     copying a Text datablock can produce a separate Text (a different session_uid) that still carries the
     same PART_ID_KEY as another one. Left alone, later code that indexes parts by id would keep only one of
     them (e.g. a cutter silently not cutting). `groups` comes from part_groups(), already reconciled by
-    ensure_unique_scripts() (each group now shares exactly one script). Every Text after the first — ordered
-    by the name of the first object using it, for a deterministic winner — gets a fresh id; texts are
-    compared by session_uid, never by name."""
-    first_name_by_text = {}
+    ensure_unique_scripts() (each group now shares exactly one script). The Text of the OLDEST part (the
+    lowest session_uid of a primary object using it) keeps the id and every other gets a fresh one: ties are
+    broken by age, not name, because Blender names a duplicate with the lowest free suffix (duplicating
+    'Cylinder.003' gives 'Cylinder.001'), and the copy must not take the id a ref() names. Texts are compared
+    by session_uid, never by name."""
+    oldest_by_text = {}
     for objs in groups.values():
-        text = objs[0].blendsolid_script
-        if text is None:
-            continue
-        name = objs[0].name
-        if text.session_uid not in first_name_by_text or name < first_name_by_text[text.session_uid][1]:
-            first_name_by_text[text.session_uid] = (text, name)
+        text, uid = objs[0].blendsolid_script, objs[0].session_uid
+        if text.session_uid not in oldest_by_text or uid < oldest_by_text[text.session_uid][0]:
+            oldest_by_text[text.session_uid] = (uid, text)
     by_id = {}
-    for text, name in first_name_by_text.values():
+    for uid, text in oldest_by_text.values():
         pid = text.get(PART_ID_KEY)
         if pid is not None:
-            by_id.setdefault(pid, []).append((name, text))
+            by_id.setdefault(pid, []).append((uid, text))
     for entries in by_id.values():
         if len(entries) < 2:
             continue

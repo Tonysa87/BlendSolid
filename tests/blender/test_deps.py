@@ -231,3 +231,23 @@ def test_a_cutter_cut_by_another_cutter(clean):
     bpy.context.view_layer.update()
     wait_for(lambda: up_to_date(pin) and up_to_date(plate))
     assert abs(mm3(plate) - (PLATE - HOLE)) / PLATE < 0.01
+
+
+def test_shift_d_of_a_cutter_keeps_the_original_cutting(clean):
+    """Blender names a duplicate with the lowest free suffix (duplicating 'Cylinder.003' gives 'Cylinder.001'),
+    so the copy can sort before its original by name: the original (the older object) must keep the script
+    and the id the target's ref() names, and the copy must get its own."""
+    plate, pin = plate_and_pin()
+    pin.name = "Cylinder.003"
+    pid = part.part_id(pin)
+    dup = pin.copy()  # Shift+D: object and mesh copied, the Text shared until tick copies it
+    dup.data = pin.data.copy()
+    bpy.context.collection.objects.link(dup)
+    dup.name = "Cylinder.001"
+    dup.location.x = 0.1  # out of the plate: if the copy took the id, the plate would lose its hole
+    bpy.context.view_layer.update()
+    runtime.tick()
+    assert deps.part_index()[pid][0] == pin
+    assert part.part_id(dup) not in (None, pid)
+    wait_for(lambda: up_to_date(plate) and up_to_date(dup))
+    assert abs(mm3(plate) - (PLATE - HOLE)) / PLATE < 0.01

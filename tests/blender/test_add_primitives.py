@@ -97,14 +97,17 @@ def test_shift_a_menu_lists_the_primitives(addon):
         assert hasattr(bpy.ops.blendsolid, f"add_{kind}")
 
 
-def test_duplicate_part_ids_are_made_unique(clean):
+@pytest.mark.parametrize("older_name, newer_name", [("A", "B"), ("B", "A")])
+def test_duplicate_part_ids_are_made_unique(clean, older_name, newer_name):
     """Copy/paste, Append, or copying a Text datablock can produce a separate Text (a different session_uid)
-    that still carries the source's bs_part_id. One tick must give every Text after the first a fresh id, so
-    a later part index doesn't collapse the two parts into one (a cutter silently not cutting)."""
-    a = part.new_part(bpy.context, name="A")
-    b = part.new_part(bpy.context, name="B")
-    a_id = part.part_id(a)
-    b.blendsolid_script = a.blendsolid_script.copy()  # Text.copy() keeps the id property (unlike copy_script())
+    that still carries the source's bs_part_id. One tick must give every Text but the oldest part's a fresh
+    id, so a later part index doesn't collapse the two parts into one (a cutter silently not cutting). The
+    oldest part (lowest session_uid) keeps the id whichever way the names sort."""
+    older = part.new_part(bpy.context, name=older_name)
+    newer = part.new_part(bpy.context, name=newer_name)
+    assert older.session_uid < newer.session_uid
+    older_id = part.part_id(older)
+    newer.blendsolid_script = older.blendsolid_script.copy()  # Text.copy() keeps the id (unlike copy_script())
     runtime.tick()
-    assert part.part_id(a) == a_id
-    assert part.part_id(b) not in (None, a_id)
+    assert part.part_id(older) == older_id
+    assert part.part_id(newer) not in (None, older_id)
