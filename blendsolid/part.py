@@ -5,6 +5,7 @@ and of the unit factor it was converted with (ADR 0003: scripts are in millimetr
 """
 import hashlib
 import os
+import uuid
 
 import bpy
 import numpy as np
@@ -14,6 +15,8 @@ from . import params, trust
 FACE_ATTR = "brep_face_id"
 HASH_KEY = "bs_source_hash"
 ERROR_TAG_KEY = "bs_error_tag"
+PART_ID_KEY = "bs_part_id"  # on the part's Text: identity follows the script (Shift+D copies it, Alt+D and
+                            # Ctrl+L share it — see ensure_unique_scripts()), which is what ref() names
 _TEMPLATE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "templates", "default_part.py")
 _syncing = False
 
@@ -46,15 +49,18 @@ def unit_factor(scene=None):
     return 0.001 / scale if scale > 0 else 0.001
 
 
-def tag_for(source, factor):
+def tag_for(source, factor, deps=()):
     """The tag stored on a mesh computed from `source` and converted with `factor` (see applied_hash()):
-    changing either one makes the mesh stale."""
-    return source_hash(f"{source}\0unit-factor={factor!r}")
+    changing either one makes the mesh stale. `deps`: one string per part the script uses through ref() (its
+    id, tag and placement: see deps.resolve()), so changing a cutter makes this part stale too. Without deps
+    the tag is milestone 1's, so meshes saved by it stay up to date."""
+    return source_hash(f"{source}\0unit-factor={factor!r}" + "".join(f"\0ref={d}" for d in deps))
 
 
 def current_tag(obj, factor=None):
-    """The tag a mesh computed from obj's current script carries (compare with applied_hash())."""
-    return tag_for(source_of(obj), unit_factor() if factor is None else factor)
+    """The tag a mesh computed from obj's current script (and cutters) carries (compare with applied_hash())."""
+    from . import deps
+    return deps.tag_of(obj, factor)
 
 
 def applied_hash(obj):
@@ -66,6 +72,7 @@ def new_part(context, source=None, name="Part"):
     text = bpy.data.texts.new(f".{name}.py")  # dot name: hidden from Blender's ID menus (ADR 0002)
     text.from_string(source)
     text.use_fake_user = False  # texts.new() adds a fake user: a deleted part would leave its script behind
+    text[PART_ID_KEY] = new_part_id()
     trust.mark_trusted(text)  # created in this session: the user's own script (ADR 0004)
     obj = bpy.data.objects.new(name, bpy.data.meshes.new(name))
     context.collection.objects.link(obj)
@@ -163,6 +170,14 @@ def is_linked(obj):
     return bool(obj.library or obj.data.library or (script is not None and script.library))
 
 
+def is_local_part(obj):
+    """Is obj a BlendSolid part this session owns (a mesh object with a script, not linked from a library)?
+    obj=None (e.g. context.object with nothing active) is not a part, not an error. Used wherever code needs
+    to tell a real, writable part from anything else (part_groups(), and tools that scan bpy.data.objects, or
+    poll() context.object, for parts to offer as targets/cutters/selectors)."""
+    return obj is not None and obj.type == "MESH" and obj.blendsolid_script is not None and not is_linked(obj)
+
+
 def part_groups():
     """One pass over bpy.data.objects: every local part object, grouped by mesh IDENTITY (session_uid, not
     name: a linked library mesh can share a local mesh's name), each group sorted by object name. Objects
@@ -171,7 +186,7 @@ def part_groups():
     tick stays linear in the number of objects."""
     groups = {}
     for obj in bpy.data.objects:
-        if obj.type != "MESH" or obj.blendsolid_script is None or is_linked(obj):
+        if not is_local_part(obj):
             continue
         groups.setdefault(obj.data.session_uid, []).append(obj)
     for objs in groups.values():
@@ -182,7 +197,7 @@ def part_groups():
 
 def ensure_unique_scripts(groups, tag_of):
     """Reconcile scripts after object/mesh operations BlendSolid doesn't observe directly. `groups` comes from
-    part_groups(); `tag_of(text)` gives the tag a mesh computed from that script would carry.
+    part_groups(); `tag_of(obj)` gives the tag a mesh computed from obj's script (placed as obj) would carry.
 
     - Ctrl+L (Link Object Data), or any other way several objects end up sharing one mesh: those objects
       are ONE part (controller ruling), so they must share one script too. The winner is the script whose
@@ -200,7 +215,7 @@ def ensure_unique_scripts(groups, tag_of):
         if all(o.blendsolid_script == first_script for o in objs):
             continue
         applied = applied_hash(objs[0])
-        winner = next((o.blendsolid_script for o in objs if tag_of(o.blendsolid_script) == applied), first_script)
+        winner = next((o.blendsolid_script for o in objs if tag_of(o) == applied), first_script)
         for obj in objs:
             if obj.blendsolid_script != winner:
                 obj.blendsolid_script = winner
@@ -211,7 +226,7 @@ def ensure_unique_scripts(groups, tag_of):
     for group_list in by_text.values():
         if len(group_list) < 2:
             continue
-        group_list.sort(key=lambda g: g[0].name)
+        group_list.sort(key=lambda g: g[0].session_uid)  # by age, not name: see ensure_unique_part_ids()
         for objs in group_list[1:]:  # an independent copy, not a linked duplicate
             source_text = objs[0].blendsolid_script
             copy = copy_script(source_text)
@@ -219,9 +234,38 @@ def ensure_unique_scripts(groups, tag_of):
                 obj.blendsolid_script = copy
 
 
+def ensure_unique_part_ids(groups):
+    """Reconcile part ids after operations ensure_unique_scripts() doesn't cover: Copy/paste, Append, or
+    copying a Text datablock can produce a separate Text (a different session_uid) that still carries the
+    same PART_ID_KEY as another one. Left alone, later code that indexes parts by id would keep only one of
+    them (e.g. a cutter silently not cutting). `groups` comes from part_groups(), already reconciled by
+    ensure_unique_scripts() (each group now shares exactly one script). The Text of the OLDEST part (the
+    lowest session_uid of a primary object using it) keeps the id and every other gets a fresh one: ties are
+    broken by age, not name, because Blender names a duplicate with the lowest free suffix (duplicating
+    'Cylinder.003' gives 'Cylinder.001'), and the copy must not take the id a ref() names. Texts are compared
+    by session_uid, never by name."""
+    oldest_by_text = {}
+    for objs in groups.values():
+        text, uid = objs[0].blendsolid_script, objs[0].session_uid
+        if text.session_uid not in oldest_by_text or uid < oldest_by_text[text.session_uid][0]:
+            oldest_by_text[text.session_uid] = (uid, text)
+    by_id = {}
+    for uid, text in oldest_by_text.values():
+        pid = text.get(PART_ID_KEY)
+        if pid is not None:
+            by_id.setdefault(pid, []).append((uid, text))
+    for entries in by_id.values():
+        if len(entries) < 2:
+            continue
+        entries.sort(key=lambda e: e[0])
+        for _, text in entries[1:]:
+            text[PART_ID_KEY] = new_part_id()
+
+
 def copy_script(text):
     copy = text.copy()
     copy.use_fake_user = False  # (copy() keeps the source's fake user)
+    copy[PART_ID_KEY] = new_part_id()  # an independent copy is a different part (copy() kept the source's id)
     if trust.text_trusted(text):
         trust.mark_trusted(copy)  # a copy is exactly as trusted as its source (ADR 0004)
     return copy
@@ -242,3 +286,43 @@ def primary(obj):
     on the actual part (e.g. the Recompute operator) needs to resolve this first rather than acting on
     whatever object happens to be active."""
     return min((obj, *mesh_siblings(obj)), key=lambda o: o.name)
+
+
+def new_part_id():
+    return uuid.uuid4().hex
+
+
+def part_id(obj):
+    """The part's stable identity (a hex string stored on its script), or None (e.g. a milestone 1 file)."""
+    script = obj.blendsolid_script
+    return None if script is None else script.get(PART_ID_KEY)
+
+
+def ensure_part_id(obj):
+    """part_id(obj), giving the part one first if it has none. Only call it from an operator (undoable)."""
+    if part_id(obj) is None:
+        obj.blendsolid_script[PART_ID_KEY] = new_part_id()
+    return part_id(obj)
+
+
+SCALE_TOLERANCE = 1e-5  # |scale - 1| above this is "scaled" (also for deps.relative_matrix's composed matrix)
+
+
+def is_scaled(obj, tolerance=SCALE_TOLERANCE):
+    """Parts keep scale 1 (sizes belong in the script): gizmos and cutters refuse scaled ones."""
+    return any(abs(s - 1.0) > tolerance for s in obj.matrix_world.to_scale())
+
+
+def scaled_message(obj):
+    """The message shown wherever a scaled part can't be used (gizmos, cutters): its own name, so callers can
+    build a fuller sentence around it (e.g. deps.relative_matrix's "The cutter <this>")."""
+    return f"'{obj.name}' is scaled: keep its scale 1 and change its size parameters instead"
+
+
+def not_canonical_message(obj, error, detail=False):
+    """The message shown wherever a tool refuses to edit obj's script because it isn't in the canonical
+    feature layout (script_model.NotCanonical). Non-canonical for standard users (ADR 0002: no script syntax
+    or line numbers); `detail`, when true (advanced users who can see scripts), appends str(error)."""
+    message = f"{obj.name} was made by an older BlendSolid version or edited by hand: the tools can't add " \
+              f"features to it"
+    return f"{message} ({error})" if detail else message

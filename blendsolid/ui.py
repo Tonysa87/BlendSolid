@@ -118,7 +118,13 @@ class BLENDSOLID_OT_recompute(bpy.types.Operator):
     @classmethod
     def poll(cls, context):
         obj = context.object
-        return obj is not None and obj.blendsolid_script is not None and not part.is_linked(obj)
+        if obj is None or obj.blendsolid_script is None or part.is_linked(obj):
+            return False
+        if not trust.is_trusted(obj):
+            cls.poll_message_set("Scripts in this file are not trusted: press Trust Scripts in This File first "
+                                 "(BlendSolid never runs them before that)")
+            return False
+        return True
 
     def execute(self, context):
         from . import runtime
@@ -139,10 +145,17 @@ class BLENDSOLID_PT_part(bpy.types.Panel):
         layout = self.layout
         obj = context.object
         layout.operator("blendsolid.new_part", icon="ADD")
+        from . import ops_add
+        ops_add.draw_add_buttons(layout)
         if obj is None or obj.blendsolid_script is None:
             return
         from . import runtime
         status = runtime.part_status(obj)
+        if part.is_scaled(obj):
+            box = layout.box()
+            box.label(text="This part is scaled", icon="ERROR")
+            box.label(text="Keep scale 1 and change its size parameters:", icon="BLANK1")
+            box.label(text="gizmos and cutters don't work on scaled parts.", icon="BLANK1")
         col = layout.column(align=True)
         col.enabled = status != "linked"  # a library part is read-only
         for item in obj.blendsolid_params:
@@ -168,6 +181,9 @@ class BLENDSOLID_PT_part(bpy.types.Panel):
             line = f" (line {obj.blendsolid_error_line})" if advanced and obj.blendsolid_error_line else ""
             for i, text in enumerate(obj.blendsolid_error.splitlines()[:6]):
                 box.label(text=(text + line) if i == 0 else text, icon="BLANK1")
+        from . import ops_boolean
+        layout.label(text="Booleans (selected parts on this one):")
+        ops_boolean.draw_boolean_buttons(layout)
         row = layout.row(align=True)
         if advanced:
             row.operator("blendsolid.edit_script", icon="TEXT")

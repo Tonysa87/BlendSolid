@@ -224,3 +224,14 @@ def test_not_ready_uses_the_ready_timeout(tmp_path):
         assert r["type"] == "crashed" and "not ready after 1 s" in r["error"]
     finally:
         c.stop()
+
+
+def test_submit_with_dependencies(client):
+    target = "with BuildPart() as p:\n    Box(10, 10, 10)\n    insert(ref('c'), mode=Mode.SUBTRACT)\nresult = p\n"
+    cutter = "result = Box(2, 2, 20)\n"
+    deps = [{"id": "c", "tag": "c1", "source": cutter, "matrices": [[1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0]],
+             "deps": []}]
+    client.submit("A", target, "t", deps=deps)
+    (r,) = results(collect(client, 1))
+    assert r["ok"], r["error"]
+    assert abs(r["volume"] - (1000.0 - 2 * 2 * 10)) < 1e-9

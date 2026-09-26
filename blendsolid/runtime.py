@@ -9,7 +9,7 @@ import atexit
 import bpy
 from bpy.app.handlers import persistent
 
-from . import part, paths, trust
+from . import deps, part, paths, trust
 from .client import WorkerClient, WorkerStartError
 
 TICK_INTERVAL = 0.05
@@ -122,14 +122,24 @@ def tick():
     factor = part.unit_factor()  # ADR 0003; part of every tag, so a unit scale change recomputes every part
     _poll_events(factor)
     groups = part.part_groups()  # built once per tick: everything below is linear in the number of objects
-    part.ensure_unique_scripts(groups, lambda text: part.tag_for(text.as_string(), factor))
+    index = deps.part_index(groups)
+    part.ensure_unique_scripts(groups, lambda o: deps.tag_of(o, factor, index))
+    part.ensure_unique_part_ids(groups)
+    index = deps.part_index(groups)  # again: Shift+D copies just got their own script, hence their own id
+    memo = {}  # dependency results shared by every part of this tick
     worker_error = None  # once the worker itself fails to start, don't retry it for every other part
     for objs in sorted(groups.values(), key=lambda g: g[0].name):
         obj, siblings = objs[0], objs[1:]
         source = tag = None
         try:
             source = part.source_of(obj)
-            tag = part.tag_for(source, factor)
+            dep_error = None
+            try:
+                resolved = deps.resolve(obj, source, factor, index, memo)
+            except deps.DepError as e:
+                dep_error = str(e)
+                resolved = deps.Resolved(deps.error_tag(source, factor, dep_error))
+            tag = resolved.tag
 
             failed_tag = _failed.get(obj.name)
             if failed_tag is not None and failed_tag != tag:
@@ -149,6 +159,10 @@ def tick():
                 continue
             if not trust.is_trusted(obj):
                 continue  # ADR 0004: keep showing the cached mesh, never run the script
+            if dep_error is not None:  # a cutter is missing, untrusted, scaled, or parts form a loop
+                if (obj.blendsolid_error, part.error_tag(obj)) != (dep_error, tag):
+                    part.set_error(obj, dep_error, tag=tag)  # only on change: no property write per tick
+                continue
             if obj.data.is_editmode:
                 continue  # rebuilt once the mesh (shared by every object of the part) leaves Edit Mode
             if tag in (_inflight.get(obj.name), _failed.get(obj.name)):
@@ -156,7 +170,7 @@ def tick():
 
             if worker_error is None:
                 try:
-                    client().submit(obj.name, source, tag)
+                    client().submit(obj.name, source, tag, deps=resolved.deps)
                 except (WorkerStartError, FileNotFoundError) as e:  # FileNotFoundError: no worker libraries
                     worker_error = e
             if worker_error is not None:
@@ -170,7 +184,7 @@ def tick():
             _inflight.pop(obj.name, None)
             if tag is None:  # the exception happened before the tag was even computed: try once more
                 try:
-                    tag = part.tag_for(part.source_of(obj), factor)
+                    tag = deps.tag_of(obj, factor, index)
                 except Exception:
                     tag = None  # still unknown: leave the error untagged rather than guess wrong
             if tag is not None:
@@ -247,6 +261,16 @@ def _on_load(*_):
     _reset_trust()
 
 
+@persistent
+def _on_undo(*_):
+    """Undo/redo restore each part's parameter mirror as it was when its step was pushed, which can be before
+    the tick mirrored that script (an operator's step is pushed as soon as it has written the script). The
+    restored script may still carry the tag _synced remembers, so forget what was synced: the next tick
+    mirrors every part again (sync_params only writes what differs). Nothing else is decided here: evaluated
+    data isn't ready in undo handlers (spike finding)."""
+    _synced.clear()
+
+
 def _kill_worker_at_exit():
     """Blender doesn't call unregister() on quit: make sure the worker goes away with it (the worker also
     watches its parent by itself, for crashes and kills where atexit doesn't run)."""
@@ -258,6 +282,8 @@ def register():
     atexit.register(_kill_worker_at_exit)
     _reset_trust()  # the add-on may be enabled with a file already open: that file's parts came from disk
     bpy.app.handlers.load_post.append(_on_load)
+    bpy.app.handlers.undo_post.append(_on_undo)
+    bpy.app.handlers.redo_post.append(_on_undo)
     bpy.app.timers.register(_timer, first_interval=TICK_INTERVAL, persistent=True)
 
 
@@ -268,6 +294,9 @@ def unregister():
         bpy.app.timers.unregister(_timer)
     if _on_load in bpy.app.handlers.load_post:
         bpy.app.handlers.load_post.remove(_on_load)
+    for handlers in (bpy.app.handlers.undo_post, bpy.app.handlers.redo_post):
+        if _on_undo in handlers:
+            handlers.remove(_on_undo)
     if _client is not None:
         _client.stop()
         _client = None

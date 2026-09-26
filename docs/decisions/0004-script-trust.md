@@ -20,7 +20,9 @@ A part's script runs only if one of these holds:
    and the file path is not matched by an entry of `context.preferences.autoexec_paths` (a `PathCompare`
    collection with `path` and `use_glob`; matched like Blender's `BKE_autoexec_match()`: a glob is an
    `fnmatch` pattern, otherwise the entry is a prefix of the path; case-insensitive on Windows). An unsaved
-   file (e.g. the startup file) only needs the switch.
+   file (e.g. the startup file) only needs the switch. Blender started with `-Y`/`--disable-autoexec` trusts
+   no file (milestone 1.5: add-ons can't read Blender's flag, so BlendSolid reads the command line, `sys.argv`
+   up to `--`).
 2. **The user pressed "Trust Scripts in This File"** in the BlendSolid panel. This lasts for the session
    only: it is never saved, and it is forgotten when another file (or the same one again) is loaded.
 3. **The script was created in this session:** *New Part* creates a trusted script; a copy of a trusted script
@@ -43,8 +45,12 @@ trust follows the script, not the object.
 
 - Opening a file from an unknown source is as safe with BlendSolid as without it, under Blender's default
   settings. Users who enabled *Auto Run* get the same behaviour as for drivers and registered text blocks.
-- Blender's command-line `--enable-autoexec`/`-y` flag and the "Allow Execution" button of Blender's own
-  auto-run warning are not visible to add-ons (only the preference is): after them, BlendSolid parts still
-  need the trust button. This errs on the safe side.
+- Blender's `--disable-autoexec`/`-Y` flag blocks auto-run for the session even when the preference is on. Add-ons
+  can't read that flag, so milestone 1 still ran the scripts of a file opened with `-Y` and the preference on;
+  since milestone 1.5 BlendSolid reads Blender's command line and treats every file as untrusted then.
+- Blender's `--enable-autoexec`/`-y` flag and the "Allow Execution" button of Blender's own auto-run warning are
+  not visible to add-ons (only the preference is): after them, BlendSolid parts still need the trust button.
+  This errs on the safe side.
+- *Recompute* is disabled on untrusted parts, with a tooltip pointing to *Trust Scripts in This File*.
 - Appended parts follow the file's trust: in a trusted file they run (as Blender runs appended drivers); in
   an untrusted file they need the trust button.

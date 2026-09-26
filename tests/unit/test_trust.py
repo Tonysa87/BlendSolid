@@ -35,3 +35,12 @@ def test_file_trusted_needs_auto_run():
     assert trust.file_trusted_by_prefs(prefs(True), "/x/a.blend")
     assert not trust.file_trusted_by_prefs(prefs(True, [("/x/", False)]), "/x/a.blend")
     assert trust.file_trusted_by_prefs(prefs(True, [("/x/", False)]), "")  # unsaved file: only the switch
+
+
+def test_disable_autoexec_on_the_command_line_wins_over_the_preference():
+    assert trust.autoexec_disabled_by_command_line(["blender", "-Y", "part.blend"])
+    assert trust.autoexec_disabled_by_command_line(["blender", "--disable-autoexec"])
+    assert not trust.autoexec_disabled_by_command_line(["blender", "part.blend"])
+    assert not trust.autoexec_disabled_by_command_line(["blender", "--python", "x.py", "--", "-Y"])  # script args
+    assert not trust.file_trusted_by_prefs(prefs(True), "/x/a.blend", argv=["blender", "-Y"])
+    assert trust.file_trusted_by_prefs(prefs(True), "/x/a.blend", argv=["blender"])

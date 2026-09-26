@@ -1,0 +1,39 @@
+[gui-check     2.0] add-on blendsolid from /home/tony/Projects/BlendSolid/blendsolid; event simulation: True; out /tmp/claude-1000/-home-tony-Projects-BlendSolid/692bc3f7-6034-41ef-af96-1255922a60a3/scratchpad/out-recheck
+STEP 1 OK Box 40x30x20 -> 24000 mm³ (first result 1.9 s), redo Length 60 -> 36000.0 mm³
+STEP 2 OK cylinder on the 30° cursor plane: z 0.000..20.000 mm, 6259.8 mm³
+STEP 3 OK sphere 4127, cone 3631, torus 9807, wedge 15000 mm³; sidebar: 6 buttons, 'Cone 1 top radius'; real panel drawn: True
+STEP 4 OK 3 arrows on the +X, +Y, top faces; drag -> height 36.441 mm (65593 mm³, heights while dragging [22.12, 24.22, 26.3, 28.36, 30.41, 32.43, 34.45, 36.44]); one undo -> 20 mm
+STEP 5 OK panel 'This part is scaled', gizmo poll False, no arrows drawn; undo -> scale 1, arrows back
+STEP 6 OK drawn with simulated mouse events; New Part Box.001 20.16 x 9.87 mm, redo Height 15 -> 2984.5 mm³; synthetic preview drew 13 frame(s)
+STEP 7 OK simulated mouse; header 'union with Box', UNION preview mode; Box +989.6 mm³ -> 36989.6
+STEP 8 OK simulated mouse; header 'cut from Box', CUT preview mode; hole r 4.10 h 5.98; redo Union -> boss; redo Radius 3 -> 37158.0 mm³
+STEP 9 OK Ctrl 19 x 9 x 7; Shift+Ctrl 19.2 x 9.3 x 7.4 mm
+STEP 10 OK Esc during the base and right-click during the height: nothing added, header cleared
+STEP 11 OK Ctrl+Numpad - (simulated key): hole 845.1 mm³ (1570.8 through, then half out, across after R/G), radius 3 in the panel -> 36313.0 mm³; cutter wire, not rendered
+STEP 12 OK union 12281.7, intersect 281.7 mm³ (Ctrl+Numpad keys, boolean ran, selection unchanged); Object menu entry present; other Ctrl+Numpad bindings: ['Object Mode: object.select_more', 'Object Mode: object.select_less']
+STEP 13 OK simulated press: first ray hit is the wire cutter, the tool picked Box's -Y face (y = -15.000 mm)
+STEP 14 OK error: "This part uses a cutter part that no longer exists (deleted?): undo the deletion (Ctrl+Z) or delete this part"; undo -> cutter back, no error, 36313.0 mm³
+STEP 15 OK 36 undos to the empty scene and 36 redos back; every step matched its scripts
+01:05.276  blend            | Read blend: "/tmp/claude-1000/-home-tony-Projects-BlendSolid/692bc3f7-6034-41ef-af96-1255922a60a3/scratchpad/out-recheck/gui-check.blend"
+Info: Saved as "gui-check.blend"
+STEP 16 OK reopened untrusted: cached meshes, Recompute off, no recompute on move; trusted -> 37158.0 mm³
+WORKER PID 515277
+SCREENSHOT /tmp/claude-1000/-home-tony-Projects-BlendSolid/692bc3f7-6034-41ef-af96-1255922a60a3/scratchpad/out-recheck/01-box.png (offscreen viewport render)
+SCREENSHOT /tmp/claude-1000/-home-tony-Projects-BlendSolid/692bc3f7-6034-41ef-af96-1255922a60a3/scratchpad/out-recheck/02-primitives.png (offscreen viewport render)
+SCREENSHOT /tmp/claude-1000/-home-tony-Projects-BlendSolid/692bc3f7-6034-41ef-af96-1255922a60a3/scratchpad/out-recheck/03-gizmo-drag.png (offscreen viewport render)
+SCREENSHOT /tmp/claude-1000/-home-tony-Projects-BlendSolid/692bc3f7-6034-41ef-af96-1255922a60a3/scratchpad/out-recheck/04-scaled.png (offscreen viewport render)
+SCREENSHOT /tmp/claude-1000/-home-tony-Projects-BlendSolid/692bc3f7-6034-41ef-af96-1255922a60a3/scratchpad/out-recheck/05-preview-synthetic.png (offscreen viewport render)
+SCREENSHOT /tmp/claude-1000/-home-tony-Projects-BlendSolid/692bc3f7-6034-41ef-af96-1255922a60a3/scratchpad/out-recheck/06-draw-grid.png (offscreen viewport render)
+SCREENSHOT /tmp/claude-1000/-home-tony-Projects-BlendSolid/692bc3f7-6034-41ef-af96-1255922a60a3/scratchpad/out-recheck/07-draw-union.png (offscreen viewport render)
+SCREENSHOT /tmp/claude-1000/-home-tony-Projects-BlendSolid/692bc3f7-6034-41ef-af96-1255922a60a3/scratchpad/out-recheck/08-draw-cut.png (offscreen viewport render)
+SCREENSHOT /tmp/claude-1000/-home-tony-Projects-BlendSolid/692bc3f7-6034-41ef-af96-1255922a60a3/scratchpad/out-recheck/09-live-cutter.png (offscreen viewport render)
+SCREENSHOT /tmp/claude-1000/-home-tony-Projects-BlendSolid/692bc3f7-6034-41ef-af96-1255922a60a3/scratchpad/out-recheck/10-cutter-moved.png (offscreen viewport render)
+SCREENSHOT /tmp/claude-1000/-home-tony-Projects-BlendSolid/692bc3f7-6034-41ef-af96-1255922a60a3/scratchpad/out-recheck/11-booleans.png (offscreen viewport render)
+SCREENSHOT /tmp/claude-1000/-home-tony-Projects-BlendSolid/692bc3f7-6034-41ef-af96-1255922a60a3/scratchpad/out-recheck/12-through-cutter.png (offscreen viewport render)
+SCREENSHOT /tmp/claude-1000/-home-tony-Projects-BlendSolid/692bc3f7-6034-41ef-af96-1255922a60a3/scratchpad/out-recheck/13-deleted-cutter.png (offscreen viewport render)
+SCREENSHOT /tmp/claude-1000/-home-tony-Projects-BlendSolid/692bc3f7-6034-41ef-af96-1255922a60a3/scratchpad/out-recheck/14-reopened-untrusted.png (offscreen viewport render)
+SCREENSHOT /tmp/claude-1000/-home-tony-Projects-BlendSolid/692bc3f7-6034-41ef-af96-1255922a60a3/scratchpad/out-recheck/15-trusted.png (offscreen viewport render)
+GUI CHECK PASS
+01:09.032  blend            | Saved session recovery to "/tmp/quit.blend"
+
+Blender quit

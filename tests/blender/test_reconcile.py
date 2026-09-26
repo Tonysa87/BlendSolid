@@ -8,11 +8,7 @@ import bpy
 import pytest
 
 from blendsolid import part, runtime, trust
-from conftest import wait_for
-
-
-def up_to_date(obj):
-    return part.applied_hash(obj) == part.current_tag(obj)
+from conftest import up_to_date, wait_for
 
 
 def new_part(name="Part"):
@@ -37,7 +33,7 @@ def test_edit_mode_defers_rebuild_without_error(clean):
     polys = len(obj.data.polygons)
     enter_edit_mode(obj)
     try:
-        obj.blendsolid_params["length"].value = 44.0
+        obj.blendsolid_params["box_1_length"].value = 44.0
         submitted = runtime.client().submitted
         for _ in range(20):
             runtime.tick()
@@ -52,7 +48,7 @@ def test_edit_mode_defers_rebuild_without_error(clean):
 
 def test_result_arriving_in_edit_mode_is_discarded(clean):
     obj = new_part()
-    obj.blendsolid_params["length"].value = 46.0
+    obj.blendsolid_params["box_1_length"].value = 46.0
     runtime.tick()  # submitted before entering Edit Mode
     assert obj.name in runtime._inflight
     enter_edit_mode(obj)
@@ -74,7 +70,7 @@ def test_edit_mode_on_mesh_sibling_defers_rebuild(clean):
     primary, sibling = sorted([a, b], key=lambda o: o.name)
     enter_edit_mode(sibling)
     try:
-        primary.blendsolid_params["width"].value = 33.0
+        primary.blendsolid_params["box_1_width"].value = 33.0
         submitted = runtime.client().submitted
         for _ in range(10):
             runtime.tick()
@@ -92,7 +88,7 @@ def test_link_object_data_keeps_the_meshs_script(clean, target_name):
     computed from (source's), whichever object sorts first by name."""
     source = new_part("M_source")
     target = new_part(target_name)
-    part.set_param(target, "length", 55.0)
+    part.set_param(target, "box_1_length", 55.0)
     wait_for(lambda: up_to_date(target))
     target.data = source.data
     runtime.tick()
@@ -108,8 +104,8 @@ def test_link_object_data_keeps_the_meshs_script(clean, target_name):
 def test_link_object_data_falls_back_to_name_order(clean):
     a = new_part("A")
     b = new_part("B")
-    part.set_param(a, "length", 51.0)
-    part.set_param(b, "length", 52.0)  # neither script matches any applied mesh any more
+    part.set_param(a, "box_1_length", 51.0)
+    part.set_param(b, "box_1_length", 52.0)  # neither script matches any applied mesh any more
     b.data = a.data
     runtime.tick()
     assert b.blendsolid_script == a.blendsolid_script and "length = 51.0\n" in part.source_of(a)
@@ -119,7 +115,7 @@ def test_link_object_data_falls_back_to_name_order(clean):
 
 def test_linked_library_part_is_never_written_or_submitted(clean):
     lib_obj = new_part()  # "Part", mesh "Part", text ".Part.py" — same names as the local part below
-    part.set_param(lib_obj, "length", 60.0)  # stale in the library: would be submitted if it were local
+    part.set_param(lib_obj, "box_1_length", 60.0)  # stale in the library: would be submitted if it were local
     lib_source = part.source_of(lib_obj)
     lib_path = os.path.join(tempfile.mkdtemp(), "lib.blend")
     bpy.data.libraries.write(lib_path, {lib_obj, lib_obj.data, lib_obj.blendsolid_script})
@@ -143,7 +139,7 @@ def test_linked_library_part_is_never_written_or_submitted(clean):
         assert part.source_of(linked) == lib_source and linked.blendsolid_error == ""
         assert linked.blendsolid_script != local.blendsolid_script
         assert runtime.part_status(linked) == "linked"
-        local.blendsolid_params["length"].value = 42.0  # the local part still reconciles normally
+        local.blendsolid_params["box_1_length"].value = 42.0  # the local part still reconciles normally
         wait_for(lambda: up_to_date(local))
         assert part.source_of(linked) == lib_source
     finally:
@@ -177,3 +173,25 @@ def test_tick_is_fast_with_many_parts(clean):
           f"min {min(times) * 1000:.2f} ms, max {max(times) * 1000:.2f} ms")
     assert runtime.client().submitted == submitted
     assert median < 0.010
+
+
+# -- the parameter mirror after undo (found by tools/gui_check.py, step 15) ----------------------------------
+
+def test_undo_to_a_step_pushed_before_the_mirror_synced_resyncs_it(clean):
+    """An operator that edits a script pushes its undo step before the next tick mirrors the new parameters,
+    so that step holds a stale mirror. Undoing back to it restores the stale mirror with the script it belongs
+    to: the tick must mirror it again even though that script's tag is the one it last synced."""
+    bpy.ops.ed.undo_push(message="start")
+    bpy.ops.blendsolid.add_box("EXEC_DEFAULT", True, length=40, width=30, height=20)
+    box = bpy.context.view_layer.objects.active
+    runtime.tick()
+    bpy.ops.blendsolid.draw_solid("EXEC_DEFAULT", True, shape="BOX", mode="UNION", target=box.name,
+                                  location=(0, 0, 20), rotation=(0, 0, 0), length=10, width=10, height=5)
+    runtime.tick()  # mirrors box_2's parameters, after the step above was pushed
+    assert "box_2_height" in box.blendsolid_params
+    bpy.ops.blendsolid.add_cylinder("EXEC_DEFAULT", True)  # another step, the box unchanged
+    bpy.ops.ed.undo()
+    box = bpy.data.objects["Box"]
+    runtime.tick()
+    assert [p.name for p in box.blendsolid_params] == [
+        "box_1_length", "box_1_width", "box_1_height", "box_2_length", "box_2_width", "box_2_height"]

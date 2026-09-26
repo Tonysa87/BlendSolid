@@ -116,7 +116,8 @@ def main():
             if kind == "ping":
                 protocol.send_message(conn, {"type": "pong"})
             elif kind == "run":
-                r = runner.run_script(header["source"], header.get("lin_defl", 0.1), header.get("ang_defl", 0.3))
+                r = runner.run_script(header["source"], header.get("lin_defl", 0.1), header.get("ang_defl", 0.3),
+                                      deps=header.get("deps") or (), tag=header["tag"])
                 reply = {"type": "result", "job": header["job"], "key": header["key"], "tag": header["tag"],
                          "ok": r.ok, "error": r.error, "line": r.line, "volume": r.volume, "faces": r.faces,
                          "timing": r.timing}
