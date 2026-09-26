@@ -76,6 +76,7 @@ def _mirror_to_siblings(primary, source, tag):
     siblings = part.mesh_siblings(primary)
     if not siblings:
         return
+    primary_state = (primary.blendsolid_error, primary.blendsolid_error_line, part.error_tag(primary))
     for sib in siblings:
         if source is not None and _synced.get(sib.name) != tag:
             try:
@@ -83,7 +84,9 @@ def _mirror_to_siblings(primary, source, tag):
                 _synced[sib.name] = tag
             except Exception:
                 pass  # mirroring must never break the tick over a params-parsing hiccup on a sibling
-        part.set_error(sib, primary.blendsolid_error, primary.blendsolid_error_line, part.error_tag(primary))
+        sib_state = (sib.blendsolid_error, sib.blendsolid_error_line, part.error_tag(sib))
+        if sib_state != primary_state:  # e.g. ui._on_param_value already wrote this same state to sib too
+            part.set_error(sib, primary.blendsolid_error, primary.blendsolid_error_line, part.error_tag(primary))
 
 
 def tick():
@@ -116,9 +119,8 @@ def tick():
 
             error_tag = part.error_tag(obj)
             if error_tag is not None and error_tag != tag:
-                # the runtime error on record was for a script that's no longer current: it is now stale.
-                # A UI-set error (e.g. a ParamError from ui._on_param_value) carries no tag, so it is never
-                # touched here and survives until the script it refers to actually changes.
+                # the error on record (runtime- or UI-set — see part.set_error) was for a script that's no
+                # longer current: it is now stale. An error with no tag at all is never touched here.
                 part.set_error(obj, "")
 
             if _synced.get(obj.name) != tag:
@@ -146,9 +148,19 @@ def tick():
             _inflight[obj.name] = tag
         except Exception as e:  # one object's failure must not stop the others from being reconciled
             _inflight.pop(obj.name, None)
+            if tag is None:  # the exception happened before the tag was even computed: try once more
+                try:
+                    tag = part.source_hash(part.source_of(obj))
+                except Exception:
+                    tag = None  # still unknown: leave the error untagged rather than guess wrong
+            if tag is not None:
+                _failed[obj.name] = tag  # don't resubmit the exact tag that just failed to reconcile
             part.set_error(obj, f"Internal error while reconciling: {type(e).__name__}: {e}", tag=tag)
         finally:
-            _mirror_to_siblings(obj, source, tag)
+            try:
+                _mirror_to_siblings(obj, source, tag)
+            except Exception:
+                pass  # mirroring must never make the remaining primaries in this tick get skipped
     return TICK_INTERVAL
 
 

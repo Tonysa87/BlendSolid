@@ -13,8 +13,14 @@ def _on_param_value(self, context):
         part.set_param(obj, self.name, self.value)
     except (SyntaxError, params.ParamError) as e:
         # a broken script (SyntaxError) or a non-finite value (ParamError, e.g. from a driver/animation):
-        # never let this escape into Blender's RNA update.
-        part.set_error(obj, str(e))
+        # never let this escape into Blender's RNA update. Tag with the current (unwritten) source hash,
+        # so tick() clears it once the script actually changes (including by reverting to a previously-
+        # good source) rather than leaving it stuck forever. Written to every object sharing this mesh
+        # (this object plus its siblings, if any), so tick()'s primary-to-sibling mirroring agrees with it
+        # instead of overwriting it on the next tick.
+        tag = part.source_hash(part.source_of(obj))
+        for target in (obj, *part.mesh_siblings(obj)):
+            part.set_error(target, str(e), tag=tag)
 
 
 class BS_Param(bpy.types.PropertyGroup):

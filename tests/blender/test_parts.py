@@ -171,6 +171,60 @@ def test_param_error_from_ui_survives_ticks(clean):
     assert obj.blendsolid_error != ""  # a runtime tick must not wipe a UI-raised error
 
 
+def test_ui_error_clears_when_script_returns_to_applied_source(clean):
+    # Reviewer's repro: break script -> drag param (raises a UI ParamError/SyntaxError) -> restore script
+    # -> the error must not stick around forever once the script is genuinely fine again.
+    obj = new_part()
+    good_source = part.source_of(obj)
+    obj.blendsolid_script.from_string("this is not valid python(\n")
+    obj.blendsolid_params["height"].value = 21.0  # triggers _on_param_value -> SyntaxError, caught
+    assert obj.blendsolid_error != ""
+    obj.blendsolid_script.from_string(good_source)  # back to exactly the already-applied source
+    wait_for(lambda: obj.blendsolid_error == "")
+
+
+def test_ui_error_on_sibling_is_not_overwritten_by_primary_mirroring(clean):
+    a = new_part()
+    b = a.copy()  # Alt+D-style: shares a's mesh and, from the copy, a's script
+    bpy.context.collection.objects.link(b)
+    assert b.data == a.data
+    primary, sibling = sorted([a, b], key=lambda o: o.name)
+
+    sibling.blendsolid_script.from_string("this is not valid python(\n")
+    sibling.blendsolid_params["height"].value = 21.0  # triggers _on_param_value on the sibling object
+    assert sibling.blendsolid_error != ""
+    assert primary.blendsolid_error == sibling.blendsolid_error  # written to the whole mesh group already
+    runtime.tick()
+    assert primary.blendsolid_error == sibling.blendsolid_error != ""  # tick's mirroring must not clobber it
+
+
+def test_reconcile_exception_after_tag_known_marks_failed(clean, monkeypatch):
+    obj = new_part()
+    obj.blendsolid_params["length"].value = 47.0
+    tag = part.source_hash(part.source_of(obj))
+
+    def boom(obj_, source=None):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(part, "sync_params", boom)
+    runtime.tick()
+    assert runtime._failed.get(obj.name) == tag
+    assert "boom" in obj.blendsolid_error
+
+
+def test_reconcile_exception_before_tag_known_does_not_loop_untagged(clean, monkeypatch):
+    obj = new_part()
+
+    def boom(obj_):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(part, "source_of", boom)
+    runtime.tick()
+    assert "boom" in obj.blendsolid_error
+    assert runtime._failed.get(obj.name) is None  # no tag could be computed: nothing to gate resubmission on
+    assert part.error_tag(obj) is None
+
+
 def test_object_error_does_not_stop_other_objects_reconciling(clean, monkeypatch):
     a = new_part()
     b = part.new_part(bpy.context, name="Part2")

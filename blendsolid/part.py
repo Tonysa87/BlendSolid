@@ -60,10 +60,12 @@ def apply_result(obj, event):
 
 
 def set_error(obj, message, line=None, tag=None):
-    """Set (or clear, with message="") the part's error. `tag` records the script hash a runtime-set error
-    refers to, as an ID property (not a registered RNA field): tick() clears the error once the object's
-    current script tag no longer matches it. UI-set errors (e.g. a ParamError from ui._on_param_value) pass
-    no tag, so they are never cleared this way and survive until the script itself changes."""
+    """Set (or clear, with message="") the part's error. `tag` records the script hash this error refers
+    to, as an ID property (not a registered RNA field): tick() clears the error once the object's current
+    script tag no longer matches it. A runtime-set error passes the tag of the script that failed; a
+    UI-set error (e.g. a ParamError from ui._on_param_value) passes the current (unwritten) script's hash,
+    so it survives while the script is unchanged and clears once it changes — including by reverting to a
+    previously-good source. tag=None (the default) clears the stored tag along with the message."""
     obj.blendsolid_error = message
     obj.blendsolid_error_line = line or 0
     if tag is None:
