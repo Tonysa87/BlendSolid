@@ -117,7 +117,7 @@ These choices change the scope; they are needed before milestone 1.
 - [ ] **Platforms:** Windows only at first, or Windows + Linux + macOS right away?
 - [ ] **History:** build123d script visible and editable by the user, or hidden behind the interface?
 - [ ] **Constrained sketches:** integrate CAD Sketcher or write our own sketcher?
-- [ ] **Repository: public from the start or private until the MVP? (name decided: BlendSolid)**
+- [x] **Repository:** public from the start (decided 2026-09-26): https://github.com/Tonysa87/BlendSolid
 - [ ] **Available time** per week, to calibrate the milestones.
 
 ## References
