@@ -9,7 +9,7 @@ import bpy
 import pytest
 from mathutils import Vector
 
-from blendsolid import ops_draw, part, script_model
+from blendsolid import ops_draw, part, script_model, trust
 from conftest import mm3, up_to_date, wait_for
 
 OP = ops_draw.BLENDSOLID_OT_draw_solid
@@ -255,3 +255,25 @@ def test_tool_is_registered(addon):
     ids = [t.idname for group in cls.tools_from_context(bpy.context, mode="OBJECT") if group
            for t in (group if isinstance(group, tuple) else (group,)) if t is not None and hasattr(t, "idname")]
     assert "blendsolid.draw_solid_tool" in ids
+
+
+def test_tool_starts_a_drag_with_modifiers_held(addon):
+    """Ctrl (snapping) or Shift+Ctrl held before the press must still start a drag: the modal reads the
+    modifiers itself, so the tool's LMB item must accept any modifier."""
+    km = bpy.context.window_manager.keyconfigs.addon.keymaps["3D View Tool: Object, Draw Solid"]
+    (item,) = [i for i in km.keymap_items if i.idname == "blendsolid.draw_solid"]
+    assert item.type == "LEFTMOUSE" and item.value == "PRESS" and item.any
+
+
+@pytest.mark.parametrize("why", ["non-canonical", "untrusted"])
+def test_a_part_the_tools_cannot_edit_is_drawn_on_as_a_new_part(clean, rays, monkeypatch, why):
+    """A part whose script the tools can't edit (hand-edited / milestone 1 layout, or not trusted) is not a
+    target: the solid is drawn on its face plane as a new part, instead of being refused only at the end."""
+    box = box_part()
+    if why == "non-canonical":
+        box.blendsolid_script.from_string("size = 10.0\nresult = Box(size, size, size)\n")  # mesh kept: no tick
+    else:
+        monkeypatch.setattr(trust, "_file_trusted", False)
+        monkeypatch.setattr(trust, "_trusted_texts", set())
+    plane, target = ops_draw.pick_plane(Driver("BOX").context, Vector((0.0, 0.0, 1.0)), Vector((0.0, 0.0, -1.0)))
+    assert target is None and plane.translation.z == pytest.approx(0.02)  # still on the top face

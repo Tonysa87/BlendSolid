@@ -91,6 +91,18 @@ def test_ensure_part_id_on_a_milestone_1_part(clean):
     assert pid == part.part_id(obj) and part.ensure_part_id(obj) == pid
 
 
+def test_primitives_need_object_mode(clean):
+    bpy.ops.mesh.primitive_cube_add()  # a plain mesh, in Edit Mode: a new part must not be added meanwhile
+    bpy.ops.object.mode_set(mode="EDIT")
+    try:
+        assert bpy.context.mode == "EDIT_MESH"
+        for kind in primitives.PRIMITIVES:
+            assert not getattr(bpy.ops.blendsolid, f"add_{kind}").poll()
+    finally:
+        bpy.ops.object.mode_set(mode="OBJECT")
+    assert bpy.ops.blendsolid.add_box.poll()
+
+
 def test_shift_a_menu_lists_the_primitives(addon):
     assert hasattr(bpy.types, "VIEW3D_MT_blendsolid_add")
     for kind in primitives.PRIMITIVES:

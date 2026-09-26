@@ -49,6 +49,13 @@ def _make_operator(prim):
     def draw(self, context):
         _draw_millimetres(self, prim)
 
+    @classmethod
+    def poll(cls, context):
+        if context.mode != "OBJECT":  # e.g. from Edit Mode: another mesh would stay in Edit Mode meanwhile
+            cls.poll_message_set("Switch to Object Mode to add a BlendSolid part")
+            return False
+        return True
+
     return type(f"BLENDSOLID_OT_add_{prim.kind}", (bpy.types.Operator,), {
         "bl_idname": f"blendsolid.add_{prim.kind}",
         "bl_label": prim.label,
@@ -57,6 +64,7 @@ def _make_operator(prim):
         "__annotations__": annotations,
         "execute": execute,
         "draw": draw,
+        "poll": poll,
     })
 
 

@@ -305,7 +305,10 @@ def ensure_part_id(obj):
     return part_id(obj)
 
 
-def is_scaled(obj, tolerance=1e-6):
+SCALE_TOLERANCE = 1e-5  # |scale - 1| above this is "scaled" (also for deps.relative_matrix's composed matrix)
+
+
+def is_scaled(obj, tolerance=SCALE_TOLERANCE):
     """Parts keep scale 1 (sizes belong in the script): gizmos and cutters refuse scaled ones."""
     return any(abs(s - 1.0) > tolerance for s in obj.matrix_world.to_scale())
 

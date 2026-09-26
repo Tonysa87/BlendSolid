@@ -70,6 +70,12 @@ class BLENDSOLID_OT_boolean(bpy.types.Operator):
                 return {"CANCELLED"}
         target_id = part.part_id(target)  # None for a milestone 1 part: nothing can reference it yet
         if target_id is not None:
+            for cutter in cutters:
+                if part.part_id(cutter) == target_id:  # e.g. a Shift+D copy of the target, not yet made
+                    # independent by the reconcile tick: its ref() would name the target itself
+                    self.report({"ERROR"}, f"'{cutter.name}' is still the same part as '{target.name}': a part "
+                                           f"can't cut itself (try again in a moment)")
+                    return {"CANCELLED"}
             index = deps.part_index()
             for cutter in cutters:
                 if deps.uses(cutter, target_id, index):

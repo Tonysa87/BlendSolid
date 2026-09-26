@@ -14,7 +14,7 @@ from bpy.props import EnumProperty, FloatProperty, FloatVectorProperty, StringPr
 from bpy_extras import view3d_utils
 from mathutils import Matrix, Vector
 
-from . import drawing, ops_add, part, primitives, script_model
+from . import drawing, ops_add, part, primitives, script_model, trust
 
 SHAPES = [("BOX", "Box", "Draw a box", "MESH_CUBE", 0),
           ("CYLINDER", "Cylinder", "Draw a cylinder", "MESH_CYLINDER", 1)]
@@ -196,7 +196,8 @@ def _mouse_ray(context, event):
 def pick_plane(context, origin, direction):
     """(drawing plane, target part or None) under the mouse ray: the face of the first object hit (looking
     through wire-display objects such as cutters), else the plane through the 3D cursor. The target is that
-    object if it is a local, unscaled BlendSolid part."""
+    object if it is a BlendSolid part the tools can edit (local, unscaled, trusted, canonical script); any
+    other object is drawn on as a new part, on its face's plane."""
     depsgraph = context.evaluated_depsgraph_get()
     start, direction = Vector(origin), Vector(direction).normalized()
     for _ in range(16):
@@ -207,7 +208,8 @@ def pick_plane(context, origin, direction):
         if obj.display_type in {"WIRE", "BOUNDS"}:
             start = location + direction * max(1e-6, location.length * 1e-6)
             continue
-        is_part = part.is_local_part(obj) and not part.is_scaled(obj)
+        is_part = (part.is_local_part(obj) and not part.is_scaled(obj) and trust.is_trusted(obj)
+                   and script_model.is_canonical(part.source_of(obj)))
         return drawing.plane_on_face(location, normal, obj.matrix_world), (obj if is_part else None)
     return drawing.plane_at_cursor(context.scene.cursor.matrix), None
 
@@ -263,7 +265,8 @@ class DrawSolidTool(bpy.types.WorkSpaceTool):
                       "the face adds to the part, into it cuts, elsewhere makes a new part")
     bl_icon = "ops.mesh.primitive_cube_add_gizmo"
     bl_widget = None
-    bl_keymap = (("blendsolid.draw_solid", {"type": "LEFTMOUSE", "value": "PRESS"}, None),)
+    # any modifier: Ctrl (snapping) or Shift+Ctrl held before the press still start a drag (the modal reads them)
+    bl_keymap = (("blendsolid.draw_solid", {"type": "LEFTMOUSE", "value": "PRESS", "any": True}, None),)
 
     def draw_settings(context, layout, tool):
         props = tool.operator_properties("blendsolid.draw_solid")

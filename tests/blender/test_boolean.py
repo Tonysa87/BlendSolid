@@ -87,6 +87,21 @@ def test_refuses_to_make_parts_depend_on_each_other(clean):
     assert part.source_of(pin) == before
 
 
+def test_refuses_a_cutter_that_is_the_target_part(clean):
+    """Right after Shift+D of the target (before the reconcile tick gives the copy its own script and id) the
+    copy is still the same part: using it as a cutter would make the target reference itself."""
+    plate, _ = plate_and_pin()
+    copy = plate.copy()
+    copy.data = plate.data.copy()
+    bpy.context.collection.objects.link(copy)
+    assert part.part_id(copy) == part.part_id(plate)
+    select(plate, copy)
+    before = part.source_of(plate)
+    with pytest.raises(RuntimeError, match="can't cut itself"):
+        bpy.ops.blendsolid.boolean(operation="DIFFERENCE")
+    assert part.source_of(plate) == before
+
+
 def test_refuses_a_non_canonical_target(clean):
     plate, pin = plate_and_pin()
     plate.blendsolid_script.from_string("size = 10.0\nresult = Box(size, size, size)\n")

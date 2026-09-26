@@ -14,9 +14,6 @@ from dataclasses import dataclass, field
 
 from . import part, script_model, trust
 
-SCALE_TOLERANCE = 1e-5
-
-
 class DepError(Exception):
     """A reference that can't be resolved; str(e) is for the user."""
 
@@ -49,7 +46,7 @@ def relative_matrix(target, dep, factor):
         # would otherwise be misreported as a scaled cutter (whichever cutter happens to be resolved first).
         raise DepError(f"This part {part.scaled_message(target)}")
     m = target.matrix_world.inverted_safe() @ dep.matrix_world
-    if any(abs(s - 1.0) > SCALE_TOLERANCE for s in m.to_scale()):
+    if any(abs(s - 1.0) > part.SCALE_TOLERANCE for s in m.to_scale()):
         raise DepError(f"The cutter {part.scaled_message(dep)}")
     rows = [[m[i][j] for j in range(4)] for i in range(3)]
     for row in rows:
