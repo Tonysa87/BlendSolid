@@ -42,7 +42,8 @@ def main():
            "--only-binary=:all:", "--python-version", "3.13", "--implementation", "cp"]
     for tag in PLATFORM_TAGS[args.platform]:
         pip += ["--platform", tag]
-    subprocess.run(pip + ["-r", os.path.join(ROOT, "tools", "worker-requirements.txt")], check=True)
+    subprocess.run(pip + ["-r", os.path.join(ROOT, "tools", "worker-requirements.txt"),
+                          "-c", os.path.join(ROOT, "tools", "worker-constraints.txt")], check=True)
 
     os.makedirs(args.out, exist_ok=True)
     zip_path = os.path.join(args.out, f"blendsolid-{version}-{args.platform}.zip")
