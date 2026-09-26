@@ -68,7 +68,8 @@ Each milestone has a measurable success criterion.
 | --- | --- | --- | --- |
 | 0 | Feasibility spike | OCP runs in Blender 5.2; solid visible as mesh; `--split-platforms` build under 100 MB; no DLL conflicts; proxy and GN gizmos tested; undo doesn't corrupt state | ✅ **Done** — see [SPIKE_REPORT.md](SPIKE_REPORT.md) |
 | 1 | History as code | History script stored in the `.blend`; changing a parameter recomputes correctly; worker in a separate process | ✅ **Done** — see [docs/milestone-1-report.md](docs/milestone-1-report.md) |
-| 2 | Selectors from clicks | 95% of clicked edges on a set of 20 parts produce a unique selector that survives 3 upstream changes | Planned |
+| 1.5 | Build without selectors | Parametric primitives (Shift+A), Draw Solid on a face or the grid (union/cut by drag direction), booleans between parts with live cutters — see [modeling workflows research](docs/research/2026-09-26-modeling-workflows.md) | ⏳ Next |
+| 2 | Selectors from clicks | Face/edge → feature provenance first; 95% of clicked edges and faces on a set of 20 parts produce a unique selector that survives 3 upstream changes | Planned |
 | 3 | Publishable MVP | MVP column of the feature catalog complete; published on extensions.blender.org | Planned |
 | 4 | SubD → NURBS | Regular faces converted within tolerance; solid valid for OCCT | Planned |
 | 5 | G2 surfaces | G2 blend between untrimmed edges with curvature jump below threshold | Planned |
