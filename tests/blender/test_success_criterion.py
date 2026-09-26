@@ -8,7 +8,7 @@ import math
 import bpy
 from mathutils import Euler
 
-from blendsolid import part, script_model
+from blendsolid import part, runtime, script_model
 from conftest import mm3, select, up_to_date, wait_for
 
 M1_DEFAULT = 40 * 30 * 20 + math.pi * 36 * 5 - (1 - math.pi / 4) * 25 * 20
@@ -25,8 +25,19 @@ def n_features(source):
 
 def one_step(operator, **props):
     """Run `operator` as Blender runs a user's action (with an undo push) and check it was one script edit
-    (one new single-feature part, or one more feature in one part) and one undo step. Returns the name of
-    the part it made or edited."""
+    (one new single-feature part, or one more feature in one part) and one undo step. A `runtime.tick()`
+    right after the operator submits the "after" script to the worker, so its recompute is genuinely in
+    flight when we undo below (background mode never does this on its own: no timer drives the reconcile
+    loop) - checked directly against `runtime._inflight`, or there would be nothing for the guard below to
+    discard and this test would pass the same way whether or not that guard exists. `runtime._inflight` is
+    plain Python state, not part of Blender's undo stack, so that job is still in flight once the undo
+    reverts the script; whatever mesh its result would have produced must never reach the part once
+    reverted (`runtime._handle`'s stale-result guard: same technique as
+    test_parts.py::test_stale_result_is_discarded, recording every tag `part.apply_result` is called with).
+    A follow-up reconcile tick harmlessly resubmits and re-applies the correct ("before") result on its own,
+    which is why this can't be told apart from a missing guard by the converged end state alone (`up_to_date`
+    would pass either way) - the recording is what actually exercises the guard. Returns the name of the
+    part it made or edited."""
     before = scripts()
     assert operator("EXEC_DEFAULT", True, **props) == {"FINISHED"}
     after = scripts()
@@ -40,9 +51,27 @@ def one_step(operator, **props):
         assert len(changed) == 1, changed
         (name,) = changed
         assert n_features(after[name]) == n_features(before[name]) + 1
-    bpy.ops.ed.undo()
-    assert scripts() == before, "one undo must restore the state before the step"
-    wait_for(all_up_to_date)  # the meshes follow the undone scripts (possibly while a recompute was running)
+    after_tag = part.current_tag(bpy.data.objects[name])
+    applied_tags = []
+    orig_apply_result = part.apply_result
+
+    def recording_apply_result(obj, event, factor):
+        applied_tags.append(event["tag"])
+        orig_apply_result(obj, event, factor)
+
+    part.apply_result = recording_apply_result
+    try:
+        runtime.tick()  # submit the "after" script now, before it is undone below
+        assert runtime._inflight.get(name) == after_tag, (
+            "the worker must have a pending job for the 'after' script at undo time, or there is nothing "
+            "for the stale-result guard below to discard")
+        bpy.ops.ed.undo()
+        assert scripts() == before, "one undo must restore the state before the step"
+        wait_for(all_up_to_date)  # meshes converge on the restored ("before") scripts; the "after" result,
+                                  # once in flight above, must never be applied along the way (checked below)
+    finally:
+        part.apply_result = orig_apply_result
+    assert after_tag not in applied_tags, "the in-flight 'after' result must be discarded as stale, not applied"
     bpy.ops.ed.redo()
     assert scripts() == after
     return name
