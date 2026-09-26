@@ -115,7 +115,7 @@ These choices change the scope; they are needed before milestone 1.
 
 - [ ] **Main use:** rendering and kitbashing (loose tolerances, mesh first) or production too (clean STEP, tight tolerances)?
 - [ ] **Platforms:** Windows only at first, or Windows + Linux + macOS right away?
-- [ ] **History:** build123d script visible and editable by the user, or hidden behind the interface?
+- [x] **History:** hidden from standard users, shown to advanced users via a preference (decided 2026-09-26, [ADR 0002](decisions/0002-history-script-visibility.md)).
 - [ ] **Constrained sketches:** integrate CAD Sketcher or write our own sketcher?
 - [x] **Repository:** public from the start (decided 2026-09-26): https://github.com/Tonysa87/BlendSolid
 - [ ] **Available time** per week, to calibrate the milestones.

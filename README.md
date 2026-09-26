@@ -122,7 +122,7 @@ Scope-changing choices still to be made before milestone 1:
 - [x] How to ship build123d: all dependencies, loaded only in the worker, distributed from GitHub — [ADR 0001](docs/decisions/0001-shipping-build123d.md)
 - [ ] Whether and how to list on extensions.blender.org (100 MB limit: a lighter build would be needed)
 - [ ] Main use: rendering/kitbashing (loose tolerances) or production too (clean STEP, tight tolerances)?
-- [ ] History script visible and editable by the user, or hidden behind the UI?
+- [x] History script hidden from standard users, available to advanced users ([ADR 0002](docs/decisions/0002-history-script-visibility.md))
 - [ ] Constrained sketches: integrate CAD Sketcher or write our own?
 - [x] Repository public from the start
 
