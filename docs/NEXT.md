@@ -17,7 +17,7 @@ Updated: 2026-09-26, end of session 2. Read this first when resuming.
 Run the manual GUI test, guided step by step, using the plan's 16 steps
 (`docs/superpowers/plans/2026-09-26-milestone-1.5-build-without-selectors.md`, Task 14 Step 1):
 - Launch the portable Windows Blender from WSL with the console redirected to a log file:
-  `/mnt/e/blender-5.2.2-windows-x64/blender.exe > "$(wslpath -w spike/logs/gui-m1.5.log)" 2>&1` (0.2.0, with all
+  `/mnt/e/blender-5.2.2-windows-x64/blender.exe > spike/logs/gui-m1.5.log 2>&1` (WSL-side path: the redirect is bash's) (0.2.0, with all
   final-review fixes, is already installed there — no rebuild needed unless `main` changes before the session).
 - Corrections to the plan's step wording, found during the final review and the automated GUI check:
   - **Before step 11 and after step 13,** switch back to the Select Box tool (`W`) — Draw Solid's own LMB
@@ -37,6 +37,8 @@ Run the manual GUI test, guided step by step, using the plan's 16 steps
   the wireframe look of a cutter (step 11); quitting/restarting Blender with *Auto Run* off and the *Recompute*
   tooltip text, checked in Task Manager (step 16); and, throughout, a **real** mouse and keyboard — every
   automated step used simulated events.
+- The SDD ledger with every ruling (`.superpowers/sdd/2026-09-26-milestone-1.5-build-without-selectors/`, git-ignored)
+  is kept until the manual test is done; delete it after the report is signed off.
 - Then: record the results in `docs/milestone-1.5-report.md` (fill in the "manual" column and the sign-off),
   set the README status to `✅ **Done**`, and push `main` (the maintainer's rule: push only at the end of a
   milestone).
