@@ -121,6 +121,11 @@ spike/s08_build_extension.sh                                               # per
   `Gizmo.use_undo = True` gives one undo step per drag; gizmo groups don't appear in `bpy.types`.
 - **`gpu` is not initialized in background mode:** import it inside draw callbacks only.
 - `scene.ray_cast` hits wire-display objects (cutters) and returns world-space normals and original objects.
+- **Undo restores stale derived data:** an operator's undo step is pushed before the next tick updates data
+  derived from the script (the parameter mirror), and memfile undo only reloads IDs that differ between steps.
+  Python caches keyed by script tag (`runtime._synced`) must be dropped in `undo_post`/`redo_post`.
+- **GUI checks:** `tools/gui_check.py` drives a real window with `--enable-event-simulate`; the first simulated
+  press only focuses the window, and a selection made from Python is not an undo step (push one, as a click does).
 - An operator's `self.report({"ERROR"}, ...)` raises `RuntimeError` when the operator is called from Python.
 - Blender's zoom-dependent grid step isn't available to Python (`overlay.grid_scale_unit` is only the base cell).
 - Part identity is `Text["bs_part_id"]` (part.py): Shift+D copies get a new id, Alt+D/Ctrl+L share it.
