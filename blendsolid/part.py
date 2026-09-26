@@ -49,15 +49,18 @@ def unit_factor(scene=None):
     return 0.001 / scale if scale > 0 else 0.001
 
 
-def tag_for(source, factor):
+def tag_for(source, factor, deps=()):
     """The tag stored on a mesh computed from `source` and converted with `factor` (see applied_hash()):
-    changing either one makes the mesh stale."""
-    return source_hash(f"{source}\0unit-factor={factor!r}")
+    changing either one makes the mesh stale. `deps`: one string per part the script uses through ref() (its
+    id, tag and placement: see deps.resolve()), so changing a cutter makes this part stale too. Without deps
+    the tag is milestone 1's, so meshes saved by it stay up to date."""
+    return source_hash(f"{source}\0unit-factor={factor!r}" + "".join(f"\0ref={d}" for d in deps))
 
 
 def current_tag(obj, factor=None):
-    """The tag a mesh computed from obj's current script carries (compare with applied_hash())."""
-    return tag_for(source_of(obj), unit_factor() if factor is None else factor)
+    """The tag a mesh computed from obj's current script (and cutters) carries (compare with applied_hash())."""
+    from . import deps
+    return deps.tag_of(obj, factor)
 
 
 def applied_hash(obj):
@@ -193,7 +196,7 @@ def part_groups():
 
 def ensure_unique_scripts(groups, tag_of):
     """Reconcile scripts after object/mesh operations BlendSolid doesn't observe directly. `groups` comes from
-    part_groups(); `tag_of(text)` gives the tag a mesh computed from that script would carry.
+    part_groups(); `tag_of(obj)` gives the tag a mesh computed from obj's script (placed as obj) would carry.
 
     - Ctrl+L (Link Object Data), or any other way several objects end up sharing one mesh: those objects
       are ONE part (controller ruling), so they must share one script too. The winner is the script whose
@@ -211,7 +214,7 @@ def ensure_unique_scripts(groups, tag_of):
         if all(o.blendsolid_script == first_script for o in objs):
             continue
         applied = applied_hash(objs[0])
-        winner = next((o.blendsolid_script for o in objs if tag_of(o.blendsolid_script) == applied), first_script)
+        winner = next((o.blendsolid_script for o in objs if tag_of(o) == applied), first_script)
         for obj in objs:
             if obj.blendsolid_script != winner:
                 obj.blendsolid_script = winner
@@ -305,3 +308,9 @@ def ensure_part_id(obj):
 def is_scaled(obj, tolerance=1e-6):
     """Parts keep scale 1 (sizes belong in the script): gizmos and cutters refuse scaled ones."""
     return any(abs(s - 1.0) > tolerance for s in obj.matrix_world.to_scale())
+
+
+def scaled_message(obj):
+    """The message shown wherever a scaled part can't be used (gizmos, cutters): its own name, so callers can
+    build a fuller sentence around it (e.g. deps.relative_matrix's "The cutter <this>")."""
+    return f"'{obj.name}' is scaled: keep its scale 1 and change its size parameters instead"
