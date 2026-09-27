@@ -174,3 +174,96 @@ def test_vertex_normals_are_the_exact_surface_normals(name):
                 continue  # a pole or an apex
             e = props.Normal()
             assert abs(abs(e.X() * n[i, 0] + e.Y() * n[i, 1] + e.Z() * n[i, 2]) - 1.0) < 1e-5
+
+
+# -- the display mesh: faces welded along BRep edges (milestone 2, ADR 0008) --------------------------------------
+
+DISPLAY_SHAPES = {**SHAPES, "filleted_box": lambda: bd.fillet(bd.Box(40, 30, 20).edges().filter_by(bd.Axis.Z), 5),
+                  "box": lambda: bd.Box(40, 30, 20)}
+
+
+def display(name):
+    shape = DISPLAY_SHAPES[name]().wrapped
+    return shape, tessellate.display_mesh(shape, LIN, ANG)
+
+
+def volume(v, t):
+    v = v.astype(np.float64)
+    return np.einsum("ij,ij->i", v[t[:, 0]], np.cross(v[t[:, 1]], v[t[:, 2]])).sum() / 6
+
+
+def _brep_edges_to_mesh(shape):
+    """BRep edges a display mesh must carry: not seams, not degenerate (poles, apexes)."""
+    from OCP.BRep import BRep_Tool as BT
+    wanted = set()
+    faces = tessellate.face_map(shape)
+    for eid, edge in enumerate(tessellate.edge_map(shape)):
+        if BT.Degenerated_s(edge) or any(BT.IsClosed_s(edge, f) for f in faces):
+            continue
+        wanted.add(eid)
+    return wanted
+
+
+@pytest.mark.parametrize("name", sorted(DISPLAY_SHAPES))
+def test_display_mesh_is_closed(name):
+    shape, m = display(name)
+    _, counts = edges_of(m.tris)
+    assert (counts == 2).all()  # every mesh edge has two triangles: welded along the BRep edges
+    v, t, _, _ = tessellate.tessellate_with_normals(shape, LIN, ANG)
+    assert volume(m.verts, m.tris) == pytest.approx(volume(v, t), rel=1e-6)
+    if _brep_edges_to_mesh(shape):  # faces that meet share their boundary vertices now
+        assert len(m.verts) < len(v)
+    assert m.tri_face.shape == (len(m.tris),) and m.corner_normals.shape == (3 * len(m.tris), 3)
+
+
+@pytest.mark.parametrize("name", sorted(DISPLAY_SHAPES))
+def test_edges_carry_brep_edge_ids(name):
+    from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeVertex
+    from OCP.BRepExtrema import BRepExtrema_DistShapeShape
+    shape, m = display(name)
+    t, f = m.tris, m.tri_face
+    sides = np.sort(np.concatenate([t[:, [0, 1]], t[:, [1, 2]], t[:, [2, 0]]]), axis=1)
+    owner = np.concatenate([f, f, f])
+    between = {tuple(s) for s in np.unique(sides, axis=0)
+               if len(set(owner[(sides == s).all(axis=1)])) > 1}
+    assert between == {tuple(e) for e in m.edges}  # exactly the mesh edges between two faces
+    assert set(m.edge_ids.tolist()) == _brep_edges_to_mesh(shape)
+    brep = tessellate.edge_map(shape)
+    for (a, b), eid in list(zip(m.edges, m.edge_ids))[:: max(1, len(m.edges) // 60)]:
+        mid = (m.verts[a].astype(np.float64) + m.verts[b]) / 2
+        dist = BRepExtrema_DistShapeShape(BRepBuilderAPI_MakeVertex(gp_Pnt(*mid)).Vertex(), brep[eid])
+        assert dist.Value() < LIN
+
+
+def test_sharp_edges():
+    # filleted box: 8 arcs + 8 straight top/bottom edges are sharp; the 8 vertical edges where the fillets meet
+    # the flat sides are tangent
+    for name, sharp, smooth in (("box", 12, 0), ("cylinder", 2, 0), ("filleted_box", 16, 8)):
+        shape, m = display(name)
+        ids = {int(e): bool(s) for e, s in zip(m.edge_ids, m.edge_sharp)}
+        assert sum(ids.values()) == sharp and len(ids) - sum(ids.values()) == smooth, name
+        per_edge = {}
+        for e, s in zip(m.edge_ids, m.edge_sharp):
+            per_edge.setdefault(int(e), set()).add(int(s))
+        assert all(len(v) == 1 for v in per_edge.values())  # a BRep edge is sharp or smooth along its length
+
+
+@pytest.mark.parametrize("name", ["filleted_box", "box_with_hole", "cone"])
+def test_corner_normals_follow_their_face(name):
+    shape, m = display(name)
+    v, t, f, n = tessellate.tessellate_with_normals(shape, LIN, ANG)
+    per_face = {}
+    for fid in np.unique(f):
+        corners = n[t[f == fid]].reshape(-1, 3)
+        per_face[fid] = corners
+    for fid in np.unique(m.tri_face):
+        got = m.corner_normals.reshape(-1, 3, 3)[m.tri_face == fid].reshape(-1, 3)
+        assert got.shape == per_face[fid].shape
+        assert np.allclose(np.sort(got, axis=0), np.sort(per_face[fid], axis=0), atol=1e-6)
+    # a welded vertex on a sharp edge has one normal per face
+    tri_of_corner = np.repeat(np.arange(len(m.tris)), 3)
+    corner_vert = m.tris.ravel()
+    a, b = m.edges[m.edge_sharp == 1][0]
+    normals_at_a = {tuple(np.round(m.corner_normals[k], 4)) for k in np.nonzero(corner_vert == a)[0]}
+    assert len(normals_at_a) >= 2
+    assert tri_of_corner.shape == corner_vert.shape

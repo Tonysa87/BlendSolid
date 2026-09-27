@@ -65,7 +65,10 @@ class RunResult:
     tris: np.ndarray | None = None
     tri_face: np.ndarray | None = None
     planes: np.ndarray | None = None  # per face: exact plane (nx, ny, nz, d) or NaN (tessellate.face_planes)
-    normals: np.ndarray | None = None  # per vertex: exact surface normal (tessellate.tessellate_with_normals)
+    corner_normals: np.ndarray | None = None  # per triangle corner: exact surface normal (tessellate.display_mesh)
+    edges: np.ndarray | None = None  # mesh edges lying on BRep edges (vertex pairs)
+    edge_ids: np.ndarray | None = None  # their BRep edge ids
+    edge_sharp: np.ndarray | None = None  # 1 where the faces meet at an angle, 0 where tangent
     timing: dict = field(default_factory=dict)
 
 
@@ -177,13 +180,15 @@ def run_script(source, lin_defl=0.1, ang_defl=0.3, deps=(), tag=None, cache=None
             return RunResult(False, "`result` contains no solid")
         if not info["valid"]:
             return RunResult(False, "`result` is not a valid solid (BRepCheck failed)")
-        verts, tris, tri_face, normals = tessellate.tessellate_with_normals(wrapped, lin_defl, ang_defl)
+        mesh = tessellate.display_mesh(wrapped, lin_defl, ang_defl)
         planes = tessellate.face_planes(wrapped)
         if tag is not None:
             cache.put(tag, shape)
         t2 = time.perf_counter()
-        return RunResult(True, volume=info["volume"], faces=info["faces"], verts=verts, tris=tris, tri_face=tri_face,
-                         planes=planes, normals=normals, timing={"script": t1 - t0, "tessellate": t2 - t1})
+        return RunResult(True, volume=info["volume"], faces=info["faces"], verts=mesh.verts, tris=mesh.tris,
+                         tri_face=mesh.tri_face, planes=planes, corner_normals=mesh.corner_normals, edges=mesh.edges,
+                         edge_ids=mesh.edge_ids, edge_sharp=mesh.edge_sharp,
+                         timing={"script": t1 - t0, "tessellate": t2 - t1})
     except Exception as e:
         # tessellate.check/tessellate (and any OCCT call here) must never take down the worker process.
         return RunResult(False, f"{type(e).__name__}: {e}")

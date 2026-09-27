@@ -11,10 +11,13 @@ sphere has no real boundary: it becomes a geodesic grid (an octahedron subdivide
 has neither the thin pole triangles nor the seam of a latitude-longitude grid.
 """
 import math
+from dataclasses import dataclass
 
 import numpy as np
 from OCP.BRep import BRep_Builder, BRep_Tool
 from OCP.BRepAdaptor import BRepAdaptor_Curve2d, BRepAdaptor_Surface
+from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeVertex
+from OCP.BRepExtrema import BRepExtrema_DistShapeShape
 from OCP.BRepCheck import BRepCheck_Analyzer
 from OCP.BRepGProp import BRepGProp
 from OCP.BRepLProp import BRepLProp_SLProps
@@ -22,6 +25,7 @@ from OCP.BRepMesh import BRepMesh_IncrementalMesh
 from OCP.ElSLib import ElSLib
 from OCP.BRepTools import BRepTools
 from OCP.collections import IndexedMap_TopoDS_Shape_TopTools_ShapeMapHasher as ShapeMap
+from OCP.collections import IndexedDataMap_TopoDS_Shape_List_TopoDS_Shape_TopTools_ShapeMapHasher as AncestorMap
 from OCP.GeomAbs import GeomAbs_Cone, GeomAbs_Cylinder, GeomAbs_Line, GeomAbs_Plane, GeomAbs_Sphere, GeomAbs_Torus
 from OCP.GProp import GProp_GProps
 from OCP.IMeshTools import IMeshTools_Parameters
@@ -45,6 +49,11 @@ def _map(shape, kind):
 def face_map(shape):
     m = _map(shape, TopAbs_FACE)
     return [TopoDS.Face(m.FindKey(i)) for i in range(1, m.Extent() + 1)]
+
+
+def edge_map(shape):
+    m = _map(shape, TopAbs_EDGE)
+    return [TopoDS.Edge(m.FindKey(i)) for i in range(1, m.Extent() + 1)]
 
 
 def check(shape):
@@ -444,3 +453,107 @@ def tessellate_with_normals(shape, lin_defl=0.1, ang_defl=0.3):
         return empty, np.zeros((0, 3), np.int32), np.zeros(0, np.int32), empty
     return (np.concatenate(verts).astype(np.float32), np.ascontiguousarray(np.concatenate(tris), dtype=np.int32),
             np.concatenate(tri_face), np.concatenate(normals).astype(np.float32))
+
+
+# -- the display mesh: faces welded along BRep edges (ADR 0008) ---------------------------------------------------
+
+_DISPLAY_WELD = 1e-6  # mm: boundary nodes of neighbouring faces are the same BRepMesh edge nodes
+_DISPLAY_WELD_OPEN = 1e-5  # mm: second pass for pairs the rounding grid split
+_SHARP = 1e-3  # radians between the two faces' normals at an edge: below, the faces are tangent (smooth)
+
+
+@dataclass
+class DisplayMesh:
+    verts: np.ndarray           # (n, 3) float32, millimetres
+    tris: np.ndarray            # (t, 3) int32
+    tri_face: np.ndarray        # (t,) int32: BRep face id (face_map order)
+    corner_normals: np.ndarray  # (3t, 3) float32: exact normal of corner k of triangle i at row 3i + k
+    edges: np.ndarray           # (e, 2) int32: mesh edges on BRep edges (sorted vertex pairs)
+    edge_ids: np.ndarray        # (e,) int32: BRep edge id (edge_map order)
+    edge_sharp: np.ndarray      # (e,) int32: 1 where the two faces meet at an angle, 0 where tangent
+
+
+def _weld_all(verts, tris):
+    """Merge coincident vertices across faces: the rounding grid first, then open-edge vertices it split."""
+    key = np.round(verts.astype(np.float64) / _DISPLAY_WELD).astype(np.int64)
+    _, first, inv = np.unique(key, axis=0, return_index=True, return_inverse=True)
+    verts, tris = verts[first], inv.ravel()[tris]
+    sides = np.sort(np.concatenate([tris[:, [0, 1]], tris[:, [1, 2]], tris[:, [2, 0]]]), axis=1)
+    uniq, counts = np.unique(sides, axis=0, return_counts=True)
+    open_verts = np.unique(uniq[counts == 1])
+    if len(open_verts):
+        remap = np.arange(len(verts))
+        p = verts[open_verts].astype(np.float64)
+        for i, vi in enumerate(open_verts):
+            if remap[vi] != vi:
+                continue
+            close = open_verts[i + 1:][np.linalg.norm(p[i + 1:] - p[i], axis=1) < _DISPLAY_WELD_OPEN]
+            remap[close] = vi
+        tris = remap[tris]
+    used, tris = np.unique(tris, return_inverse=True)
+    return verts[used], tris.reshape(-1, 3).astype(np.int32)
+
+
+def _brep_edge_of(shape, faces, edges):
+    """(face a, face b) -> BRep edge ids shared by the two faces."""
+    ancestors = AncestorMap()
+    TopExp.MapShapesAndAncestors_s(shape, TopAbs_EDGE, TopAbs_FACE, ancestors)
+    face_ids = ShapeMap()
+    for f in faces:
+        face_ids.Add(f)
+    edge_ids = ShapeMap()
+    for e in edges:
+        edge_ids.Add(e)
+    shared = {}
+    for i in range(1, ancestors.Extent() + 1):
+        eid = edge_ids.FindIndex(ancestors.FindKey(i)) - 1
+        fids = sorted({face_ids.FindIndex(f) - 1 for f in ancestors.FindFromIndex(i)})
+        if len(fids) == 2:
+            shared.setdefault(tuple(fids), []).append(eid)
+    return shared
+
+
+def _nearest_edge(candidates, edges, point):
+    vertex = BRepBuilderAPI_MakeVertex(gp_Pnt(*map(float, point))).Vertex()
+    return min(candidates, key=lambda eid: BRepExtrema_DistShapeShape(vertex, edges[eid]).Value())
+
+
+def display_mesh(shape, lin_defl=0.1, ang_defl=0.3):
+    """The mesh Blender shows: tessellate_with_normals()'s faces welded along their BRep edges, so it is closed
+    and Blender's modifiers see real edges; the exact normals per face corner (a welded vertex on a sharp edge
+    has one per face); and each mesh edge lying on a BRep edge with that edge's id and whether it is sharp (the
+    faces meet at an angle) or smooth (tangent faces, e.g. a fillet and its flat neighbour). Seams and poles are
+    inside a face: no edge id."""
+    verts, tris, tri_face, normals = tessellate_with_normals(shape, lin_defl, ang_defl)
+    corner_normals = normals[tris].reshape(-1, 3).astype(np.float32)
+    verts, tris = _weld_all(verts, tris)
+    nt = len(tris)
+    sides = np.sort(np.concatenate([tris[:, [0, 1]], tris[:, [1, 2]], tris[:, [2, 0]]]), axis=1)
+    side_tri = np.concatenate([np.arange(nt)] * 3)
+    uniq, inv = np.unique(sides, axis=0, return_inverse=True)
+    order = np.argsort(inv.ravel(), kind="stable")  # closed mesh: each unique edge's two sides are adjacent
+    tri_a, tri_b = side_tri[order[0::2]], side_tri[order[1::2]]
+    fa, fb = tri_face[tri_a], tri_face[tri_b]
+    boundary = np.nonzero(fa != fb)[0]
+    faces, brep_edges = face_map(shape), edge_map(shape)
+    shared = _brep_edge_of(shape, faces, brep_edges)
+    # the two faces' normals at each edge's first vertex (that vertex's corner in each triangle): sharp or tangent
+    ta, tb, v0 = tri_a[boundary], tri_b[boundary], uniq[boundary, 0]
+    na = corner_normals[3 * ta + np.argmax(tris[ta] == v0[:, None], axis=1)].astype(np.float64)
+    nb = corner_normals[3 * tb + np.argmax(tris[tb] == v0[:, None], axis=1)].astype(np.float64)
+    cos = np.einsum("ij,ij->i", na, nb) / np.maximum(1e-12, np.linalg.norm(na, axis=1) * np.linalg.norm(nb, axis=1))
+    sharp = np.arccos(np.clip(cos, -1.0, 1.0)) > _SHARP
+    out_edges, out_ids, out_sharp = [], [], []
+    for n, k in enumerate(boundary):
+        candidates = shared.get((int(min(fa[k], fb[k])), int(max(fa[k], fb[k]))), [])
+        if not candidates:
+            continue
+        a, b = uniq[k]
+        eid = candidates[0] if len(candidates) == 1 else _nearest_edge(
+            candidates, brep_edges, (verts[a].astype(np.float64) + verts[b]) / 2)
+        out_edges.append((a, b))
+        out_ids.append(eid)
+        out_sharp.append(int(sharp[n]))
+    return DisplayMesh(verts.astype(np.float32), tris, tri_face.astype(np.int32), corner_normals,
+                       np.array(out_edges, dtype=np.int32).reshape(-1, 2), np.array(out_ids, dtype=np.int32),
+                       np.array(out_sharp, dtype=np.int32))
