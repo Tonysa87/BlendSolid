@@ -59,6 +59,9 @@ The maintainer asked for a correct triangle topology, with no artifacts (quad me
 
 ## Addendum (2026-09-27): trimmed curved faces
 
+**Superseded by ADR 0010 (2026-09-28):** the maintainer found the result still irregular (a mosaic); every face is
+now meshed from one shared edge discretization, four-sided faces as structured grids.
+
 The maintainer's `fillet.blend` (now `tests/unit/data/maintainer_fillet_part.py`) showed fans of slivers on fillet
 faces: BRepMesh triangulates in raw (u, v), and on a fillet's torus (radii 250 and 5 mm) one parameter spans 50
 times the length of the other; no BRepMesh parameter (Delabella, surface deflection control, interior deflection)

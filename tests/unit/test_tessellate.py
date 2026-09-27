@@ -7,7 +7,7 @@ import pytest
 from OCP.BRepAdaptor import BRepAdaptor_Surface
 from OCP.GeomAPI import GeomAPI_ProjectPointOnSurf
 from OCP.BRep import BRep_Tool
-from OCP.GeomAbs import GeomAbs_Cone, GeomAbs_Cylinder, GeomAbs_Plane
+from OCP.GeomAbs import GeomAbs_Cone, GeomAbs_Cylinder, GeomAbs_Plane, GeomAbs_Torus
 from OCP.gp import gp_Pnt
 
 import tessellate  # worker module, imported as the worker does
@@ -409,3 +409,131 @@ def test_trimmed_curved_faces_have_no_slivers(name):
     pairs, _ = sides(m)
     _, counts = np.unique(pairs, axis=0, return_counts=True)
     assert (counts == 2).all()  # still welded to the neighbouring faces
+
+
+# -- ADR 0010: edge-first, grid-based tessellation ---------------------------------------------------------------
+
+def _maintainer_big():
+    """The maintainer's second screenshot: the same kind of corner cut on a bigger box, with bigger fillets."""
+    import provenance
+    source = """
+with BuildPart() as part:
+    Box(1000.0, 1000.0, 1000.0, align=(Align.CENTER, Align.CENTER, Align.MIN))  # feature: box_1
+    extrude(face("box_1", "+Z"), amount=-200.0, mode=Mode.SUBTRACT)  # feature: push_1
+    with Locations(Location((-500.0, 500.0, 800.0), (0.0, 0.0, 0.0))):  # feature: cut_1
+        Cylinder(500.0, 4000.0, align=(Align.CENTER, Align.CENTER, Align.MAX), mode=Mode.SUBTRACT)
+    fillet(edges_of(face("cut_1", "side")), radius=40.0)  # feature: fillet_1
+
+result = part.part
+"""
+    ns = provenance.namespace(provenance.Tracker())
+    exec(provenance.instrument(source, "<part>"), ns)
+    return ns["result"]
+
+
+GRID_PARTS = {
+    "maintainer_fillet": _maintainer_fillet,
+    "maintainer_big": _maintainer_big,
+    "filleted_box": lambda: bd.fillet(bd.Box(100, 80, 60).edges(), 10),
+    "holed_cylinder": TRIMMED["holed_cylinder"],
+    "cut_sphere": lambda: bd.Sphere(50) - bd.Box(60, 60, 60, align=(bd.Align.MIN,) * 3),
+}
+
+
+def _surface_type(face):
+    return BRepAdaptor_Surface(face).GetType()
+
+
+@pytest.mark.parametrize("name", sorted(GRID_PARTS))
+def test_grid_parts_are_closed_valid_and_within_the_tolerance(name):
+    shape = GRID_PARTS[name]().wrapped
+    lin = 1.0
+    m = tessellate.display_mesh(shape, lin, ANG)
+    pairs, _ = sides(m)
+    _, counts = np.unique(np.sort(pairs, axis=1), axis=0, return_counts=True)
+    assert (counts == 2).all()  # every face meshed from the shared edge nodes: welded everywhere
+    v, t, f, _ = tessellate.tessellate_with_normals(shape, lin, ANG)
+    v = v.astype(np.float64)
+    vol = np.einsum("ij,ij->i", v[t[:, 0]], np.cross(v[t[:, 1]], v[t[:, 2]])).sum() / 6
+    area = np.linalg.norm(np.cross(v[t[:, 1]] - v[t[:, 0]], v[t[:, 2]] - v[t[:, 0]]), axis=1).sum() / 2
+    from OCP.GProp import GProp_GProps
+    from OCP.BRepGProp import BRepGProp
+    props = GProp_GProps()
+    BRepGProp.VolumeProperties_s(shape, props)
+    assert vol > 0 and abs(vol - props.Mass()) < area * lin
+    for fid, face in curved_faces(shape):
+        ft = t[f == fid]
+        surf = BRep_Tool.Surface_s(face)
+        a, b, c = v[ft[:, 0]], v[ft[:, 1]], v[ft[:, 2]]
+        for p in np.concatenate([(a + b + c) / 3, (a + b) / 2, (b + c) / 2, (c + a) / 2])[:: max(1, len(ft) // 40)]:
+            proj = GeomAPI_ProjectPointOnSurf(gp_Pnt(*p), surf)
+            assert proj.NbPoints() > 0 and proj.LowerDistance() < lin * 1.05
+
+
+def _interior_valence(ft):
+    e, counts = edges_of(ft)
+    rim = set(np.unique(e[counts == 1]).tolist())
+    valence = np.bincount(ft.ravel())
+    inner = [k for k in np.unique(ft) if k not in rim]
+    return valence[inner]
+
+
+@pytest.mark.parametrize("name", ["maintainer_fillet", "maintainer_big"])
+def test_fillet_bands_are_structured_rows(name):
+    # The maintainer's screenshots: a mosaic on the fillet band along the big cylinder (ADR 0005's addendum).
+    # A structured grid split by one diagonal rule: every interior vertex has 6 triangles.
+    shape = GRID_PARTS[name]().wrapped
+    v, t, f, _ = tessellate.tessellate_with_normals(shape, 1.0, ANG)
+    bands = [fid for fid, face in curved_faces(shape) if _surface_type(face) == GeomAbs_Torus
+             and tessellate._revolution(face) is None]
+    assert bands
+    for fid in bands:
+        valence = _interior_valence(t[f == fid])
+        assert len(valence) and (valence == 6).mean() >= 0.95, f"face {fid}: {np.bincount(valence)}"
+
+
+@pytest.mark.parametrize("name", ["maintainer_fillet", "maintainer_big"])
+def test_trimmed_cylinder_is_aligned_columns(name):
+    # The maintainer's blue face: a quarter cylinder between two fillets fanned irregularly (its top and bottom
+    # edges had different node counts). Its straight direction is one row: every triangle touches both arcs,
+    # which carry the same number of nodes (columns), so no vertex has more than 3 triangles.
+    shape = GRID_PARTS[name]().wrapped
+    v, t, f, _ = tessellate.tessellate_with_normals(shape, 1.0, ANG)
+    v = v.astype(np.float64)
+    big = [fid for fid, face in curved_faces(shape) if _surface_type(face) == GeomAbs_Cylinder
+           and BRepAdaptor_Surface(face).Cylinder().Radius() > 100]
+    assert len(big) == 1
+    ft = t[f == big[0]]
+    z = v[np.unique(ft), 2]
+    top, bottom = np.isclose(z, z.max(), atol=1e-3), np.isclose(z, z.min(), atol=1e-3)
+    assert (top | bottom).all() and top.sum() == bottom.sum()
+    assert np.bincount(ft.ravel()).max() <= 3
+
+
+def test_trimmed_grid_face_has_regular_cells():
+    # A cylinder with a hole: a grid trimmed by the hole, iso-line boundaries on the grid's own nodes.
+    shape = GRID_PARTS["holed_cylinder"]().wrapped
+    v, t, f, _ = tessellate.tessellate_with_normals(shape, 1.0, ANG)
+    side = [fid for fid, face in curved_faces(shape) if _surface_type(face) == GeomAbs_Cylinder
+            and BRepAdaptor_Surface(face).Cylinder().Radius() > 100][0]
+    valence = _interior_valence(t[f == side])
+    assert (valence == 6).mean() >= 0.6, np.bincount(valence)
+
+
+def test_tiny_edges_do_not_run_slivers_across_a_face():
+    # The fillet band's ends have 0.05 mm edges (where the corner blends meet): their grid lines are merged, so
+    # at most a couple of triangles per tiny edge are thin, not a column across the band.
+    shape = GRID_PARTS["maintainer_fillet"]().wrapped
+    v, t, f, _ = tessellate.tessellate_with_normals(shape, 1.0, ANG)
+    v = v.astype(np.float64)
+    for fid, face in curved_faces(shape):
+        if _surface_type(face) == GeomAbs_Torus and tessellate._revolution(face) is None:
+            assert (min_angles(v, t[f == fid]) < 5).sum() <= 4
+
+
+def test_grid_tessellation_is_fast():
+    import time
+    shape = GRID_PARTS["maintainer_big"]().wrapped
+    start = time.perf_counter()
+    tessellate.display_mesh(shape, 1.0, ANG)
+    assert time.perf_counter() - start < 1.0
