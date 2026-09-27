@@ -106,8 +106,8 @@ def new_part(context, source=None, name="Part"):
 def apply_result(obj, event, factor):
     """`factor`: the unit factor event["tag"] was computed with (the caller checked it is still current)."""
     verts = np.asarray(event["verts"], dtype=np.float64) * factor  # millimetres -> Blender units
-    fill_mesh(obj.data, verts, event["tris"], event["tri_face"], event.get("corner_normals"), event.get("edges"),
-              event.get("edge_ids"), event.get("edge_sharp"))
+    fill_mesh(obj.data, verts, event["loops"], event["poly_sizes"], event["poly_face"], event.get("corner_normals"),
+              event.get("edges"), event.get("edge_ids"), event.get("edge_sharp"))
     planes = event.get("planes")
     if planes is not None:
         obj.data[PLANES_KEY] = np.asarray(planes, dtype=np.float64).ravel().tolist()
@@ -137,21 +137,24 @@ def error_tag(obj):
     return obj.get(ERROR_TAG_KEY)
 
 
-def fill_mesh(mesh, verts, tris, tri_face, corner_normals=None, edges=None, edge_ids=None, edge_sharp=None):
+def fill_mesh(mesh, verts, loops, poly_sizes, poly_face, corner_normals=None, edges=None, edge_ids=None,
+              edge_sharp=None):
     """The worker's welded display mesh (ADR 0008): closed, so Blender's modifiers see real edges. CAD edges carry
     their BRep edge id; those where the faces meet at an angle are sharp and bevel-weighted (Bevel's Limit Method
-    Weight rounds exactly them); the exact normals are per face corner."""
+    Weight rounds exactly them); the exact normals are per face corner. A flat face without holes is one
+    polygon, the rest triangles."""
     mesh.clear_geometry()
-    nt = len(tris)
+    sizes = np.ascontiguousarray(poly_sizes, dtype=np.int32)
+    n_polys, n_loops = len(sizes), int(sizes.sum())
     mesh.vertices.add(len(verts))
     mesh.vertices.foreach_set("co", np.ascontiguousarray(verts, dtype=np.float32).ravel())
-    mesh.loops.add(nt * 3)
-    mesh.loops.foreach_set("vertex_index", np.ascontiguousarray(tris, dtype=np.int32).ravel())
-    mesh.polygons.add(nt)
-    mesh.polygons.foreach_set("loop_start", np.arange(0, nt * 3, 3, dtype=np.int32))
-    mesh.polygons.foreach_set("use_smooth", np.ones(nt, dtype=bool))  # sharp edges come from sharp_edge
+    mesh.loops.add(n_loops)
+    mesh.loops.foreach_set("vertex_index", np.ascontiguousarray(loops, dtype=np.int32))
+    mesh.polygons.add(n_polys)
+    mesh.polygons.foreach_set("loop_start", np.concatenate([[0], np.cumsum(sizes)[:-1]]).astype(np.int32))
+    mesh.polygons.foreach_set("use_smooth", np.ones(n_polys, dtype=bool))  # sharp edges come from sharp_edge
     attr = _attribute(mesh, FACE_ATTR, "INT", "FACE")
-    attr.data.foreach_set("value", np.ascontiguousarray(tri_face, dtype=np.int32))
+    attr.data.foreach_set("value", np.ascontiguousarray(poly_face, dtype=np.int32))
     mesh.update(calc_edges=True)
     ids = np.full(len(mesh.edges), -1, dtype=np.int32)
     sharp = np.zeros(len(mesh.edges), dtype=bool)
@@ -163,7 +166,7 @@ def fill_mesh(mesh, verts, tris, tri_face, corner_normals=None, edges=None, edge
     _attribute(mesh, EDGE_ATTR, "INT", "EDGE").data.foreach_set("value", ids)
     _attribute(mesh, "sharp_edge", "BOOLEAN", "EDGE").data.foreach_set("value", sharp)
     _attribute(mesh, "bevel_weight_edge", "FLOAT", "EDGE").data.foreach_set("value", sharp.astype(np.float32))
-    if corner_normals is not None and len(corner_normals) == nt * 3:
+    if corner_normals is not None and len(corner_normals) == n_loops:
         # The exact surface normals (the worker's): shading doesn't depend on the triangles' shapes.
         custom = _attribute(mesh, "custom_normal", "FLOAT_VECTOR", "CORNER")
         custom.data.foreach_set("vector", np.ascontiguousarray(corner_normals, dtype=np.float32).ravel())
@@ -248,12 +251,21 @@ def curved_face_normal(obj, mesh, polygon_index, location):
 
 
 def mesh_volume(mesh):
+    """Signed volume of a closed mesh, its polygons fan-triangulated (exact for planar polygons)."""
     v = np.empty(len(mesh.vertices) * 3, dtype=np.float64)
     mesh.vertices.foreach_get("co", v)
-    t = np.empty(len(mesh.polygons) * 3, dtype=np.int32)
-    mesh.polygons.foreach_get("vertices", t)
-    v, t = v.reshape(-1, 3), t.reshape(-1, 3)
-    return float(np.einsum("ij,ij->i", v[t[:, 0]], np.cross(v[t[:, 1]], v[t[:, 2]])).sum() / 6)
+    loops = np.empty(len(mesh.loops), dtype=np.int64)
+    mesh.loops.foreach_get("vertex_index", loops)
+    start = np.empty(len(mesh.polygons), dtype=np.int64)
+    size = np.empty(len(mesh.polygons), dtype=np.int64)
+    mesh.polygons.foreach_get("loop_start", start)
+    mesh.polygons.foreach_get("loop_total", size)
+    v = v.reshape(-1, 3)
+    tri_poly = np.repeat(np.arange(len(size)), size - 2)  # polygon of each fan triangle
+    k = np.arange(len(tri_poly)) - np.repeat(np.cumsum(size - 2) - (size - 2), size - 2)  # triangle within its fan
+    first = start[tri_poly]
+    a, b, c = v[loops[first]], v[loops[first + k + 1]], v[loops[first + k + 2]]
+    return float(np.einsum("ij,ij->i", a, np.cross(b, c)).sum() / 6)
 
 
 def sync_params(obj, source=None):

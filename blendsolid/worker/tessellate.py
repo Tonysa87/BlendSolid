@@ -465,35 +465,138 @@ _SHARP = 1e-3  # radians between the two faces' normals at an edge: below, the f
 @dataclass
 class DisplayMesh:
     verts: np.ndarray           # (n, 3) float32, millimetres
-    tris: np.ndarray            # (t, 3) int32
-    tri_face: np.ndarray        # (t,) int32: BRep face id (face_map order)
-    corner_normals: np.ndarray  # (3t, 3) float32: exact normal of corner k of triangle i at row 3i + k
+    loops: np.ndarray           # (L,) int32: vertex of each polygon corner, polygon after polygon
+    poly_sizes: np.ndarray      # (P,) int32: corners per polygon (3, or a flat face's whole boundary)
+    poly_face: np.ndarray       # (P,) int32: BRep face id (face_map order)
+    corner_normals: np.ndarray  # (L, 3) float32: exact surface normal at each corner
     edges: np.ndarray           # (e, 2) int32: mesh edges on BRep edges (sorted vertex pairs)
     edge_ids: np.ndarray        # (e,) int32: BRep edge id (edge_map order)
     edge_sharp: np.ndarray      # (e,) int32: 1 where the two faces meet at an angle, 0 where tangent
 
 
-def _weld_all(verts, tris):
-    """Merge coincident vertices across faces: the rounding grid first, then open-edge vertices it split."""
+def _weld_all(verts, loops):
+    """Merge coincident vertices across faces: the rounding grid first, then open-edge vertices it split.
+    `loops` holds polygon corners as vertex indices; returns (verts, loops) with unused vertices dropped."""
     key = np.round(verts.astype(np.float64) / _DISPLAY_WELD).astype(np.int64)
     _, first, inv = np.unique(key, axis=0, return_index=True, return_inverse=True)
-    verts, tris = verts[first], inv.ravel()[tris]
-    sides = np.sort(np.concatenate([tris[:, [0, 1]], tris[:, [1, 2]], tris[:, [2, 0]]]), axis=1)
-    uniq, counts = np.unique(sides, axis=0, return_counts=True)
+    verts, loops = verts[first], inv.ravel()[loops]
+    return verts, loops
+
+
+def _merge_open(verts, loops, pairs):
+    """Merge the vertices of open edges (one polygon only) that lie within _DISPLAY_WELD_OPEN of each other."""
+    uniq, counts = np.unique(np.sort(pairs, axis=1), axis=0, return_counts=True)
     open_verts = np.unique(uniq[counts == 1])
-    if len(open_verts):
-        remap = np.arange(len(verts))
-        p = verts[open_verts].astype(np.float64)
-        for i, vi in enumerate(open_verts):
-            if remap[vi] != vi:
-                continue
-            close = open_verts[i + 1:][np.linalg.norm(p[i + 1:] - p[i], axis=1) < _DISPLAY_WELD_OPEN]
-            remap[close] = vi
-        tris = remap[tris]
-    used, tris = np.unique(tris, return_inverse=True)
-    return verts[used], tris.reshape(-1, 3).astype(np.int32)
+    if not len(open_verts):
+        return loops, False
+    remap = np.arange(len(verts))
+    p = verts[open_verts].astype(np.float64)
+    for i, vi in enumerate(open_verts):
+        if remap[vi] != vi:
+            continue
+        close = open_verts[i + 1:][np.linalg.norm(p[i + 1:] - p[i], axis=1) < _DISPLAY_WELD_OPEN]
+        remap[close] = vi
+    return remap[loops], True
 
 
+def _boundary_loop(t):
+    """The boundary of triangles `t` (one face) as one cycle of vertex indices in the triangles' winding, or None
+    if it isn't a single cycle (a face with holes)."""
+    directed = np.concatenate([t[:, [0, 1]], t[:, [1, 2]], t[:, [2, 0]]])
+    keys = {(int(a), int(b)) for a, b in directed}
+    nxt = {a: b for a, b in keys if (b, a) not in keys}
+    if len(nxt) < 3 or len(set(nxt.values())) != len(nxt):
+        return None
+    start = next(iter(nxt))
+    cycle, v = [start], nxt[start]
+    while v != start:
+        if v not in nxt or len(cycle) > len(nxt):
+            return None
+        cycle.append(v)
+        v = nxt[v]
+    return cycle if len(cycle) == len(nxt) else None
+
+
+def _convex_at(pts, loop, v, normal):
+    i = loop.index(v)
+    turn = np.cross(pts[v] - pts[loop[i - 1]], pts[loop[(i + 1) % len(loop)]] - pts[v])
+    return float(np.dot(turn, normal)) >= -1e-12
+
+
+def _merge_convex(t, pts, normal):
+    """Hertel-Mehlhorn: triangles `t` of a flat face (outward `normal`) merged across their shared edges,
+    shortest first, while both ends of the removed edge stay convex. A face with holes can't be one Blender
+    polygon, and its triangles' short chords (ears along an arc) clamp Blender's Bevel (Clamp Overlap, its
+    default, limits the whole bevel to the tightest spot); measured: the default part's 1 mm bevel removed
+    0.22 mm³ with triangles, 25 with the fewest simple (concave) polygons, and 82 — the unclamped value — with
+    convex ones. Returns the polygons as vertex lists in the triangles' winding."""
+    polys = {i: [int(a), int(b), int(c)] for i, (a, b, c) in enumerate(t)}
+    owner = {}  # directed edge -> polygon
+    for i, loop in polys.items():
+        for k in range(3):
+            owner[(loop[k], loop[(k + 1) % 3])] = i
+    interior = [(a, b) for (a, b) in owner if a < b and (b, a) in owner]
+    interior.sort(key=lambda e: float(np.linalg.norm(pts[e[0]] - pts[e[1]])))
+
+    for a, b in interior:
+        p, q = owner.get((a, b)), owner.get((b, a))
+        if p is None or q is None or p == q:
+            continue
+        lp, lq = polys[p], polys[q]
+        # p runs a -> b; q runs b -> a. Merged: p from b round to a, then q from a round to b (both exclusive).
+        i, j = lp.index(b), lq.index(a)
+        merged = lp[i:] + lp[:i]           # b ... a
+        rest = lq[j:] + lq[:j]             # a ... b
+        merged = merged + rest[1:-1]       # b ... a, (q's vertices between a and b)
+        if len(set(merged)) != len(merged):
+            continue  # the two polygons touch elsewhere: the merge wouldn't be a simple polygon
+        m = len(merged)
+        if not (_convex_at(pts, merged, a, normal) and _convex_at(pts, merged, b, normal)):
+            continue
+        del polys[q]
+        polys[p] = merged
+        for k in range(m):
+            owner[(merged[k], merged[(k + 1) % m])] = p
+        owner.pop((a, b), None)
+        owner.pop((b, a), None)
+    return list(polys.values())
+
+
+def _polygons(shape, verts, tris, tri_face):
+    """(loops, poly_sizes, poly_face): a flat face whose triangles have one boundary cycle becomes that one
+    polygon (Blender's Bevel clamps to the shortest chord of a triangulated cap; Blender's own primitives have
+    n-gon caps); a flat face with holes becomes convex polygons (_merge_convex); curved faces keep their
+    triangles."""
+    loops, sizes, faces = [], [], []
+    for fid, face in enumerate(face_map(shape)):
+        t = tris[tri_face == fid]
+        surf = BRepAdaptor_Surface(face)
+        if surf.GetType() == GeomAbs_Plane and len(t) > 1:
+            cycle = _boundary_loop(t)
+            if cycle is None:
+                normal = _vec(surf.Plane().Axis().Direction())
+                if face.Orientation() == TopAbs_REVERSED:
+                    normal = -normal
+                pieces = _merge_convex(t, verts.astype(np.float64), normal)
+            else:
+                pieces = [cycle]
+            for piece in pieces:
+                loops.append(np.array(piece, dtype=np.int64))
+                sizes.append(len(piece))
+                faces.append(fid)
+        else:
+            loops.append(t.ravel().astype(np.int64))
+            sizes.extend([3] * len(t))
+            faces.extend([fid] * len(t))
+    return np.concatenate(loops), np.array(sizes, dtype=np.int32), np.array(faces, dtype=np.int32)
+
+
+def _sides(loops, sizes):
+    """(vertex pair (unsorted), polygon, corner of the pair's first vertex) of every polygon side."""
+    starts = np.concatenate([[0], np.cumsum(sizes)[:-1]]).astype(np.int64)
+    nxt = np.arange(len(loops)) + 1
+    nxt[starts + sizes - 1] = starts
+    return np.stack([loops, loops[nxt]], axis=1), np.repeat(np.arange(len(sizes)), sizes), np.arange(len(loops)), nxt
 def _brep_edge_of(shape, faces, edges):
     """(face a, face b) -> BRep edge ids shared by the two faces."""
     ancestors = AncestorMap()
@@ -520,27 +623,33 @@ def _nearest_edge(candidates, edges, point):
 
 def display_mesh(shape, lin_defl=0.1, ang_defl=0.3):
     """The mesh Blender shows: tessellate_with_normals()'s faces welded along their BRep edges, so it is closed
-    and Blender's modifiers see real edges; the exact normals per face corner (a welded vertex on a sharp edge
-    has one per face); and each mesh edge lying on a BRep edge with that edge's id and whether it is sharp (the
-    faces meet at an angle) or smooth (tangent faces, e.g. a fillet and its flat neighbour). Seams and poles are
-    inside a face: no edge id."""
+    and Blender's modifiers see real edges; a flat face without holes as one polygon; the exact normals per
+    polygon corner (a welded vertex on a sharp edge has one per face); and each mesh edge lying on a BRep edge
+    with that edge's id and whether it is sharp (the faces meet at an angle) or smooth (tangent faces, e.g. a
+    fillet and its flat neighbour). Seams and poles are inside a face: no edge id."""
     verts, tris, tri_face, normals = tessellate_with_normals(shape, lin_defl, ang_defl)
-    corner_normals = normals[tris].reshape(-1, 3).astype(np.float32)
-    verts, tris = _weld_all(verts, tris)
-    nt = len(tris)
-    sides = np.sort(np.concatenate([tris[:, [0, 1]], tris[:, [1, 2]], tris[:, [2, 0]]]), axis=1)
-    side_tri = np.concatenate([np.arange(nt)] * 3)
-    uniq, inv = np.unique(sides, axis=0, return_inverse=True)
+    loops, sizes, poly_face = _polygons(shape, verts, tris, tri_face)
+    corner_normals = normals[loops].astype(np.float32)
+    verts, loops = _weld_all(verts, loops)
+    pairs, _, _, _ = _sides(loops, sizes)
+    loops, _ = _merge_open(verts, loops, pairs)
+    used, loops = np.unique(loops, return_inverse=True)
+    verts, loops = verts[used], loops.ravel().astype(np.int32)
+    pairs, side_poly, side_corner, side_next = _sides(loops, sizes)
+    sorted_pairs = np.sort(pairs, axis=1)
+    uniq, inv = np.unique(sorted_pairs, axis=0, return_inverse=True)
     order = np.argsort(inv.ravel(), kind="stable")  # closed mesh: each unique edge's two sides are adjacent
-    tri_a, tri_b = side_tri[order[0::2]], side_tri[order[1::2]]
-    fa, fb = tri_face[tri_a], tri_face[tri_b]
+    side_a, side_b = order[0::2], order[1::2]
+    fa, fb = poly_face[side_poly[side_a]], poly_face[side_poly[side_b]]
     boundary = np.nonzero(fa != fb)[0]
     faces, brep_edges = face_map(shape), edge_map(shape)
     shared = _brep_edge_of(shape, faces, brep_edges)
-    # the two faces' normals at each edge's first vertex (that vertex's corner in each triangle): sharp or tangent
-    ta, tb, v0 = tri_a[boundary], tri_b[boundary], uniq[boundary, 0]
-    na = corner_normals[3 * ta + np.argmax(tris[ta] == v0[:, None], axis=1)].astype(np.float64)
-    nb = corner_normals[3 * tb + np.argmax(tris[tb] == v0[:, None], axis=1)].astype(np.float64)
+    # the two faces' normals at each edge's first vertex (uniq[k, 0]), from that vertex's corner on each side
+    v0 = uniq[boundary, 0]
+    a, b = side_a[boundary], side_b[boundary]
+    corner_a = np.where(loops[side_corner[a]] == v0, side_corner[a], side_next[a])
+    corner_b = np.where(loops[side_corner[b]] == v0, side_corner[b], side_next[b])
+    na, nb = corner_normals[corner_a].astype(np.float64), corner_normals[corner_b].astype(np.float64)
     cos = np.einsum("ij,ij->i", na, nb) / np.maximum(1e-12, np.linalg.norm(na, axis=1) * np.linalg.norm(nb, axis=1))
     sharp = np.arccos(np.clip(cos, -1.0, 1.0)) > _SHARP
     out_edges, out_ids, out_sharp = [], [], []
@@ -548,12 +657,12 @@ def display_mesh(shape, lin_defl=0.1, ang_defl=0.3):
         candidates = shared.get((int(min(fa[k], fb[k])), int(max(fa[k], fb[k]))), [])
         if not candidates:
             continue
-        a, b = uniq[k]
+        p, q = uniq[k]
         eid = candidates[0] if len(candidates) == 1 else _nearest_edge(
-            candidates, brep_edges, (verts[a].astype(np.float64) + verts[b]) / 2)
-        out_edges.append((a, b))
+            candidates, brep_edges, (verts[p].astype(np.float64) + verts[q]) / 2)
+        out_edges.append((p, q))
         out_ids.append(eid)
         out_sharp.append(int(sharp[n]))
-    return DisplayMesh(verts.astype(np.float32), tris, tri_face.astype(np.int32), corner_normals,
+    return DisplayMesh(verts.astype(np.float32), loops, sizes, poly_face, corner_normals,
                        np.array(out_edges, dtype=np.int32).reshape(-1, 2), np.array(out_ids, dtype=np.int32),
                        np.array(out_sharp, dtype=np.int32))

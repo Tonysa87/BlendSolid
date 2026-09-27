@@ -349,7 +349,8 @@ def test_mesh_carries_the_exact_surface_normals(clean):
     p = v[vi]
     face = np.empty(len(me.polygons), np.int32)
     me.attributes["brep_face_id"].data.foreach_get("value", face)
-    corner_face = np.repeat(face, 3)  # triangles only
+    sizes = np.empty(len(me.polygons), np.int32); me.polygons.foreach_get("loop_total", sizes)
+    corner_face = np.repeat(face, sizes)
     on_side = np.abs(np.hypot(p[:, 0], p[:, 1]) - 0.15) < 1e-5
     side_id = np.bincount(corner_face[on_side]).argmax()  # the outer side (radius 150 mm), trimmed by the hole
     side = corner_face == side_id

@@ -91,6 +91,21 @@ modifiers) and uses a face's exact plane only when the hit point lies on it.
 - [ ] **Step 5:** `tools/test.sh` (unit part) → PASS. Commit
   `Worker: welded display mesh with BRep edge ids and sharp edges`.
 
+### Task 1b: One polygon per flat face without holes (found while probing Task 4)
+
+Blender's Bevel with *Clamp Overlap* (its default) clamps the whole bevel to the tightest vertex: a flat cap
+triangulated without interior nodes has chords between neighbouring rim nodes, and the default part's bevel removed
+0.35 mm³ instead of ~78 (clamp off: 78). Blender's own primitives use n-gon caps. So the display mesh emits one
+polygon (the face's boundary loop) for every planar face with a single wire; other faces stay triangulated.
+
+- `DisplayMesh` gets `loops (L,) int32` (vertex index per polygon corner), `poly_sizes (P,) int32`,
+  `poly_face (P,) int32`, `corner_normals (L,3)`; `tris`/`tri_face` are removed (a test helper fan-triangulates).
+- Tests: box → 6 quads; cylinder → 2 n-gon caps + triangulated side; box with a through hole → top and bottom stay
+  triangles; closedness, volume, edge ids and corner normals as in Task 1 on the new representation; Blender: the
+  default part's Bevel (weight, 1 mm, clamp on) removes within 15% of the clamp-off volume.
+- Blender side: `fill_mesh(mesh, verts, loops, poly_sizes, poly_face, ...)`, `part.mesh_volume` fan-triangulates
+  polygons.
+
 ### Task 2: Blender fills the welded mesh
 
 **Files:**

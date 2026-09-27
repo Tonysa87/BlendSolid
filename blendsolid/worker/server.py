@@ -121,7 +121,8 @@ def main():
                 reply = {"type": "result", "job": header["job"], "key": header["key"], "tag": header["tag"],
                          "ok": r.ok, "error": r.error, "line": r.line, "volume": r.volume, "faces": r.faces,
                          "timing": r.timing}
-                arrays = ({"verts": r.verts, "tris": r.tris, "tri_face": r.tri_face, "planes": r.planes,
+                arrays = ({"verts": r.verts, "loops": r.loops, "poly_sizes": r.poly_sizes, "poly_face": r.poly_face,
+                           "planes": r.planes,
                            "corner_normals": r.corner_normals, "edges": r.edges, "edge_ids": r.edge_ids,
                            "edge_sharp": r.edge_sharp} if r.ok else None)
                 protocol.send_message(conn, reply, arrays)

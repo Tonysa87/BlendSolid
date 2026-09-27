@@ -44,7 +44,7 @@ def test_ready_then_result(client):
     assert events[0]["type"] == "ready" and events[0]["build123d"] == "0.13.0"
     (r,) = results(events)
     assert r["ok"] and r["key"] == "A" and r["tag"] == "t1" and abs(r["volume"] - 1000.0) < 1e-9
-    assert r["verts"].shape[1] == 3 and len(r["tri_face"]) == len(r["tris"])
+    assert r["verts"].shape[1] == 3 and len(r["poly_face"]) == len(r["poly_sizes"])
     assert client.state == "idle"
 
 

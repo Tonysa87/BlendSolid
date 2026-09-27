@@ -16,18 +16,22 @@ result = p.part
 EXPECTED = 40 * 30 * 20 + math.pi * 36 * 5 - (1 - math.pi / 4) * 25 * 20
 
 
-def mesh_volume(v, t):
-    v = v.astype(np.float64)
-    return np.einsum("ij,ij->i", v[t[:, 0]], np.cross(v[t[:, 1]], v[t[:, 2]])).sum() / 6
+def mesh_volume(v, loops, sizes):
+    v, total, start = v.astype(np.float64), 0.0, 0
+    for n in sizes:  # fan-triangulate each polygon
+        p = v[loops[start:start + n]]
+        total += np.einsum("ij,ij->i", np.repeat(p[:1], n - 2, 0), np.cross(p[1:-1], p[2:])).sum()
+        start += n
+    return total / 6
 
 
 def test_spike_model_volume_and_mesh():
     r = runner.run_script(MODEL)
     assert r.ok, r.error
     assert abs(r.volume - EXPECTED) < 1e-6
-    assert r.verts.dtype == np.float32 and r.tris.dtype == np.int32 and r.tri_face.dtype == np.int32
-    assert set(np.unique(r.tri_face)) == set(range(r.faces))
-    assert abs(mesh_volume(r.verts, r.tris) - EXPECTED) / EXPECTED < 0.01
+    assert r.verts.dtype == np.float32 and r.loops.dtype == np.int32 and r.poly_face.dtype == np.int32
+    assert set(np.unique(r.poly_face)) == set(range(r.faces)) and r.poly_sizes.sum() == len(r.loops)
+    assert abs(mesh_volume(r.verts, r.loops, r.poly_sizes) - EXPECTED) / EXPECTED < 0.01
 
 
 def test_builder_is_accepted_as_result():

@@ -62,8 +62,9 @@ class RunResult:
     volume: float = 0.0
     faces: int = 0
     verts: np.ndarray | None = None
-    tris: np.ndarray | None = None
-    tri_face: np.ndarray | None = None
+    loops: np.ndarray | None = None  # vertex per polygon corner (tessellate.DisplayMesh)
+    poly_sizes: np.ndarray | None = None  # corners per polygon
+    poly_face: np.ndarray | None = None  # BRep face id per polygon
     planes: np.ndarray | None = None  # per face: exact plane (nx, ny, nz, d) or NaN (tessellate.face_planes)
     corner_normals: np.ndarray | None = None  # per triangle corner: exact surface normal (tessellate.display_mesh)
     edges: np.ndarray | None = None  # mesh edges lying on BRep edges (vertex pairs)
@@ -185,8 +186,8 @@ def run_script(source, lin_defl=0.1, ang_defl=0.3, deps=(), tag=None, cache=None
         if tag is not None:
             cache.put(tag, shape)
         t2 = time.perf_counter()
-        return RunResult(True, volume=info["volume"], faces=info["faces"], verts=mesh.verts, tris=mesh.tris,
-                         tri_face=mesh.tri_face, planes=planes, corner_normals=mesh.corner_normals, edges=mesh.edges,
+        return RunResult(True, volume=info["volume"], faces=info["faces"], verts=mesh.verts, loops=mesh.loops,
+                         poly_sizes=mesh.poly_sizes, poly_face=mesh.poly_face, planes=planes, corner_normals=mesh.corner_normals, edges=mesh.edges,
                          edge_ids=mesh.edge_ids, edge_sharp=mesh.edge_sharp,
                          timing={"script": t1 - t0, "tessellate": t2 - t1})
     except Exception as e:

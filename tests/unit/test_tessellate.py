@@ -187,6 +187,31 @@ def display(name):
     return shape, tessellate.display_mesh(shape, LIN, ANG)
 
 
+def poly_starts(m):
+    return np.concatenate([[0], np.cumsum(m.poly_sizes)[:-1]]).astype(np.int64)
+
+
+def fan(m):
+    """(triangles (t, 3) of vertex indices, polygon of each triangle): each polygon fan-triangulated."""
+    tris, owner = [], []
+    for p, (start, size) in enumerate(zip(poly_starts(m), m.poly_sizes)):
+        loop = m.loops[start:start + size]
+        for k in range(1, size - 1):
+            tris.append((loop[0], loop[k], loop[k + 1]))
+            owner.append(p)
+    return np.array(tris, dtype=np.int64), np.array(owner)
+
+
+def sides(m):
+    """(sorted vertex pair, polygon) of every polygon side."""
+    starts = poly_starts(m)
+    nxt = np.arange(len(m.loops)) + 1
+    ends = starts + m.poly_sizes
+    nxt[ends - 1] = starts
+    pairs = np.sort(np.stack([m.loops, m.loops[nxt]], axis=1), axis=1)
+    return pairs, np.repeat(np.arange(len(m.poly_sizes)), m.poly_sizes)
+
+
 def volume(v, t):
     v = v.astype(np.float64)
     return np.einsum("ij,ij->i", v[t[:, 0]], np.cross(v[t[:, 1]], v[t[:, 2]])).sum() / 6
@@ -207,13 +232,45 @@ def _brep_edges_to_mesh(shape):
 @pytest.mark.parametrize("name", sorted(DISPLAY_SHAPES))
 def test_display_mesh_is_closed(name):
     shape, m = display(name)
-    _, counts = edges_of(m.tris)
-    assert (counts == 2).all()  # every mesh edge has two triangles: welded along the BRep edges
+    pairs, _ = sides(m)
+    _, counts = np.unique(pairs, axis=0, return_counts=True)
+    assert (counts == 2).all()  # every mesh edge has two polygons: welded along the BRep edges
     v, t, _, _ = tessellate.tessellate_with_normals(shape, LIN, ANG)
-    assert volume(m.verts, m.tris) == pytest.approx(volume(v, t), rel=1e-6)
+    assert volume(m.verts, fan(m)[0]) == pytest.approx(volume(v, t), rel=1e-6)
     if _brep_edges_to_mesh(shape):  # faces that meet share their boundary vertices now
         assert len(m.verts) < len(v)
-    assert m.tri_face.shape == (len(m.tris),) and m.corner_normals.shape == (3 * len(m.tris), 3)
+    assert len(m.poly_face) == len(m.poly_sizes) and m.corner_normals.shape == (len(m.loops), 3)
+    assert m.poly_sizes.sum() == len(m.loops) and m.poly_sizes.min() >= 3
+
+
+def test_flat_faces_without_holes_are_one_polygon():
+    # Blender's Bevel (Clamp Overlap on) clamps to the tightest vertex: a triangulated cap has short chords
+    _, box = display("box")
+    assert sorted(box.poly_sizes.tolist()) == [4] * 6
+    shape, cyl = display("cylinder")
+    flat = [fid for fid, face in enumerate(tessellate.face_map(shape))
+            if BRepAdaptor_Surface(face).GetType() == GeomAbs_Plane]
+    for fid in flat:
+        assert (cyl.poly_face == fid).sum() == 1 and cyl.poly_sizes[cyl.poly_face == fid][0] > 8
+    assert (cyl.poly_sizes[~np.isin(cyl.poly_face, flat)] == 3).all()
+    shape, holed = display("box_with_hole")  # top and bottom have a hole: convex polygons around it
+    per_face = np.bincount(holed.poly_face)
+    assert sum(1 for c in per_face if c == 1) == 4  # the four sides
+    starts = poly_starts(holed)
+    v = holed.verts.astype(np.float64)
+    for fid, face in enumerate(tessellate.face_map(shape)):
+        if BRepAdaptor_Surface(face).GetType() != GeomAbs_Plane or per_face[fid] == 1:
+            continue
+        polys = np.nonzero(holed.poly_face == fid)[0]
+        _, t, f, _ = tessellate.tessellate_with_normals(shape, LIN, ANG)
+        assert len(polys) < (f == fid).sum() and holed.poly_sizes[polys].max() > 3  # merged, not the triangles
+        normal = np.zeros(3)
+        for p in polys:  # every polygon convex, all turning the same way
+            loop = v[holed.loops[starts[p]:starts[p] + holed.poly_sizes[p]]]
+            assert len(set(holed.loops[starts[p]:starts[p] + holed.poly_sizes[p]].tolist())) == len(loop)
+            turns = np.cross(np.roll(loop, -1, 0) - loop, np.roll(loop, -2, 0) - np.roll(loop, -1, 0))
+            normal = turns.sum(0) if not normal.any() else normal
+            assert (turns @ normal > -1e-9).all()
 
 
 @pytest.mark.parametrize("name", sorted(DISPLAY_SHAPES))
@@ -221,11 +278,10 @@ def test_edges_carry_brep_edge_ids(name):
     from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeVertex
     from OCP.BRepExtrema import BRepExtrema_DistShapeShape
     shape, m = display(name)
-    t, f = m.tris, m.tri_face
-    sides = np.sort(np.concatenate([t[:, [0, 1]], t[:, [1, 2]], t[:, [2, 0]]]), axis=1)
-    owner = np.concatenate([f, f, f])
-    between = {tuple(s) for s in np.unique(sides, axis=0)
-               if len(set(owner[(sides == s).all(axis=1)])) > 1}
+    pairs, owner = sides(m)
+    face = m.poly_face[owner]
+    uniq, inv = np.unique(pairs, axis=0, return_inverse=True)
+    between = {tuple(uniq[k]) for k in range(len(uniq)) if len(set(face[inv.ravel() == k])) > 1}
     assert between == {tuple(e) for e in m.edges}  # exactly the mesh edges between two faces
     assert set(m.edge_ids.tolist()) == _brep_edges_to_mesh(shape)
     brep = tessellate.edge_map(shape)
@@ -249,21 +305,21 @@ def test_sharp_edges():
 
 
 @pytest.mark.parametrize("name", ["filleted_box", "box_with_hole", "cone"])
-def test_corner_normals_follow_their_face(name):
+def test_corner_normals_are_the_exact_surface_normals(name):
+    from OCP.GeomLProp import GeomLProp_SLProps
     shape, m = display(name)
-    v, t, f, n = tessellate.tessellate_with_normals(shape, LIN, ANG)
-    per_face = {}
-    for fid in np.unique(f):
-        corners = n[t[f == fid]].reshape(-1, 3)
-        per_face[fid] = corners
-    for fid in np.unique(m.tri_face):
-        got = m.corner_normals.reshape(-1, 3, 3)[m.tri_face == fid].reshape(-1, 3)
-        assert got.shape == per_face[fid].shape
-        assert np.allclose(np.sort(got, axis=0), np.sort(per_face[fid], axis=0), atol=1e-6)
+    faces = tessellate.face_map(shape)
+    corner_poly = np.repeat(np.arange(len(m.poly_sizes)), m.poly_sizes)
+    v = m.verts.astype(np.float64)
+    for k in range(0, len(m.loops), max(1, len(m.loops) // 150)):
+        face = faces[m.poly_face[corner_poly[k]]]
+        surf = BRep_Tool.Surface_s(face)
+        proj = GeomAPI_ProjectPointOnSurf(gp_Pnt(*v[m.loops[k]]), surf)
+        props = GeomLProp_SLProps(surf, *proj.LowerDistanceParameters(), 1, 1e-9)
+        if not props.IsNormalDefined():
+            continue
+        e = props.Normal()
+        assert abs(abs(float(np.dot(m.corner_normals[k], (e.X(), e.Y(), e.Z())))) - 1) < 1e-5
     # a welded vertex on a sharp edge has one normal per face
-    tri_of_corner = np.repeat(np.arange(len(m.tris)), 3)
-    corner_vert = m.tris.ravel()
-    a, b = m.edges[m.edge_sharp == 1][0]
-    normals_at_a = {tuple(np.round(m.corner_normals[k], 4)) for k in np.nonzero(corner_vert == a)[0]}
-    assert len(normals_at_a) >= 2
-    assert tri_of_corner.shape == corner_vert.shape
+    a, _ = m.edges[m.edge_sharp == 1][0]
+    assert len({tuple(np.round(m.corner_normals[k], 4)) for k in np.nonzero(m.loops == a)[0]}) >= 2
