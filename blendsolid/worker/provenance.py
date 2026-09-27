@@ -102,9 +102,10 @@ def _role(face, rotation):
         return "surface"
     if kind != GeomAbs_Plane:
         return _OTHER_SURFACES.get(kind, "surface")
-    d = surf.Plane().Axis().Direction()
-    if face.Orientation() == TopAbs_REVERSED:
-        d = d.Reversed()
+    from OCP.gp import gp_Dir
+    import tessellate
+    n, _ = tessellate.plane_normal(face)
+    d = gp_Dir(*map(float, n))
     if rotation is not None and any(rotation):
         from build123d import Location
         d = d.Transformed(Location((0, 0, 0), rotation).wrapped.Transformation().Inverted())

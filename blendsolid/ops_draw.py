@@ -319,14 +319,18 @@ def pick(context, origin, direction, near=()):
     return drawing.plane_on_face(location, normal, obj.matrix_world), (obj if is_part else None), None
 
 
-ON_PLANE_MM = 1e-3  # a hit this close to a face's exact plane is on it (float32 mesh); farther: a modifier moved it
+ON_PLANE_MM = 1e-3  # a hit this close to a face's exact plane is on it; farther: a modifier moved the polygon
+ON_PLANE_REL = 1e-6  # plus this much of the hit's distance from the origin (float32 hits and matrices: 4e-3 mm at 50 m)
 
 
 def _on_plane(obj, plane, location, factor):
-    """Is world `location` on obj's face plane (normal, d mm)? Not when a modifier (Array, Solidify, Mirror...)
-    moved the polygon that was hit away from the face it came from."""
+    """Is world `location` on obj's face plane (normal, d mm)? Always without modifiers; with modifiers, not when
+    one (Array, Solidify, Mirror...) moved the polygon that was hit away from the face it came from."""
+    if not obj.modifiers:
+        return True
     p = obj.matrix_world.inverted_safe() @ Vector(location)
-    return abs(Vector(plane[0]).dot(p) / factor - plane[1]) < ON_PLANE_MM
+    tolerance = ON_PLANE_MM + ON_PLANE_REL * max(Vector(location).length, p.length) / factor
+    return abs(Vector(plane[0]).dot(p) / factor - plane[1]) < tolerance
 
 
 def _draw_preview(op):

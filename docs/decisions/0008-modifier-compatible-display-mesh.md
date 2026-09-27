@@ -52,3 +52,10 @@ used as the base of a modifier workflow. Milestone 2 also needs the CAD edges in
 - The worker sends polygons (`loops`, `poly_sizes`, `poly_face`) instead of triangles; `part.mesh_volume`
   fan-triangulates them. Welding and edge ids cost about 0.1 s on a 29 000-triangle part (profiled).
 - Milestone 2's edge picking and references build on `brep_edge_id`.
+- Review findings fixed (2026-09-27): a solid that is non-manifold where two of its parts touch along an edge
+  (Draw Solid with corner snapping) still gets its mesh — those edges carry no id; mirrored solids' planes (an
+  indirect frame) point outward (`tessellate.plane_normal`) and their holed faces merge; the on-plane check is
+  skipped without modifiers and scales with the distance from the origin (float32: 4e-3 mm at 50 m); an edge is
+  sharp where either end is angled.
+- Known: a Boolean modifier's operand polygons get `brep_face_id` 0; the on-plane check keeps them from using
+  face 0's exact plane unless they lie on it.

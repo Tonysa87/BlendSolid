@@ -56,6 +56,21 @@ def edge_map(shape):
     return [TopoDS.Edge(m.FindKey(i)) for i in range(1, m.Extent() + 1)]
 
 
+def plane_normal(face):
+    """(direction, point on the plane) of a planar face, the direction pointing out of the solid: the plane's
+    frame axis, flipped for an indirect frame (a mirrored solid's planes) and for a reversed face."""
+    pos = BRepAdaptor_Surface(face).Plane().Position()
+    d = pos.Direction()
+    n = np.array([d.X(), d.Y(), d.Z()])
+    if not pos.Direct():
+        n = -n  # an indirect frame: the surface's natural normal (X x Y) is -Direction
+    if face.Orientation() == TopAbs_REVERSED:
+        n = -n
+    n[np.abs(n) < 1e-15] = 0.0  # no -0.0 / 1e-17 components on axis-aligned faces
+    o = pos.Location()
+    return n, np.array([o.X(), o.Y(), o.Z()])
+
+
 def check(shape):
     props = GProp_GProps()
     BRepGProp.VolumeProperties_s(shape, props)
@@ -388,13 +403,8 @@ def face_planes(shape):
         surf = BRepAdaptor_Surface(face)
         if surf.GetType() != GeomAbs_Plane:
             continue
-        pos = surf.Plane().Position()
-        d, o = pos.Direction(), pos.Location()
-        n = np.array([d.X(), d.Y(), d.Z()])
-        if face.Orientation() == TopAbs_REVERSED:
-            n = -n
-        n[np.abs(n) < 1e-15] = 0.0  # no -0.0 / 1e-17 components on axis-aligned faces
-        out[fid] = (*n, float(n @ np.array([o.X(), o.Y(), o.Z()])) + 0.0)
+        n, o = plane_normal(face)
+        out[fid] = (*n, float(n @ o) + 0.0)
     return out
 
 
@@ -518,25 +528,31 @@ def _boundary_loop(t):
 
 
 def _convex_at(pts, loop, v, normal):
+    """Does `loop` turn the same way as `normal` at vertex v (pure Python: called for every merge)?"""
     i = loop.index(v)
-    turn = np.cross(pts[v] - pts[loop[i - 1]], pts[loop[(i + 1) % len(loop)]] - pts[v])
-    return float(np.dot(turn, normal)) >= -1e-12
+    (ax, ay, az), (bx, by, bz), (cx, cy, cz) = pts[loop[i - 1]], pts[v], pts[loop[(i + 1) % len(loop)]]
+    ux, uy, uz, wx, wy, wz = bx - ax, by - ay, bz - az, cx - bx, cy - by, cz - bz
+    return ((uy * wz - uz * wy) * normal[0] + (uz * wx - ux * wz) * normal[1]
+            + (ux * wy - uy * wx) * normal[2]) >= -1e-12
 
 
-def _merge_convex(t, pts, normal):
-    """Hertel-Mehlhorn: triangles `t` of a flat face (outward `normal`) merged across their shared edges,
+def _merge_convex(t, pts):
+    """Hertel-Mehlhorn: triangles `t` of a flat face merged across their shared edges,
     shortest first, while both ends of the removed edge stay convex. A face with holes can't be one Blender
     polygon, and its triangles' short chords (ears along an arc) clamp Blender's Bevel (Clamp Overlap, its
     default, limits the whole bevel to the tightest spot); measured: the default part's 1 mm bevel removed
     0.22 mm³ with triangles, 25 with the fewest simple (concave) polygons, and 82 — the unclamped value — with
     convex ones. Returns the polygons as vertex lists in the triangles' winding."""
+    tri_n = np.cross(pts[t[:, 1]] - pts[t[:, 0]], pts[t[:, 2]] - pts[t[:, 0]]).sum(axis=0)
+    normal = tuple(float(c) for c in tri_n)  # the side the triangles face (outward, orientation included)
+    pts = [tuple(float(c) for c in p) for p in pts]
     polys = {i: [int(a), int(b), int(c)] for i, (a, b, c) in enumerate(t)}
     owner = {}  # directed edge -> polygon
     for i, loop in polys.items():
         for k in range(3):
             owner[(loop[k], loop[(k + 1) % 3])] = i
     interior = [(a, b) for (a, b) in owner if a < b and (b, a) in owner]
-    interior.sort(key=lambda e: float(np.linalg.norm(pts[e[0]] - pts[e[1]])))
+    interior.sort(key=lambda e: sum((x - y) ** 2 for x, y in zip(pts[e[0]], pts[e[1]])))
 
     for a, b in interior:
         p, q = owner.get((a, b)), owner.get((b, a))
@@ -574,10 +590,7 @@ def _polygons(shape, verts, tris, tri_face):
         if surf.GetType() == GeomAbs_Plane and len(t) > 1:
             cycle = _boundary_loop(t)
             if cycle is None:
-                normal = _vec(surf.Plane().Axis().Direction())
-                if face.Orientation() == TopAbs_REVERSED:
-                    normal = -normal
-                pieces = _merge_convex(t, verts.astype(np.float64), normal)
+                pieces = _merge_convex(t, verts.astype(np.float64))
             else:
                 pieces = [cycle]
             for piece in pieces:
@@ -638,20 +651,30 @@ def display_mesh(shape, lin_defl=0.1, ang_defl=0.3):
     pairs, side_poly, side_corner, side_next = _sides(loops, sizes)
     sorted_pairs = np.sort(pairs, axis=1)
     uniq, inv = np.unique(sorted_pairs, axis=0, return_inverse=True)
-    order = np.argsort(inv.ravel(), kind="stable")  # closed mesh: each unique edge's two sides are adjacent
-    side_a, side_b = order[0::2], order[1::2]
+    inv = inv.ravel()
+    order = np.argsort(inv, kind="stable")  # each unique edge's sides, adjacent
+    counts = np.bincount(inv, minlength=len(uniq))
+    starts = np.concatenate([[0], np.cumsum(counts)[:-1]])
+    # Only edges between exactly two polygons: a solid can be non-manifold where two parts of it touch along an
+    # edge (4 polygons); such an edge carries no id (it can't be told which faces it belongs to pairwise).
+    manifold = np.nonzero(counts == 2)[0]
+    side_a, side_b = np.zeros(len(uniq), np.int64), np.zeros(len(uniq), np.int64)
+    side_a[manifold], side_b[manifold] = order[starts[manifold]], order[starts[manifold] + 1]
     fa, fb = poly_face[side_poly[side_a]], poly_face[side_poly[side_b]]
-    boundary = np.nonzero(fa != fb)[0]
+    boundary = manifold[fa[manifold] != fb[manifold]]
     faces, brep_edges = face_map(shape), edge_map(shape)
     shared = _brep_edge_of(shape, faces, brep_edges)
-    # the two faces' normals at each edge's first vertex (uniq[k, 0]), from that vertex's corner on each side
-    v0 = uniq[boundary, 0]
+    # the angle between the two faces' normals at each end of the edge (that vertex's corner on each side):
+    # sharp where it is above _SHARP at either end
     a, b = side_a[boundary], side_b[boundary]
-    corner_a = np.where(loops[side_corner[a]] == v0, side_corner[a], side_next[a])
-    corner_b = np.where(loops[side_corner[b]] == v0, side_corner[b], side_next[b])
-    na, nb = corner_normals[corner_a].astype(np.float64), corner_normals[corner_b].astype(np.float64)
-    cos = np.einsum("ij,ij->i", na, nb) / np.maximum(1e-12, np.linalg.norm(na, axis=1) * np.linalg.norm(nb, axis=1))
-    sharp = np.arccos(np.clip(cos, -1.0, 1.0)) > _SHARP
+    sharp = np.zeros(len(boundary), dtype=bool)
+    for end in (0, 1):
+        v = uniq[boundary, end]
+        corner_a = np.where(loops[side_corner[a]] == v, side_corner[a], side_next[a])
+        corner_b = np.where(loops[side_corner[b]] == v, side_corner[b], side_next[b])
+        na, nb = corner_normals[corner_a].astype(np.float64), corner_normals[corner_b].astype(np.float64)
+        cos = np.einsum("ij,ij->i", na, nb) / np.maximum(1e-12, np.linalg.norm(na, axis=1) * np.linalg.norm(nb, axis=1))
+        sharp |= np.arccos(np.clip(cos, -1.0, 1.0)) > _SHARP
     out_edges, out_ids, out_sharp = [], [], []
     for n, k in enumerate(boundary):
         candidates = shared.get((int(min(fa[k], fb[k])), int(max(fa[k], fb[k]))), [])

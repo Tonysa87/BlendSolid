@@ -323,3 +323,43 @@ def test_corner_normals_are_the_exact_surface_normals(name):
     # a welded vertex on a sharp edge has one normal per face
     a, _ = m.edges[m.edge_sharp == 1][0]
     assert len({tuple(np.round(m.corner_normals[k], 4)) for k in np.nonzero(m.loops == a)[0]}) >= 2
+
+
+# -- review findings (milestone 2 phase A) -------------------------------------------------------------------------
+
+NON_MANIFOLD = {
+    # two boxes touching along one edge (Draw Solid with corner snapping on a box makes this)
+    "edge_contact": lambda: bd.Box(10, 10, 10) + bd.Pos(10, 10, 0) * bd.Box(10, 10, 10),
+    # a square hole whose corner touches the side face
+    "corner_touch": lambda: bd.Box(20, 20, 10) - bd.Pos(5, 0, 0) * bd.Rot(0, 0, 45) * bd.Box(50 ** 0.5, 50 ** 0.5, 20),
+    # two solids sharing a face
+    "two_solids": lambda: bd.Compound([bd.Box(10, 10, 10), bd.Pos(10, 0, 0) * bd.Box(10, 10, 10)]),
+}
+
+
+@pytest.mark.parametrize("name", sorted(NON_MANIFOLD))
+def test_non_manifold_solids_still_get_a_mesh(name):
+    shape = NON_MANIFOLD[name]().wrapped
+    m = tessellate.display_mesh(shape, LIN, ANG)
+    v, t, _, _ = tessellate.tessellate_with_normals(shape, LIN, ANG)
+    assert volume(m.verts, fan(m)[0]) == pytest.approx(volume(v, t), rel=1e-6)
+    pairs, _ = sides(m)
+    _, counts = np.unique(pairs, axis=0, return_counts=True)
+    assert (counts == 2).sum() > 0 and len(m.edges) == len(m.edge_ids) == len(m.edge_sharp)
+    assert set(m.edge_ids.tolist()) <= set(range(len(tessellate.edge_map(shape))))
+
+
+def test_mirrored_solids_have_outward_planes_and_merged_polygons():
+    from OCP.BRepClass3d import BRepClass3d_SolidClassifier
+    from OCP.TopAbs import TopAbs_IN
+    box = bd.mirror(bd.Location((3, 4, 5), (10, 20, 30)) * bd.Box(40, 30, 20), bd.Plane.YZ).wrapped
+    planes = tessellate.face_planes(box)
+    for fid, face in enumerate(tessellate.face_map(box)):
+        c = bd.Face(face).center()
+        centre = np.array([c.X, c.Y, c.Z])
+        assert abs(planes[fid, :3] @ centre - planes[fid, 3]) < 1e-9
+        behind = BRepClass3d_SolidClassifier(box, gp_Pnt(*(centre - planes[fid, :3] * 0.1)), 1e-7)
+        assert behind.State() == TopAbs_IN  # a step against the normal is inside: the normal points out
+    holed = bd.mirror(bd.Box(40, 30, 20) - bd.Pos(5, 0, 0) * bd.Cylinder(6, 30), bd.Plane.YZ).wrapped
+    m = tessellate.display_mesh(holed, LIN, ANG)
+    assert m.poly_sizes.max() > 3  # the holed faces merged (the convexity test isn't inverted)

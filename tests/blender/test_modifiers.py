@@ -170,3 +170,22 @@ def test_linked_duplicates_pick_on_their_own_modifiers(default_part):
     assert pick_down(5, 25)[2] is not None           # the original: no modifier, exact plane
     plane, _, local = pick_down(105, 25)              # the twin, 100 mm to the right: its Array copy on top
     assert local is None and plane.translation.z / F == pytest.approx(57.5, abs=1e-3)
+
+
+def test_far_from_the_origin_the_exact_plane_is_kept(default_part):
+    # Review finding: float32 hits drift by ~4e-3 mm at 50 m; an absolute 1e-3 mm check rejected most of them and
+    # fell back to the float32 plane (skins and slivers in booleans).
+    for modifier in (None, "WEIGHTED_NORMAL"):
+        if modifier:
+            add(default_part, modifier)
+        default_part.location = (50.0, 30.0, 20.0)
+        default_part.rotation_euler = (0.4, 0.3, 0.2)  # the top face tilted: every coordinate of a hit is large
+        bpy.context.view_layer.update()
+        normal = (default_part.matrix_world.to_3x3() @ Vector((0, 0, 1))).normalized()
+        misses = 0
+        for k in range(40):
+            local = Vector((2.0 + k * 0.4, 25.0 + (k % 7) * 0.5, 20.0)) * F
+            world = default_part.matrix_world @ local
+            _, _, got = ops_draw.pick(bpy.context, world + normal * 0.5, -normal)
+            misses += got is None
+        assert misses == 0, modifier
