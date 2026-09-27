@@ -120,7 +120,7 @@ def main():
                                       deps=header.get("deps") or (), tag=header["tag"])
                 reply = {"type": "result", "job": header["job"], "key": header["key"], "tag": header["tag"],
                          "ok": r.ok, "error": r.error, "line": r.line, "volume": r.volume, "faces": r.faces,
-                         "timing": r.timing}
+                         "timing": r.timing, "face_refs": r.face_refs, "edge_refs": r.edge_refs}
                 arrays = ({"verts": r.verts, "loops": r.loops, "poly_sizes": r.poly_sizes, "poly_face": r.poly_face,
                            "planes": r.planes,
                            "corner_normals": r.corner_normals, "edges": r.edges, "edge_ids": r.edge_ids,

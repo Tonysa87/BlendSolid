@@ -401,3 +401,16 @@ def test_refilling_replaces_a_point_domain_normal(clean):
     wait_for(lambda: up_to_date(obj))
     kinds = [(a.domain, a.data_type) for a in me.attributes if a.name == "custom_normal"]
     assert kinds == [("CORNER", "FLOAT_VECTOR")]
+
+
+def test_mesh_carries_reference_texts(clean):
+    obj = part.new_part(bpy.context)  # the default part (canonical)
+    wait_for(lambda: up_to_date(obj))
+    planes = list(obj.data[part.PLANES_KEY])
+    top = next(i for i in range(len(planes) // 4) if planes[4 * i:4 * i + 4] == [0.0, 0.0, 1.0, 20.0])
+    assert part.face_reference(obj, top) == 'face("box_1", "+Z")'
+    edges = [part.edge_reference(obj, i) for i in range(len(obj.data[part.EDGE_REFS_KEY]))]
+    assert 'edge_between(face("box_1", "+Z"), face("box_1", "-Y"))' in edges
+    other = part.new_part(bpy.context, "result = Box(10, 10, 10)\n")  # no features: no references
+    wait_for(lambda: up_to_date(other))
+    assert part.face_reference(other, 0) is None and part.FACE_REFS_KEY not in other.data

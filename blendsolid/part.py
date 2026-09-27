@@ -18,6 +18,8 @@ EDGE_ATTR = "brep_edge_id"  # per mesh edge: the BRep edge it lies on, -1 inside
 HASH_KEY = "bs_source_hash"
 KEPT_KEY = "bs_kept"  # on a part's Text: given a fake user because a part uses it (see keep_used_scripts())
 LAST_KEY = "bs_ref_last"  # on a part's Text: {cutter part id: {"name", "matrices"}} last seen (remember_cutters())
+FACE_REFS_KEY = "bs_face_refs"  # per BRep face: the reference a click writes, e.g. 'face("box_1", "+Z")'
+EDGE_REFS_KEY = "bs_edge_refs"  # per BRep edge: the same, e.g. 'edge_between(face(...), face(...))'
 PLANES_KEY = "bs_face_planes"  # per BRep face: exact plane (nx, ny, nz, d mm, part frame) or NaN, flattened
 ERROR_TAG_KEY = "bs_error_tag"
 PART_ID_KEY = "bs_part_id"  # on the part's Text: identity follows the script (Shift+D copies it, Alt+D and
@@ -113,6 +115,11 @@ def apply_result(obj, event, factor):
         obj.data[PLANES_KEY] = np.asarray(planes, dtype=np.float64).ravel().tolist()
     elif PLANES_KEY in obj.data:
         del obj.data[PLANES_KEY]
+    for key, refs in ((FACE_REFS_KEY, event.get("face_refs")), (EDGE_REFS_KEY, event.get("edge_refs"))):
+        if refs is not None:
+            obj.data[key] = list(refs)
+        elif key in obj.data:
+            del obj.data[key]
     obj.data[HASH_KEY] = event["tag"]
     set_error(obj, "")
 
@@ -209,6 +216,18 @@ def face_id(mesh, polygon_index):
         return None
     fid = attr.data[polygon_index].value
     return fid if fid >= 0 else None
+
+
+def face_reference(obj, fid):
+    """The reference text a click on obj's BRep face `fid` writes into the script, or None (no provenance)."""
+    refs = obj.data.get(FACE_REFS_KEY)
+    return refs[fid] if refs is not None and fid is not None and 0 <= fid < len(refs) else None
+
+
+def edge_reference(obj, eid):
+    """The reference text a click on obj's BRep edge `eid` writes into the script, or None."""
+    refs = obj.data.get(EDGE_REFS_KEY)
+    return refs[eid] if refs is not None and eid is not None and 0 <= eid < len(refs) else None
 
 
 def face_plane(obj, fid):

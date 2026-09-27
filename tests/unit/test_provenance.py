@@ -92,7 +92,9 @@ def test_roles_are_in_the_feature_frame():
 
 def test_edges_are_named_by_their_two_faces():
     shape, tracker = build(DEFAULT)
-    names = Counter(tracker.edge_label(e.wrapped) for e in shape.edges())
+    seams = [e for e in shape.edges() if len(tracker.edge_faces(e.wrapped)) == 1]
+    assert len(seams) == 1  # the boss's side is closed on itself: no pair of faces
+    names = Counter(tracker.edge_label(e.wrapped) for e in shape.edges() if e not in seams)
     assert None not in names and set(names.values()) == {1}
     assert (("box_1", "+Z"), ("box_1", "-Y")) in names
 
@@ -172,3 +174,34 @@ def test_nearest_face_in_a_script_without_features():
     ns = provenance.namespace(provenance.Tracker())
     exec("b = Box(10, 10, 10)\npicked = nearest_face((0, 0, 5), b)\nresult = b\n", ns)
     assert ns["picked"].center().Z == pytest.approx(5)
+
+
+# -- reference texts: what a click on a face or an edge writes -----------------------------------------------------
+
+@pytest.mark.parametrize("source", [DEFAULT, BRACKET, SLOT, ROTATED], ids=["default", "bracket", "slot", "rotated"])
+def test_every_reference_text_resolves_to_its_own_entity(source):
+    import tessellate
+    shape, tracker = build(source)
+    faces, edges = tessellate.face_map(shape.wrapped), tessellate.edge_map(shape.wrapped)
+    face_refs, edge_refs = provenance.reference_texts(tracker, faces, edges)
+    assert len(face_refs) == len(faces) and len(edge_refs) == len(edges)
+    clickable = [t for t in edge_refs if t]
+    assert len(set(face_refs)) == len(faces) and len(set(clickable)) == len(clickable)
+    assert len(edge_refs) - len(clickable) == sum(1 for e in edges if len(tracker.edge_faces(e)) == 1)  # seams
+    assert all(t.startswith("face(") for t in face_refs)  # every face has provenance
+    # what a click writes, run in the script after the last feature: the same entity (same index in the maps)
+    for texts, mapping in ((face_refs, tessellate.face_map), (edge_refs, tessellate.edge_map)):
+        for index, text in enumerate(texts):
+            if not text:
+                continue
+            ns = provenance.namespace(provenance.Tracker())
+            exec(provenance.instrument(with_feature(source, f"probe = {text}  # feature: probe_1"), "<part>"), ns)
+            got = ns["probe"]
+            got = list(got) if isinstance(got, list) else [got]
+            assert len(got) == 1 and got[0].wrapped.IsSame(mapping(ns["result"].wrapped)[index]), text
+
+
+def test_no_reference_texts_without_features():
+    tracker = provenance.Tracker()
+    exec("result = Box(40, 30, 20)\n", provenance.namespace(tracker))
+    assert provenance.reference_texts(tracker, [], []) is None

@@ -119,38 +119,38 @@ class Tracker:
     """The labels of the current part's faces, updated after each feature (see the module docstring)."""
 
     def __init__(self):
-        self._labels = []   # [(TopoDS_Face, (feature, role))]
+        self._index = ShapeMap()  # the current part's faces; _label_list[i - 1] is the label of index i
+        self._label_list = []
         self._shape = None
-        self.features = []  # feature names in script order, up to the current one
-        self.history = {}   # feature name -> labels right after it
+        self._ancestors = None    # edge -> faces of the current part, built when first asked
+        self.features = []        # feature names in script order, up to the current one
+        self.history = {}         # feature name -> [(face, label)] right after it
 
     def labels(self):
-        return list(self._labels)
+        return [(TopoDS.Face(self._index.FindKey(i + 1)), label) for i, label in enumerate(self._label_list)]
 
     def label_of(self, face):
-        for f, label in self._labels:
-            if f.IsSame(face):
-                return label
-        return None
+        i = self._index.FindIndex(face)
+        return self._label_list[i - 1] if i > 0 else None
 
     def step(self, feature, builder, rotation):
         part = builder.part
+        self.features.append(feature)
         if self._shape is not None and part.wrapped.IsSame(self._shape):  # the statement didn't change the part
-            self.features.append(feature)
-            self.history[feature] = self._labels
+            self.history[feature] = self.labels()
             return
         record = getattr(part, "_history", None)
         faces = _faces(part.wrapped)
-        new = []
         if record is None:
-            new = [(f, (feature, "new")) for f in faces]
+            labels = [(feature, "new")] * len(faces)
         else:
             before, brought = record._from()
-            for f in faces:
-                new.append((f, self._label(feature, f, before, brought, rotation)))
-        self._labels, self._shape = new, part.wrapped
-        self.features.append(feature)
-        self.history[feature] = new
+            labels = [self._label(feature, f, before, brought, rotation) for f in faces]
+        index = ShapeMap()
+        for f in faces:
+            index.Add(f)
+        self._index, self._label_list, self._shape, self._ancestors = index, labels, part.wrapped, None
+        self.history[feature] = self.labels()
 
     def _label(self, feature, f, before, brought, rotation):
         if before.untouched.Contains(f):
@@ -165,16 +165,24 @@ class Tracker:
             return feature, "blend"
         return feature, "new"
 
-    def edge_label(self, edge, shape=None):
-        """The sorted pair of labels of `edge`'s two faces in `shape` (default: the current part), or None."""
-        shape = self._shape if shape is None else shape
-        if shape is None:
-            return None
-        ancestors = AncestorMap()
-        TopExp.MapShapesAndAncestors_s(shape, TopAbs_EDGE, TopAbs_FACE, ancestors)
-        if not ancestors.Contains(edge):
-            return None
-        faces = list(ancestors.FindFromKey(edge))
+    def edge_faces(self, edge):
+        """The distinct faces of the current part around `edge` (one for a seam)."""
+        if self._shape is None:
+            return []
+        if self._ancestors is None:
+            self._ancestors = AncestorMap()
+            TopExp.MapShapesAndAncestors_s(self._shape, TopAbs_EDGE, TopAbs_FACE, self._ancestors)
+        if not self._ancestors.Contains(edge):
+            return []
+        out = []
+        for f in self._ancestors.FindFromKey(edge):
+            if not any(f.IsSame(g) for g in out):
+                out.append(f)
+        return out
+
+    def edge_label(self, edge):
+        """The sorted pair of labels of `edge`'s two faces in the current part, or None (a seam, or no labels)."""
+        faces = self.edge_faces(edge)
         found = [self.label_of(f) for f in faces]
         if len(faces) != 2 or None in found:
             return None
@@ -198,6 +206,16 @@ def _nearest(items, point):
     return min(items, key=lambda s: _distance(s, point))
 
 
+def _centre(shape):
+    c = shape.center()  # centre of mass (of the length for an edge, of the area for a face)
+    return (c.X, c.Y, c.Z)
+
+
+def _closest_centre(items, point):
+    """The item whose centre is closest to `point` (the `near=` tie-break)."""
+    return min(items, key=lambda s: sum((a - b) ** 2 for a, b in zip(_centre(s), point)))
+
+
 def _edges(face):
     m = ShapeMap()
     TopExp.MapShapes_s(face, TopAbs_EDGE, m)
@@ -210,7 +228,7 @@ def _helpers(tracker):
 
     def face(feature, role=None, near=None):
         """The faces of the current part made by `feature` (with `role`, e.g. "+Z", "side", "blend"); with
-        `near` (a point, mm, part frame) only the one closest to it."""
+        `near` (a point, mm, part frame) only the one whose centre is closest to it."""
         if feature not in tracker.features:
             raise BrokenReference(f"no feature '{feature}' before this line")
         found = [Face(f) for f, (feat, r) in tracker.labels() if feat == feature and (role is None or r == role)]
@@ -219,13 +237,14 @@ def _helpers(tracker):
             raise BrokenReference(f"{feature} has no face '{role}'" if role is not None
                                   else f"no face of {feature} is left")
         if near is not None:
-            found = [_nearest(found, near)]
+            found = [_closest_centre(found, near)]
         out = ShapeList(found)
         out._bs_name = what
         return out
 
     def edge_between(a, b, near=None):
-        """The edges shared by a face of `a` and a face of `b` (results of face()); with `near`, the closest."""
+        """The edges shared by a face of `a` and a face of `b` (results of face()); with `near`, the one whose
+        centre is closest to it."""
         second = ShapeMap()
         for f in b:
             for e in _edges(f.wrapped):
@@ -239,7 +258,7 @@ def _helpers(tracker):
         if not shared:
             raise BrokenReference(f"no edge between {_name(a)} and {_name(b)}")
         if near is not None:
-            shared = [_nearest(shared, near)]
+            shared = [_closest_centre(shared, near)]
         return ShapeList(shared)
 
     def edges_of(faces):
@@ -283,3 +302,100 @@ def namespace(tracker):
     ns[HOOK] = tracker.step
     ns.update(_helpers(tracker))
     return ns
+
+
+# -- reference texts: what a click on a face or an edge writes into the script -----------------------------------
+
+def _fmt(value):
+    return repr(round(float(value), 6) + 0.0)  # the scripts' 6 decimals, never "-0.0"
+
+
+def _point(p):
+    return "(" + ", ".join(_fmt(c) for c in p) + ")"
+
+
+def _on_face(face):
+    """A point on `face` (its centre of mass moved onto it: a curved face's centre may lie off it)."""
+    from build123d import Face, Vertex
+    from OCP.BRepExtrema import BRepExtrema_DistShapeShape
+    f = Face(face)
+    c = f.center()
+    dist = BRepExtrema_DistShapeShape(Vertex(c).wrapped, face)
+    p = dist.PointOnShape2(1) if dist.IsDone() and dist.NbSolution() else None
+    return (p.X(), p.Y(), p.Z()) if p is not None else tuple(c)
+
+
+_SAME_CENTRE = 1e-6  # mm: two entities with centres this close can't be told apart by near=
+
+
+def _pick_text(base, index, centres):
+    """`base` if the entity is alone in its group (`centres`: the group's centres, the entity's at `index`), else
+    `base` with near= its centre when that singles it out, else None."""
+    if len(centres) == 1:
+        return base
+    mine = centres[index]
+    for k, other in enumerate(centres):
+        if k != index and sum((a - b) ** 2 for a, b in zip(mine, other)) < _SAME_CENTRE ** 2:
+            return None
+    return base[:-1] + f", near={_point(mine)})"
+
+
+class _Groups:
+    """Entities grouped by a key, with each member's position in its group and the group's centres (computed
+    once: near= compares every member's centre)."""
+
+    def __init__(self, entities, keys, wrap):
+        self.members, self.slot = {}, []
+        for e, key in zip(entities, keys):
+            group = self.members.setdefault(key, [])
+            self.slot.append(len(group))
+            group.append(e)
+        self._wrap, self._centres = wrap, {}
+
+    def centres(self, key):
+        if key not in self._centres:
+            self._centres[key] = [_centre(self._wrap(e)) for e in self.members[key]]
+        return self._centres[key]
+
+
+def reference_texts(tracker, faces, edges):
+    """For each face and edge of the final part (in `faces`/`edges` order: the ids the display mesh carries), the
+    reference a click on it writes: `face("f", "role")`, with `near=` (its centre) when the label names several
+    faces; `edge_between(face(A), face(B))`, with `near=` when the two labels share several edges; the
+    nearest_*() form when there is no provenance or centres can't tell the entity apart. "" for an entity that
+    can't be clicked (a seam, a degenerate edge at a pole) or one OCCT can't evaluate. None for scripts without
+    features (the tools don't edit those). The texts mirror the helpers' rules; tests resolve them."""
+    if not tracker.features:
+        return None
+    from build123d import Edge, Face
+    from OCP.BRep import BRep_Tool
+    face_labels = [tracker.label_of(f) for f in faces]
+    face_groups = _Groups(faces, face_labels, Face)
+    pairs = [_safe(tracker.edge_label, e) or None for e in edges]
+    edge_groups = _Groups(edges, pairs, Edge)
+
+    def face_text(i, f):
+        label = face_labels[i]
+        text = None
+        if label is not None and label[1] != "new":
+            text = _pick_text(f'face("{label[0]}", "{label[1]}")', face_groups.slot[i], face_groups.centres(label))
+        return text or f"nearest_face({_point(_on_face(f))})"
+
+    def edge_text(i, e):
+        if BRep_Tool.Degenerated_s(e) or len(tracker.edge_faces(e)) < 2:
+            return ""
+        pair, text = pairs[i], None
+        if pair is not None and "new" not in (pair[0][1], pair[1][1]):
+            a, b = (f'face("{feat}", "{role}")' for feat, role in pair)
+            text = _pick_text(f"edge_between({a}, {b})", edge_groups.slot[i], edge_groups.centres(pair))
+        return text or f"nearest_edge({_point(Edge(e).position_at(0.5))})"
+
+    return ([_safe(face_text, i, f) for i, f in enumerate(faces)],
+            [_safe(edge_text, i, e) for i, e in enumerate(edges)])
+
+
+def _safe(make, *args):
+    try:
+        return make(*args)
+    except Exception:  # an OCCT failure on one entity must not fail the part
+        return ""

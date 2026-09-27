@@ -71,6 +71,8 @@ class RunResult:
     edges: np.ndarray | None = None  # mesh edges lying on BRep edges (vertex pairs)
     edge_ids: np.ndarray | None = None  # their BRep edge ids
     edge_sharp: np.ndarray | None = None  # 1 where the faces meet at an angle, 0 where tangent
+    face_refs: list | None = None  # per BRep face: the reference text a click writes (provenance.reference_texts)
+    edge_refs: list | None = None  # per BRep edge: the same
     timing: dict = field(default_factory=dict)
 
 
@@ -163,7 +165,8 @@ def run_script(source, lin_defl=0.1, ang_defl=0.3, deps=(), tag=None, cache=None
     cache = SHAPES if cache is None else cache
     t0 = time.perf_counter()
     try:
-        shape = _build(source, SCRIPT_NAME, list(deps or ()), cache)
+        tracker = provenance.Tracker()
+        shape = _build(source, SCRIPT_NAME, list(deps or ()), cache, tracker=tracker)
     except SyntaxError as e:
         return RunResult(False, f"SyntaxError: {e.msg}", e.lineno)
     except SystemExit:
@@ -185,12 +188,14 @@ def run_script(source, lin_defl=0.1, ang_defl=0.3, deps=(), tag=None, cache=None
             return RunResult(False, "`result` is not a valid solid (BRepCheck failed)")
         mesh = tessellate.display_mesh(wrapped, lin_defl, ang_defl)
         planes = tessellate.face_planes(wrapped)
+        refs = provenance.reference_texts(tracker, tessellate.face_map(wrapped), tessellate.edge_map(wrapped))
         if tag is not None:
             cache.put(tag, shape)
         t2 = time.perf_counter()
         return RunResult(True, volume=info["volume"], faces=info["faces"], verts=mesh.verts, loops=mesh.loops,
                          poly_sizes=mesh.poly_sizes, poly_face=mesh.poly_face, planes=planes, corner_normals=mesh.corner_normals, edges=mesh.edges,
                          edge_ids=mesh.edge_ids, edge_sharp=mesh.edge_sharp,
+                         face_refs=refs[0] if refs else None, edge_refs=refs[1] if refs else None,
                          timing={"script": t1 - t0, "tessellate": t2 - t1})
     except Exception as e:
         # tessellate.check/tessellate (and any OCCT call here) must never take down the worker process.
