@@ -642,16 +642,30 @@ def step6():
     # the preview callback in the real viewport, with a synthetic drawn state
     drawn = bs.drawing.Drawn("CYLINDER", bs.drawing.plane_at_cursor(bpy.context.scene.cursor.matrix), radius=8,
                              height=12)
-    fake = SimpleNamespace(_drawn=drawn, _factor=f(), _mode=lambda: "UNION")
-    rec.preview.clear()
-    handle = bpy.types.SpaceView3D.draw_handler_add(bs.ops_draw._draw_preview, (fake,), "WINDOW", "POST_VIEW")
-    try:
-        yield from set_view((0, 0, 10))
-        yield from until(lambda: rec.preview, 10, "the preview callback to draw")
-        screenshot("preview-synthetic")
-    finally:
-        bpy.types.SpaceView3D.draw_handler_remove(handle, "WINDOW")
-    expect(not [e for e in rec.errors if e.startswith("preview")], f"preview errors {rec.errors}")
+    # Ctrl held (_snap > 0): the grid around the dragged corner, then the height ticks; labels in pixel space
+    plane = bs.drawing.plane_at_cursor(bpy.context.scene.cursor.matrix)
+    labelled = []
+
+    def labels(op_):
+        try:
+            bs.ops_draw._draw_labels(op_)
+            labelled.append(op_._stage)
+        except Exception as e:
+            rec.errors.append(f"labels: {type(e).__name__}: {e}")
+    for stage in ("BASE", "HEIGHT"):
+        fake = SimpleNamespace(_drawn=drawn, _factor=f(), _mode=lambda: "UNION", _snap=5.0, _stage=stage,
+                               _plane=plane, _p1=(8 * f(), 0.0), _base=drawn, _target=None)
+        rec.preview.clear()
+        handle = bpy.types.SpaceView3D.draw_handler_add(bs.ops_draw._draw_preview, (fake,), "WINDOW", "POST_VIEW")
+        label_handle = bpy.types.SpaceView3D.draw_handler_add(labels, (fake,), "WINDOW", "POST_PIXEL")
+        try:
+            yield from set_view((0, 0, 10))
+            yield from until(lambda: rec.preview and stage in labelled, 10, "the preview callback to draw")
+            screenshot(f"preview-synthetic-{stage.lower()}")
+        finally:
+            bpy.types.SpaceView3D.draw_handler_remove(handle, "WINDOW")
+            bpy.types.SpaceView3D.draw_handler_remove(label_handle, "WINDOW")
+    expect(not [e for e in rec.errors if e.startswith(("preview", "labels"))], f"preview errors {rec.errors}")
     n_parts = len(parts())
     deselect()
     if SIM:
