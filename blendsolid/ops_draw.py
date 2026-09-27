@@ -506,7 +506,9 @@ def register():
     bpy.types.Scene.blendsolid_snap_step = EnumProperty(
         name="Snap Step", items=STEP_ITEMS, default="1",
         description="Grid step of the Draw Solid tool while Ctrl is held (Ctrl+Wheel changes it)")
-    bpy.utils.register_tool(DrawSolidTool, after={"builtin.primitive_cube_add"}, separator=True)
+    # group=True: its own button after the Add group (inside that group the separator became a None that
+    # broke Blender's toolbar lookups)
+    bpy.utils.register_tool(DrawSolidTool, after={"builtin.primitive_cube_add"}, separator=True, group=True)
 
 
 def unregister():
