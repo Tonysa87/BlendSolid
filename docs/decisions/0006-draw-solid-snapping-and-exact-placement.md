@@ -41,4 +41,10 @@ curved face the drawing plane is the tangent plane, which touches the face along
   longer than drawn by the clearance, visible in the redo panel.
 - Blender gives no modifier state outside a modal operator, so the snap cross can't depend on Ctrl being held:
   it is always shown while the tool is active.
+- **Placements on exact planes are written with 10 decimals** (added after the manual GUI test, step 13): a face
+  can sit off the scripts' 6-decimal grid (a pocket wall at y = -93.652651 + 53.694279 / 2 = -66.8055115 mm), and
+  the rounded placement started a cut 5e-07 mm inside the material, past OCCT's 1e-07 mm tolerance: a skin
+  closed the pocket. Only the component that must lie on the face gets the extra digits; the base centre in
+  the plane is rounded to 6 decimals like the parameters (mouse positions are float32), so freehand scripts
+  stay readable (`Location((0.0, 15.0000015, 10.0), ...)`).
 - Tests: `tests/blender/test_draw_tool.py`, `test_draw_solid.py` (exactness, picking, clearance, snapping).
