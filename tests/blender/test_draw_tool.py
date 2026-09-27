@@ -320,6 +320,16 @@ def test_tool_is_registered(addon):
     assert "blendsolid.draw_solid_tool" in ids
 
 
+def test_toolbar_groups_have_no_holes(addon):
+    # Found in the manual GUI test: registering the tool with separator=True after a tool inside Blender's Add
+    # group put a None inside that group; Blender's own lookups (item_group_from_id, run from the toolbar) then
+    # raised "'NoneType' object has no attribute 'idname'".
+    from bl_ui.space_toolsystem_common import ToolSelectPanelHelper
+    cls = ToolSelectPanelHelper._tool_class_from_space_type("VIEW_3D")
+    groups = [g for g in cls.tools_from_context(bpy.context, mode="OBJECT") if type(g) is tuple]  # not ToolDef
+    assert all(t is not None for g in groups for t in g)
+    assert cls._tool_get_group_by_id(bpy.context, "blendsolid.draw_solid_tool") is not None
+
 def test_tool_starts_a_drag_with_modifiers_held(addon):
     """Ctrl (snapping) or Shift+Ctrl held before the press must still start a drag: the modal reads the
     modifiers itself, so the tool's LMB item must accept any modifier."""
