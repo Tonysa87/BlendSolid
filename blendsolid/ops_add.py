@@ -76,6 +76,8 @@ class VIEW3D_MT_blendsolid_add(bpy.types.Menu):
     bl_label = "BlendSolid"
 
     def draw(self, context):
+        from . import runtime
+        runtime.warm_up()
         layout = self.layout
         for kind, prim in primitives.PRIMITIVES.items():
             layout.operator(f"blendsolid.add_{kind}", text=prim.label, icon=ICONS[kind])

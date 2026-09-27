@@ -10,7 +10,7 @@ import dataclasses
 import math
 
 import bpy
-from bpy.props import EnumProperty, FloatProperty, FloatVectorProperty, StringProperty
+from bpy.props import EnumProperty, FloatProperty, FloatVectorProperty, IntProperty, StringProperty
 from bpy_extras import view3d_utils
 from mathutils import Matrix, Vector
 
@@ -24,8 +24,19 @@ MODES = [("NEW", "New Part", "Make a new part", "ADD", 0),
 KIND = {"BOX": "box", "CYLINDER": "cylinder"}
 COLORS = {"UNION": (0.35, 0.9, 0.45, 1.0), "CUT": (1.0, 0.35, 0.3, 1.0), "NEW": (0.35, 0.65, 1.0, 1.0)}
 MIN_MM = 0.001  # matches the size properties' `min`: a drag under this is treated as no drag at all
+WHEEL = {"WHEELUPMOUSE": 1, "WHEELDOWNMOUSE": -1}  # Ctrl+Wheel: next / previous snap step
+STEP_ITEMS = [(f"{v:g}", f"{v:g} mm", f"Snap to {v:g} mm (Shift+Ctrl: {v / 10:g} mm)") for v in drawing.STEPS]
 NAV_EVENTS = {"MIDDLEMOUSE", "WHEELUPMOUSE", "WHEELDOWNMOUSE", "WHEELINMOUSE", "WHEELOUTMOUSE", "TRACKPADPAN",
              "TRACKPADZOOM", "NDOF_MOTION"}  # viewport navigation: never swallowed by the modal
+
+
+def step_mm(scene):
+    return float(scene.blendsolid_snap_step)
+
+
+def change_step(scene, direction):
+    scene.blendsolid_snap_step = f"{drawing.next_step(step_mm(scene), direction):g}"
+    return step_mm(scene)
 
 
 def _local_part(name):
@@ -106,6 +117,7 @@ class BLENDSOLID_OT_draw_solid(bpy.types.Operator):
     def invoke(self, context, event):
         if context.area is None or context.area.type != "VIEW_3D" or context.region_data is None:
             return {"CANCELLED"}
+        self.shape = context.scene.blendsolid_draw_shape
         origin, direction = _mouse_ray(context, event)
         self._plane, self._target = pick_plane(context, origin, direction)
         p = drawing.plane_coords(self._plane, origin, direction)
@@ -120,6 +132,12 @@ class BLENDSOLID_OT_draw_solid(bpy.types.Operator):
         return {"RUNNING_MODAL"}
 
     def modal(self, context, event):
+        if event.type in WHEEL and event.ctrl and event.value == "PRESS":
+            change_step(context.scene, WHEEL[event.type])
+            self._update(context, event)
+            self._header(context)
+            context.area.tag_redraw()
+            return {"RUNNING_MODAL"}
         if event.type in NAV_EVENTS:
             return {"PASS_THROUGH"}  # let the viewport orbit/zoom/pan while the modal keeps running
         if event.type in {"ESC", "RIGHTMOUSE"} and event.value == "PRESS":
@@ -149,7 +167,8 @@ class BLENDSOLID_OT_draw_solid(bpy.types.Operator):
 
     def _update(self, context, event):
         origin, direction = _mouse_ray(context, event)
-        step = (0.1 if event.shift else 1.0) if event.ctrl else 0.0  # millimetres
+        step = step_mm(context.scene)
+        step = (step / 10 if event.shift else step) if event.ctrl else 0.0  # millimetres
         if self._stage == "BASE":
             p = drawing.plane_coords(self._plane, origin, direction)
             if p is not None:
@@ -166,16 +185,17 @@ class BLENDSOLID_OT_draw_solid(bpy.types.Operator):
 
     def _header(self, context):
         d = self._drawn
+        step = step_mm(context.scene)
+        snapping = f"Ctrl: snap {step:g} mm (Shift+Ctrl: {step / 10:g} mm) | Ctrl+Wheel: step"
         if self._stage == "BASE":
             size = "" if d is None else (f"{d.length:.3f} x {d.width:.3f} mm" if d.shape == "BOX"
                                          else f"radius {d.radius:.3f} mm")
-            text = (f"Draw Solid: drag the base {size}, release for the height | Ctrl: snap 1 mm "
-                    f"(Shift+Ctrl: 0.1 mm) | Esc/right-click: cancel")
+            text = f"Draw Solid: drag the base {size}, release for the height | {snapping} | Esc/right-click: cancel"
         else:
             what = {"NEW": "new part", "UNION": f"union with {self._target.name if self._target else ''}",
                     "CUT": f"cut from {self._target.name if self._target else ''}"}[self._mode()]
             text = (f"Draw Solid: height {abs(d.height) if d else 0.0:.3f} mm, {what} | click: confirm | "
-                    f"Esc/right-click: cancel")
+                    f"{snapping} | Esc/right-click: cancel")
         context.area.header_text_set(text)
 
     def _finish(self, context):
@@ -236,6 +256,90 @@ def _draw_preview(op):
     gpu.state.blend_set("NONE")
 
 
+class BLENDSOLID_OT_snap_step(bpy.types.Operator):
+    """Next or previous snap step of the Draw Solid tool (Ctrl+Wheel)"""
+    bl_idname = "blendsolid.snap_step"
+    bl_label = "Snap Step"
+    bl_options = {"INTERNAL"}
+
+    direction: IntProperty(name="Direction", default=1, min=-1, max=1)
+
+    def execute(self, context):
+        change_step(context.scene, self.direction)  # shown by the tool header and the sidebar: no report
+        if context.area is not None:
+            context.area.tag_redraw()
+        return {"FINISHED"}
+
+
+def _hover(context, origin, direction):
+    """(world point, plane) of the grid node where a Ctrl drag starting under the mouse ray would begin."""
+    plane, _ = pick_plane(context, origin, direction)
+    p = drawing.plane_coords(plane, origin, direction)
+    if p is None:
+        return None
+    u, v = drawing.grid_node(plane, p, part.unit_factor(context.scene), step_mm(context.scene))
+    return plane.translation + plane.col[0].xyz * u + plane.col[1].xyz * v, plane
+
+
+def hover_node(context, origin, direction):
+    found = _hover(context, origin, direction)
+    return None if found is None else found[0]
+
+
+class BLENDSOLID_GT_snap_marker(bpy.types.Gizmo):
+    """A cross on the grid node a Ctrl drag would start from, drawn while the Draw Solid tool is active.
+    Blender doesn't tell a gizmo whether Ctrl is held, so it is always shown."""
+    bl_idname = "BLENDSOLID_GT_snap_marker"
+
+    def setup(self):
+        self.mouse = None
+
+    def test_select(self, context, location):
+        self.mouse = tuple(location)
+        context.area.tag_redraw()
+        return -1  # never "selected": the click goes to the tool's keymap
+
+    def draw(self, context):
+        if self.mouse is None or context.region_data is None:
+            return
+        region, rv3d = context.region, context.region_data
+        origin = view3d_utils.region_2d_to_origin_3d(region, rv3d, self.mouse)
+        direction = view3d_utils.region_2d_to_vector_3d(region, rv3d, self.mouse)
+        found = _hover(context, origin, direction)
+        if found is None:
+            return
+        point, plane = found
+        here = view3d_utils.location_3d_to_region_2d(region, rv3d, point)
+        if here is None:
+            return
+        arm = (view3d_utils.region_2d_to_location_3d(region, rv3d, (here.x + 8, here.y), point) - point).length
+        x, y = plane.col[0].xyz * arm, plane.col[1].xyz * arm
+        import gpu  # not available in background mode
+        from gpu_extras.batch import batch_for_shader
+        shader = gpu.shader.from_builtin("POLYLINE_UNIFORM_COLOR")
+        batch = batch_for_shader(shader, "LINES", {"pos": [point - x, point + x, point - y, point + y]})
+        shader.uniform_float("viewportSize", (region.width, region.height))
+        shader.uniform_float("lineWidth", 2.0)
+        shader.uniform_float("color", (1.0, 1.0, 1.0, 0.9))
+        gpu.state.blend_set("ALPHA")
+        gpu.state.depth_test_set("NONE")
+        batch.draw(shader)
+        gpu.state.blend_set("NONE")
+
+
+class BLENDSOLID_GGT_draw_hover(bpy.types.GizmoGroup):
+    bl_idname = "BLENDSOLID_GGT_draw_hover"
+    bl_label = "Draw Solid Snap Marker"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "WINDOW"
+    bl_options = {"3D"}
+
+    def setup(self, context):  # called when the Draw Solid tool becomes active
+        from . import runtime
+        runtime.warm_up()
+        self.gizmos.new(BLENDSOLID_GT_snap_marker.bl_idname)
+
+
 def drawn_properties(drawn, target, factor):
     """The draw_solid operator properties for a drag (drawing.Drawn) on part `target` (or None): on a part,
     a positive height (out of the face) is a union and a negative one a cut; elsewhere it is a new part."""
@@ -264,25 +368,43 @@ class DrawSolidTool(bpy.types.WorkSpaceTool):
     bl_description = ("Drag a base on a part's face or on the 3D cursor's plane, then move for the height: out of "
                       "the face adds to the part, into it cuts, elsewhere makes a new part")
     bl_icon = "ops.mesh.primitive_cube_add_gizmo"
-    bl_widget = None
+    bl_widget = "BLENDSOLID_GGT_draw_hover"
     # any modifier: Ctrl (snapping) or Shift+Ctrl held before the press still start a drag (the modal reads them)
-    bl_keymap = (("blendsolid.draw_solid", {"type": "LEFTMOUSE", "value": "PRESS", "any": True}, None),)
+    bl_keymap = (
+        ("blendsolid.draw_solid", {"type": "LEFTMOUSE", "value": "PRESS", "any": True}, None),
+        ("blendsolid.snap_step", {"type": "WHEELUPMOUSE", "value": "PRESS", "ctrl": True},
+         {"properties": [("direction", 1)]}),
+        ("blendsolid.snap_step", {"type": "WHEELDOWNMOUSE", "value": "PRESS", "ctrl": True},
+         {"properties": [("direction", -1)]}),
+    )
 
     def draw_settings(context, layout, tool):
-        props = tool.operator_properties("blendsolid.draw_solid")
-        layout.prop(props, "shape", expand=True)
+        draw_settings_into(layout, context.scene)
 
 
-CLASSES = [BLENDSOLID_OT_draw_solid]
+def draw_settings_into(layout, scene):
+    """The Draw Solid settings (shape, snap step): the tool header and the BlendSolid sidebar show the same."""
+    layout.prop(scene, "blendsolid_draw_shape", expand=True)
+    layout.prop(scene, "blendsolid_snap_step", text="Snap")
+
+
+CLASSES = [BLENDSOLID_OT_draw_solid, BLENDSOLID_OT_snap_step, BLENDSOLID_GT_snap_marker, BLENDSOLID_GGT_draw_hover]
 
 
 def register():
     for cls in CLASSES:
         bpy.utils.register_class(cls)
+    bpy.types.Scene.blendsolid_draw_shape = EnumProperty(name="Shape", items=SHAPES, default="BOX",
+                                                         description="Shape the Draw Solid tool draws")
+    bpy.types.Scene.blendsolid_snap_step = EnumProperty(
+        name="Snap Step", items=STEP_ITEMS, default="1",
+        description="Grid step of the Draw Solid tool while Ctrl is held (Ctrl+Wheel changes it)")
     bpy.utils.register_tool(DrawSolidTool, after={"builtin.primitive_cube_add"}, separator=True)
 
 
 def unregister():
     bpy.utils.unregister_tool(DrawSolidTool)
+    del bpy.types.Scene.blendsolid_snap_step
+    del bpy.types.Scene.blendsolid_draw_shape
     for cls in reversed(CLASSES):
         bpy.utils.unregister_class(cls)

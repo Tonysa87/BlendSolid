@@ -145,8 +145,13 @@ class BLENDSOLID_PT_part(bpy.types.Panel):
         layout = self.layout
         obj = context.object
         layout.operator("blendsolid.new_part", icon="ADD")
-        from . import ops_add
+        from . import ops_add, ops_draw, runtime
+        runtime.warm_up()
         ops_add.draw_add_buttons(layout)
+        box = layout.box()
+        box.operator("wm.tool_set_by_id", text="Draw Solid", icon="MESH_CUBE").name = ops_draw.DrawSolidTool.bl_idname
+        row = box.row(align=True)
+        ops_draw.draw_settings_into(row, context.scene)
         if obj is None or obj.blendsolid_script is None:
             return
         from . import runtime

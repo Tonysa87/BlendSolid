@@ -61,3 +61,26 @@ def test_recompute_operator_on_sibling_forces_primary(clean):
 
     assert primary.name not in runtime._failed  # forcing via the sibling must clear the primary's record
     wait_for(lambda: part.applied_hash(primary) == tag)
+
+
+def test_sidebar_has_the_draw_solid_button_shape_and_step(clean):
+    # The panel's draw code runs for real: a fake layout records what it shows.
+    from types import SimpleNamespace
+
+    from blendsolid import ui
+
+    shown = []
+
+    class Layout:
+        def __getattr__(self, name):
+            def record(*args, **kwargs):
+                shown.append((name, args, kwargs))
+                return self
+            return record
+
+    panel = SimpleNamespace(layout=Layout())
+    ui.BLENDSOLID_PT_part.draw(panel, SimpleNamespace(object=None, scene=bpy.context.scene))
+    ops = [a[0] for n, a, k in shown if n == "operator"]
+    props = [a[1] for n, a, k in shown if n == "prop" and a and a[0] == bpy.context.scene]
+    assert "wm.tool_set_by_id" in ops
+    assert "blendsolid_draw_shape" in props and "blendsolid_snap_step" in props

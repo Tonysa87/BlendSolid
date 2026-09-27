@@ -34,6 +34,7 @@ class Driver:
         OP._finish
 
     def __init__(self, shape):
+        bpy.context.scene.blendsolid_draw_shape = shape  # the tool reads the shape from the scene
         self.shape, self.reports, self.executed = shape, [], None
         self.context = SimpleNamespace(area=FakeArea(), region=None, region_data=object(), scene=bpy.context.scene,
                                        window_manager=SimpleNamespace(modal_handler_add=lambda op: None),
@@ -46,6 +47,10 @@ class Driver:
         self.executed = {k: getattr(self, k) for k in ("shape", "mode", "target", "location", "rotation", "height")}
         self.executed.update({k: getattr(self, k) for k in ("length", "width", "radius") if hasattr(self, k)})
         return bpy.ops.blendsolid.draw_solid(**self.executed)
+
+    def wheel(self, kind, at, ctrl=True):
+        return SimpleNamespace(type=kind, value="PRESS", ctrl=ctrl, shift=False,
+                               ray=(Vector(at) + Vector((0, 0, 1.0)), Vector((0, 0, -1.0))))
 
     def event(self, kind, value, at, ctrl=False, shift=False):
         """A mouse event whose ray looks straight down at world point `at` (Blender units)."""
@@ -118,6 +123,63 @@ def test_pull_up_is_a_union_and_ctrl_snaps(clean, rays):
     ])
     assert d.executed["mode"] == "UNION"
     assert (d.executed["length"], d.executed["width"]) == (20.0, 10.0)  # snapped to whole millimetres
+
+
+@pytest.fixture
+def step():
+    scene = bpy.context.scene
+    saved = scene.blendsolid_snap_step
+    yield scene
+    scene.blendsolid_snap_step = saved
+
+
+def test_ctrl_snaps_the_first_corner_to_the_grid_at_the_chosen_step(clean, rays, step):
+    step.blendsolid_snap_step = "10"
+    bpy.context.scene.cursor.location = (0, 0, 0)
+    d = Driver("BOX")
+    d.run([
+        d.event("LEFTMOUSE", "PRESS", (0.0123, 0.0071, 0.0), ctrl=True),   # nearest node: (10, 10) mm
+        d.event("MOUSEMOVE", "NOTHING", (0.0482, 0.0331, 0.0), ctrl=True),  # nearest node: (50, 30) mm
+        d.event("LEFTMOUSE", "RELEASE", (0.0482, 0.0331, 0.0), ctrl=True),
+        d.side_event("MOUSEMOVE", "NOTHING", (0.03, 0.0, 0.0123), ctrl=True),
+        d.side_event("LEFTMOUSE", "PRESS", (0.03, 0.0, 0.0123), ctrl=True),
+    ])
+    assert (d.executed["length"], d.executed["width"], d.executed["height"]) == pytest.approx((40, 20, 10))
+    assert tuple(d.executed["location"]) == pytest.approx((30, 20, 0))
+
+
+def test_ctrl_wheel_changes_the_step_while_drawing(clean, rays, step):
+    step.blendsolid_snap_step = "1"
+    bpy.context.scene.cursor.location = (0, 0, 0)
+    d = Driver("BOX")
+    result = d.run([
+        d.event("LEFTMOUSE", "PRESS", (0.0, 0.0, 0.0)),
+        d.wheel("WHEELUPMOUSE", (0.01, 0.01, 0.0)),
+        d.wheel("WHEELUPMOUSE", (0.01, 0.01, 0.0)),
+    ])
+    assert result == {"RUNNING_MODAL"} and step.blendsolid_snap_step == "5"
+    assert "5 mm" in d.context.area.headers[-1]
+    d.modal(d.context, d.wheel("WHEELDOWNMOUSE", (0.01, 0.01, 0.0)))
+    assert step.blendsolid_snap_step == "2"
+    # the wheel alone still zooms the view
+    assert d.modal(d.context, d.wheel("WHEELUPMOUSE", (0.01, 0.01, 0.0), ctrl=False)) == {"PASS_THROUGH"}
+
+
+def test_snap_step_operator_and_the_tool_keymap(clean, step):
+    step.blendsolid_snap_step = "1"
+    assert bpy.ops.blendsolid.snap_step(direction=1) == {"FINISHED"} and step.blendsolid_snap_step == "2"
+    bpy.ops.blendsolid.snap_step(direction=-1)
+    bpy.ops.blendsolid.snap_step(direction=-1)
+    assert step.blendsolid_snap_step == "0.5"
+    wheel = [k for k in ops_draw.DrawSolidTool.bl_keymap if k[0] == "blendsolid.snap_step"]
+    assert {k[1]["type"] for k in wheel} == {"WHEELUPMOUSE", "WHEELDOWNMOUSE"} and all(k[1]["ctrl"] for k in wheel)
+
+
+def test_hover_marker_is_the_grid_node_under_the_mouse(clean, step):
+    step.blendsolid_snap_step = "10"
+    bpy.context.scene.cursor.location = (0, 0, 0)
+    point = ops_draw.hover_node(bpy.context, (0.0123, 0.0071, 1.0), (0, 0, -1.0))
+    assert (point - Vector((0.010, 0.010, 0.0))).length < 1e-9
 
 
 def test_through_a_wire_cutter_and_on_empty_space(clean, rays):

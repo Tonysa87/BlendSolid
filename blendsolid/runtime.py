@@ -27,6 +27,22 @@ def client():
     return _client
 
 
+def warm_up():
+    """Start the worker ahead of the first part (its libraries take ~2 s to load, off Blender's thread), when
+    the user shows intent to use BlendSolid: the sidebar panel, the Shift+A menu, the Draw Solid tool. Only
+    schedules the start: it may be called from draw code. Not at startup: the worker holds ~370 MB."""
+    if (_client is None or _client.state == "stopped") and not bpy.app.timers.is_registered(_warm_start):
+        bpy.app.timers.register(_warm_start, first_interval=0.01)
+
+
+def _warm_start():
+    try:
+        client().start()  # returns once the process has connected (~0.16 s); it loads its libraries after that
+    except (WorkerStartError, FileNotFoundError):
+        pass  # reported by the first submit, on the part that needs the worker
+    return None
+
+
 def reset_state():
     _inflight.clear()
     _failed.clear()

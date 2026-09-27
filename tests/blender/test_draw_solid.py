@@ -64,6 +64,32 @@ def test_drawn_box_and_cylinder_with_snapping():
     assert (cyl.frame.translation - Vector((0.01, 0, 0))).length < 1e-9
 
 
+def test_snap_steps_ladder():
+    assert drawing.STEPS[0] == 0.1 and 1.0 in drawing.STEPS and drawing.STEPS[-1] == 10000.0
+    assert drawing.next_step(1.0, +1) == 2.0 and drawing.next_step(1.0, -1) == 0.5
+    assert drawing.next_step(drawing.STEPS[-1], +1) == drawing.STEPS[-1]    # clamped at both ends
+    assert drawing.next_step(drawing.STEPS[0], -1) == drawing.STEPS[0]
+
+
+def test_grid_on_a_face_starts_at_the_part_origin():
+    # The grid of a face is the part's own: its origin projected onto the face, whatever point was hit.
+    obj_matrix = Matrix.Translation((1, 2, 3)) @ Euler((0, 0, math.radians(30))).to_matrix().to_4x4()
+    hit = obj_matrix @ Vector((0.0123, -0.0071, 0.02))
+    plane = drawing.plane_on_face(hit, obj_matrix.to_3x3() @ Vector((0, 0, 1)), obj_matrix)
+    assert (plane.translation - obj_matrix @ Vector((0, 0, 0.02))).length < 1e-9
+
+
+def test_snapping_puts_box_corners_and_cylinder_centre_on_grid_nodes():
+    plane = drawing.plane_at_cursor(Matrix.Identity(4))
+    box = drawing.drawn_solid("BOX", plane, (0.0123, 0.0071), (0.0348, 0.0269), 0.0, F, step_mm=10.0)
+    assert (box.length, box.width) == pytest.approx((20.0, 20.0))       # corners (10, 10) and (30, 30) mm
+    assert (box.frame.translation - Vector((0.020, 0.020, 0))).length < 1e-9
+    cyl = drawing.drawn_solid("CYLINDER", plane, (0.0123, -0.0071), (0.0283, -0.0071), 0.0, F, step_mm=10.0)
+    assert cyl.radius == pytest.approx(20.0)                              # 16 mm rounded to the 10 mm step
+    assert (cyl.frame.translation - Vector((0.010, -0.010, 0))).length < 1e-9
+    assert drawing.grid_node(plane, (0.0123, -0.0071), F, 10.0) == pytest.approx((0.010, -0.010))
+
+
 def test_placement_round_trip():
     frame = Matrix.Translation((0.01, 0.02, 0.03)) @ Euler((0.1, 0.2, 0.3), "ZYX").to_matrix().to_4x4()
     location, rotation = drawing.placement(frame, None, F)
@@ -121,7 +147,8 @@ def test_drag_on_a_rotated_part_face(clean, up, mode, expected):
     box = box_part(location=(0.5, 0.2, 0.0), rotation=(0, 0, math.radians(30)))
     top_center = box.matrix_world @ Vector((0.005, 0.0, 0.020))
     plane = drawing.plane_on_face(top_center, box.matrix_world.to_3x3() @ Vector((0, 0, 1)), box.matrix_world)
-    drawn = drawing.drawn_solid("CYLINDER", plane, (0.0, 0.0), (0.004, 0.0), 0.006 if up else -0.006, F)
+    u, v = drawing.plane_coords(plane, top_center + plane.col[2].xyz, -plane.col[2].xyz)  # the grid is the part's
+    drawn = drawing.drawn_solid("CYLINDER", plane, (u, v), (u + 0.004, v), 0.006 if up else -0.006, F)
     props = ops_draw.drawn_properties(drawn, box, F)
     assert props["mode"] == mode and props["target"] == box.name
     assert props["location"] == pytest.approx((5, 0, 20), abs=1e-4)
@@ -184,7 +211,8 @@ def test_millimetre_scene(clean):
         expected = 40 * 30 * 20 - math.pi * 9 * 5
         assert abs(mm3(box) - expected) / expected < 0.01
         plane = drawing.plane_on_face(box.matrix_world @ Vector((5, 5, 20)), (0, 0, 1), box.matrix_world)
-        drawn = drawing.drawn_solid("BOX", plane, (0, 0), (4, 2), 3, part.unit_factor())
+        assert drawing.plane_coords(plane, (15, 25, 30), (0, 0, -1)) == pytest.approx((5, 5))  # the part's grid
+        drawn = drawing.drawn_solid("BOX", plane, (5, 5), (9, 7), 3, part.unit_factor())
         assert (drawn.length, drawn.width, drawn.height) == pytest.approx((4, 2, 3))  # 1 unit = 1 mm
         props = ops_draw.drawn_properties(drawn, box, part.unit_factor())
         assert props["mode"] == "UNION" and props["target"] == box.name
