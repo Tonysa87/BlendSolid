@@ -320,7 +320,7 @@ def instrument():
             self.area.header_text_set(text)
 
     def header(self, context):
-        orig_header(self, SimpleNamespace(area=AreaRecorder(context.area)))
+        orig_header(self, SimpleNamespace(area=AreaRecorder(context.area), scene=context.scene))
 
     def finish(self, context):
         orig_finish(self, context)
@@ -638,7 +638,7 @@ def step6():
         bpy.ops.wm.tool_set_by_id(name="blendsolid.draw_solid_tool")
     tool = bpy.context.workspace.tools.from_space_view3d_mode("OBJECT")
     expect(tool.idname == "blendsolid.draw_solid_tool", f"active tool {tool.idname}")
-    tool.operator_properties("blendsolid.draw_solid").shape = "BOX"
+    bpy.context.scene.blendsolid_draw_shape = "BOX"  # the tool's shape is a scene setting
     # the preview callback in the real viewport, with a synthetic drawn state
     drawn = bs.drawing.Drawn("CYLINDER", bs.drawing.plane_at_cursor(bpy.context.scene.cursor.matrix), radius=8,
                              height=12)
@@ -719,8 +719,7 @@ def step7():
 
 def step8():
     deselect()
-    tool = bpy.context.workspace.tools.from_space_view3d_mode("OBJECT")
-    tool.operator_properties("blendsolid.draw_solid").shape = "CYLINDER"
+    bpy.context.scene.blendsolid_draw_shape = "CYLINDER"
     v0 = mm3(ob("Box"))
     if SIM:
         yield from set_view((20, 0, 20))
@@ -760,8 +759,7 @@ def step9():
     if not SIM:
         return "SKIP: needs --enable-event-simulate (manual test)"
     deselect()
-    tool = bpy.context.workspace.tools.from_space_view3d_mode("OBJECT")
-    tool.operator_properties("blendsolid.draw_solid").shape = "BOX"
+    bpy.context.scene.blendsolid_draw_shape = "BOX"  # the tool's shape is a scene setting
     out = []
     for place, shift, step_mm in (((80, -100, 0), False, 1.0), ((80, -140, 0), True, 0.1)):
         yield from set_view(place)
@@ -952,7 +950,9 @@ def step13():
         how = "pick_plane on the viewport ray"
     normal, point = plane.col[2].xyz, plane.translation / f()
     expect(target == "Box", f"drawn on {target}")
-    expect((normal - Vector((0, -1, 0))).length < 1e-6 and (point - p_mm).length < 0.2,
+    # the plane's origin is the part's origin projected on the face (the snap grid's), so check it lies on
+    # the -Y face's plane rather than at the clicked point
+    expect((normal - Vector((0, -1, 0))).length < 1e-6 and abs(point.y - p_mm.y) < 0.2,
            f"plane normal {tuple(normal)}, at {tuple(point)}")
     screenshot("through-cutter")
     with override():
@@ -961,24 +961,26 @@ def step13():
 
 
 def step14():
+    # A deleted cutter keeps cutting (its script is kept, the target remembers where it was) and can be
+    # restored from the panel; undo brings the object itself back too.
     cutter = S["cutter"]
     yield from settled("Box", cutter)
     v = mm3(ob("Box"))
     click(ob(cutter))
     op(bpy.ops.object.delete)
     expect(ob(cutter) is None, "the cutter was not deleted")
-    yield from until(lambda: ob("Box").blendsolid_error, 20, "an error on Box")
-    err = ob("Box").blendsolid_error
-    expect("no longer exists" in err, f"error: {err}")
-    expect("The part could not be rebuilt" in labels(panel_items(ob("Box"))), "the panel shows no error")
+    for _ in range(10):
+        yield 0.1
+    expect(not ob("Box").blendsolid_error, f"error on Box: {ob('Box').blendsolid_error}")
+    expect(close(mm3(ob("Box")), v), f"the cut changed: {mm3(ob('Box')):.1f} != {v:.1f}")
+    booleans = bs.deps.booleans(ob("Box"))
+    expect(any(b.deleted and b.name == cutter for b in booleans), f"the panel doesn't list {cutter} as deleted")
     screenshot("deleted-cutter")
     op(bpy.ops.ed.undo)
     yield from settled("Box", cutter)
     expect(ob(cutter) is not None, "undo did not bring the cutter back")
-    yield from until(lambda: not ob("Box").blendsolid_error, 5, "the error to go (next reconcile tick)")
-    expect(not ob("Box").blendsolid_error, f"error still shown: {ob('Box').blendsolid_error}")
-    expect(close(mm3(ob("Box")), v), f"hole not back: {mm3(ob('Box')):.1f} != {v:.1f}")
-    return f"error: \"{err.splitlines()[0]}\"; undo -> cutter back, no error, {mm3(ob('Box')):.1f} mm³"
+    expect(close(mm3(ob("Box")), v), f"hole changed: {mm3(ob('Box')):.1f} != {v:.1f}")
+    return f"deleted: Box keeps its cut, no error, listed as deleted; undo -> cutter back, {mm3(ob('Box')):.1f} mm³"
 
 
 def snapshot():

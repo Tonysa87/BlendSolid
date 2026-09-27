@@ -275,3 +275,21 @@ def append_feature(source, spec):
             new_params = new_params + [""]
         lines[at:at] = new_params
     return "\n".join(lines) + "\n", name
+
+
+def remove_feature(source, name):
+    """`source` without feature `name`: its statement and its `<name>_*` parameters. Raises NotCanonical, or
+    ValueError when there is no such feature or it is the only one (a part keeps at least one)."""
+    existing = features(source)
+    found = [f for f in existing if f.name == name]
+    if not found:
+        raise ValueError(f"there is no feature named '{name}'")
+    if len(existing) == 1:
+        raise ValueError("a part keeps at least one feature")
+    feature = found[0]
+    lines = source.split("\n")
+    drop = set(range(feature.lineno - 1, feature.end_lineno))
+    for p in params.parse_params(source):
+        if p.name.startswith(f"{name}_"):
+            drop.add(p.lineno - 1)
+    return "\n".join(line for i, line in enumerate(lines) if i not in drop)

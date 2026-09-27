@@ -78,10 +78,13 @@ def test_moving_the_target_with_its_cutter_changes_nothing(clean):
     assert part.current_tag(plate) == tag
 
 
-def test_deleted_cutter_is_an_error_without_a_loop(clean):
+def test_lost_cutter_is_an_error_without_a_loop(clean):
+    # A deleted cutter keeps its script (test_removed_cutters.py): only a lost script is an error.
     plate, pin = plate_and_pin()
     pid = part.part_id(pin)
+    text = pin.blendsolid_script
     bpy.data.objects.remove(pin)
+    bpy.data.texts.remove(text)
     runtime.tick()
     assert "no longer exists" in plate.blendsolid_error
     # ADR 0002: only actions a standard user can take, no script vocabulary
