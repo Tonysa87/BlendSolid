@@ -1,4 +1,5 @@
 import math
+import os
 
 import numpy as np
 
@@ -76,3 +77,14 @@ def test_tessellation_failure_is_reported_not_raised(monkeypatch):
     monkeypatch.setattr(runner.tessellate, "tessellate_with_normals", boom)
     r = runner.run_script("with BuildPart() as p:\n    Box(1, 2, 3)\nresult = p\n")
     assert not r.ok and "RuntimeError: boom" in r.error and r.line is None
+
+
+def test_a_broken_reference_is_reported_on_its_line():
+    template = open(os.path.join(os.path.dirname(__file__), "..", "..", "blendsolid", "templates",
+                                 "default_part.py")).read()
+    line = '    fillet(edges_of(face("box_1", "+Q")), radius=1)  # feature: fillet_2'
+    broken = template.replace("\nresult = part.part", line + "\n\nresult = part.part")
+    r = runner.run_script(broken)
+    assert not r.ok and "box_1 has no face '+Q'" in r.error
+    assert r.line == broken.splitlines().index(line) + 1
+    assert runner.run_script(MODEL).ok  # a script without feature markers runs as before

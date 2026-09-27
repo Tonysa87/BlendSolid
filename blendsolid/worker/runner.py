@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
+import provenance
 import tessellate
 
 SCRIPT_NAME = "<history>"
@@ -145,11 +146,12 @@ def _result_shape(ns):
     return shape
 
 
-def _build(source, filename, deps, cache, depth=0):
-    """Exec `source` (ref() available) and return its `result` shape. Raises whatever the script raises."""
-    ns = {"__name__": "__blendsolid_history__"}
-    code = compile(source, filename, "exec")
-    exec("from build123d import *", ns)
+def _build(source, filename, deps, cache, depth=0, tracker=None):
+    """Exec `source` (ref() and the face/edge references available) and return its `result` shape. A canonical
+    script runs with the provenance hook, which fills `tracker`. Raises whatever the script raises."""
+    tracker = provenance.Tracker() if tracker is None else tracker
+    code = provenance.instrument(source, filename) or compile(source, filename, "exec")
+    ns = provenance.namespace(tracker)
     ns["ref"] = _make_ref(deps, cache, depth)
     exec(code, ns)
     return _result_shape(ns)

@@ -135,6 +135,10 @@ class Tracker:
 
     def step(self, feature, builder, rotation):
         part = builder.part
+        if self._shape is not None and part.wrapped.IsSame(self._shape):  # the statement didn't change the part
+            self.features.append(feature)
+            self.history[feature] = self._labels
+            return
         record = getattr(part, "_history", None)
         faces = _faces(part.wrapped)
         new = []
@@ -177,9 +181,105 @@ class Tracker:
         return tuple(sorted(found))
 
 
+class BrokenReference(Exception):
+    """A face/edge reference of a part script that no longer names anything (reported on the script's line)."""
+
+
+def _name(faces):
+    return getattr(faces, "_bs_name", "these faces")
+
+
+def _distance(shape, point):
+    from build123d import Vector, Vertex
+    return shape.distance_to(Vertex(*Vector(point)))
+
+
+def _nearest(items, point):
+    return min(items, key=lambda s: _distance(s, point))
+
+
+def _edges(face):
+    m = ShapeMap()
+    TopExp.MapShapes_s(face, TopAbs_EDGE, m)
+    return [TopoDS.Edge(m.FindKey(i)) for i in range(1, m.Extent() + 1)]
+
+
+def _helpers(tracker):
+    """The reference helpers of a part script, resolved against `tracker`'s current labels."""
+    from build123d import Edge, Face, ShapeList
+
+    def face(feature, role=None, near=None):
+        """The faces of the current part made by `feature` (with `role`, e.g. "+Z", "side", "blend"); with
+        `near` (a point, mm, part frame) only the one closest to it."""
+        if feature not in tracker.features:
+            raise BrokenReference(f"no feature '{feature}' before this line")
+        found = [Face(f) for f, (feat, r) in tracker.labels() if feat == feature and (role is None or r == role)]
+        what = feature if role is None else f"{feature} {role}"
+        if not found:
+            raise BrokenReference(f"{feature} has no face '{role}'" if role is not None
+                                  else f"no face of {feature} is left")
+        if near is not None:
+            found = [_nearest(found, near)]
+        out = ShapeList(found)
+        out._bs_name = what
+        return out
+
+    def edge_between(a, b, near=None):
+        """The edges shared by a face of `a` and a face of `b` (results of face()); with `near`, the closest."""
+        second = ShapeMap()
+        for f in b:
+            for e in _edges(f.wrapped):
+                second.Add(e)
+        shared, seen = [], ShapeMap()
+        for f in a:
+            for e in _edges(f.wrapped):
+                if second.Contains(e) and not seen.Contains(e):
+                    seen.Add(e)
+                    shared.append(Edge(e))
+        if not shared:
+            raise BrokenReference(f"no edge between {_name(a)} and {_name(b)}")
+        if near is not None:
+            shared = [_nearest(shared, near)]
+        return ShapeList(shared)
+
+    def edges_of(faces):
+        """Every edge of `faces` (a result of face())."""
+        seen, out = ShapeMap(), []
+        for f in faces:
+            for e in _edges(f.wrapped):
+                if not seen.Contains(e):
+                    seen.Add(e)
+                    out.append(Edge(e))
+        return ShapeList(out)
+
+    def _shape(shape):
+        if shape is not None:
+            return shape
+        if tracker._shape is None:
+            raise BrokenReference("nearest_face()/nearest_edge() need the shape to look in outside a part's features")
+        return _wrap(tracker._shape)
+
+    def nearest_face(point, shape=None):
+        """The face of `shape` (default: the current part) closest to `point` (mm)."""
+        return _nearest(_shape(shape).faces(), point)
+
+    def nearest_edge(point, shape=None):
+        """The edge of `shape` (default: the current part) closest to `point` (mm)."""
+        return _nearest(_shape(shape).edges(), point)
+
+    return {"face": face, "edge_between": edge_between, "edges_of": edges_of, "nearest_face": nearest_face,
+            "nearest_edge": nearest_edge}
+
+
+def _wrap(topods):
+    from build123d import Compound
+    return Compound(topods)
+
+
 def namespace(tracker):
     """A part script's globals: build123d, the feature hook and the reference helpers."""
     ns = {"__name__": "__blendsolid_history__"}
     exec("from build123d import *", ns)
     ns[HOOK] = tracker.step
+    ns.update(_helpers(tracker))
     return ns

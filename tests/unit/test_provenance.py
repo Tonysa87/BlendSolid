@@ -1,5 +1,6 @@
 """Face/edge provenance and references in part scripts (milestone 2 phase B, worker side)."""
 import os
+import re
 from collections import Counter
 
 import pytest
@@ -112,3 +113,62 @@ def test_a_failing_feature_reports_the_users_line():
 
 def test_scripts_without_features_are_not_instrumented():
     assert provenance.instrument("result = Box(1, 2, 3)\n", "<part>") is None
+
+
+# -- references in part scripts ------------------------------------------------------------------------------------
+
+def with_feature(source, line):
+    """`source` with one more feature statement at the end of its BuildPart block."""
+    head, tail = source.split("\nresult = part.part", 1)
+    return head.rstrip("\n") + "\n    " + line + "\n\nresult = part.part" + tail
+
+
+def test_fillet_by_reference_equals_the_handwritten_selector():
+    by_ref, _ = build(with_feature(SLOT, 'fillet(edge_between(face("box_1", "+X"), face("box_1", "-Y")), radius=2)'
+                                         '  # feature: fillet_1'))
+    by_hand, _ = build(with_feature(SLOT, 'fillet(part.edges().filter_by(Axis.Z).group_by(Axis.X)[-1]'
+                                          '.sort_by(Axis.Y)[0], radius=2)  # feature: fillet_1'))
+    assert by_ref.volume == pytest.approx(by_hand.volume, rel=1e-9) and by_ref.volume < 40 * 30 * 20 - 8 * 30 * 5
+
+
+def test_chamfer_all_edges_of_a_face():
+    shape, tracker = build(with_feature(DEFAULT, 'chamfer(edges_of(face("boss_1", "+Z")), length=1)'
+                                                 '  # feature: chamfer_1'))
+    assert Counter(label for _, label in tracker.labels())[("chamfer_1", "blend")] == 1
+    assert shape.is_valid
+
+
+@pytest.mark.parametrize("line, message", [
+    ('fillet(edges_of(face("box_1", "+Q")), radius=1)  # feature: fillet_2', "box_1 has no face '+Q'"),
+    ('fillet(edges_of(face("nope_1", "+Z")), radius=1)  # feature: fillet_2', "no feature 'nope_1' before this line"),
+    ('fillet(edge_between(face("box_1", "+Z"), face("box_1", "-Z")), radius=1)  # feature: fillet_2',
+     "no edge between box_1 +Z and box_1 -Z"),
+])
+def test_broken_references_name_what_is_missing(line, message):
+    source = with_feature(DEFAULT, line)
+    with pytest.raises(provenance.BrokenReference, match=re.escape(message)) as info:
+        build(source)
+    tb, lines = info.tb, []
+    while tb is not None:
+        if tb.tb_frame.f_code.co_filename == "<part>":
+            lines.append(tb.tb_lineno)
+        tb = tb.tb_next
+    assert lines[-1] == source.splitlines().index("    " + line) + 1
+
+
+def test_near_picks_one_piece_of_a_split_face():
+    for x, sign in ((12.0, 1), (-12.0, -1)):
+        ns = provenance.namespace(provenance.Tracker())
+        exec(provenance.instrument(with_feature(SLOT, f'picked = face("box_1", "+Z", near=({x}, 0.0, 20.0))'
+                                                      '  # feature: probe_1'), "<part>"), ns)
+        (picked,) = ns["picked"]
+        assert picked.center().X * sign > 0
+    ns = provenance.namespace(provenance.Tracker())
+    exec(provenance.instrument(with_feature(SLOT, 'both = face("box_1", "+Z")  # feature: probe_1'), "<part>"), ns)
+    assert len(ns["both"]) == 2
+
+
+def test_nearest_face_in_a_script_without_features():
+    ns = provenance.namespace(provenance.Tracker())
+    exec("b = Box(10, 10, 10)\npicked = nearest_face((0, 0, 5), b)\nresult = b\n", ns)
+    assert ns["picked"].center().Z == pytest.approx(5)
