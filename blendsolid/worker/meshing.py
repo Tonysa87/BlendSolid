@@ -22,13 +22,17 @@ from OCP.TopExp import TopExp, TopExp_Explorer
 from OCP.TopoDS import TopoDS, TopoDS_Vertex
 from OCP.gp import gp_Pnt, gp_Vec
 
-_ASPECT = 4.0           # a face curved both ways: longest / shortest grid step
+_ASPECT = 4.0           # a face curved both ways: longest / shortest grid step...
+_ASPECT_SPLIT = 8.0     # ...unless that splits the long way into more than 8 times the cells its curvature asks
 _STRAIGHT_ASPECT = 6.0  # a straight direction on a trimmed grid: at most this many times the other step (Rhino's tip)
 _CORNER_DEG = 20.0      # a corner turns the boundary more than this; the joints that aren't corners, under half
 _TINY = 0.25            # a side's interval under this fraction of its median: its grid line merges into the previous
 _MARGIN = 0.6           # grid nodes kept at least this many cells from the boundary
 _DIAGONAL_TIE = 0.01    # a cell's two diagonals within 1%: the fixed one (no alternating by round-off)
 _EQUALIZE_ROUNDS = 200
+_MAX_CELLS = 128  # grid cells across a face, each way
+_MAX_EDGE = 4096  # intervals on one edge, at most (a 4 m straight edge next to a 1 mm-tolerance fillet: ~1000)
+_GROWTH, _GROWTH_MIN = 4, 16  # an edge grows to at most 4 times its planned count plus 16 while matching sides
 
 
 def _xyz(p):
@@ -85,24 +89,34 @@ def surface_steps(surf, uv_box, lin_defl, ang_defl, samples=7):
     """(step along u, step along v) in mm and (mm per unit u, mm per unit v): the chord of a step sags at most
     lin_defl and turns at most ang_defl on the sampled normal curvature; inf where the surface is straight."""
     (u0, v0), (u1, v1) = uv_box
-    su, sv, ku, kv = [], [], 0.0, 0.0
-    for u in np.linspace(u0, u1, samples):
-        for v in np.linspace(v0, v1, samples):
-            props = BRepLProp_SLProps(surf, float(u), float(v), 2, 1e-9)
-            du, dv = props.D1U(), props.D1V()
-            su.append(du.Magnitude())
-            sv.append(dv.Magnitude())
-            if props.IsNormalDefined() and du.Magnitude() > 1e-12 and dv.Magnitude() > 1e-12:
-                n = gp_Vec(props.Normal().XYZ())
-                ku = max(ku, abs(props.D2U().Dot(n)) / du.SquareMagnitude())
-                kv = max(kv, abs(props.D2V().Dot(n)) / dv.SquareMagnitude())
+    props = [BRepLProp_SLProps(surf, float(u), float(v), 2, 1e-9)
+             for u in np.linspace(u0, u1, samples) for v in np.linspace(v0, v1, samples)]
+    su = [p.D1U().Magnitude() for p in props]
+    sv = [p.D1V().Magnitude() for p in props]
     # the largest length per unit: a cell is never longer than its step anywhere on the face (on a sphere the
     # cells narrow towards the poles, as on a latitude-longitude grid)
     scale = (max(float(np.max(su)), 1e-12), max(float(np.max(sv)), 1e-12))
+    # Normal curvature along u and v where both derivatives are well defined (near a pole or an apex a
+    # derivative vanishes and |D2 . n| / |D1|^2 means nothing). OCCT's vertex blends (the corner patches of
+    # fillets) have curvature spikes of radius 0.07 mm along their borders, which asked a uniform grid for
+    # millions of nodes: a direction's curvature is the largest sample, but at most 4 times the median one.
+    ks = [[], []]
+    for p, a, b in zip(props, su, sv):
+        if p.IsNormalDefined() and a > 0.05 * scale[0] and b > 0.05 * scale[1]:
+            n = gp_Vec(p.Normal().XYZ())
+            ks[0].append(abs(p.D2U().Dot(n)) / (a * a))
+            ks[1].append(abs(p.D2V().Dot(n)) / (b * b))
+    ku, kv = (min(max(k), 4 * float(np.median(k))) if k else 0.0 for k in ks)
     steps = tuple(min(math.sqrt(8 * lin_defl / k), ang_defl / k) if k > 1e-9 else math.inf for k in (ku, kv))
+    # Curved both ways: cells at most _ASPECT times longer one way than the other, but the long way never split
+    # into more than _ASPECT_SPLIT times the cells its own curvature asks (a 0.7 mm fillet along a 1.1 m arc
+    # would otherwise get thousands of columns); then at most _MAX_CELLS across the face each way (Rhino caps its
+    # initial grid the same way).
     if all(math.isfinite(s) for s in steps):
         low = min(steps)
-        steps = tuple(min(s, _ASPECT * low) for s in steps)
+        steps = tuple(min(s, max(_ASPECT * low, s / _ASPECT_SPLIT)) for s in steps)
+    extent = ((u1 - u0) * scale[0], (v1 - v0) * scale[1])
+    steps = tuple(max(st, e / _MAX_CELLS) for st, e in zip(steps, extent))
     return steps, scale
 
 
@@ -151,11 +165,11 @@ def own_count(info, lin_defl, ang_defl):
     curve = BRepAdaptor_Curve(info.edge)
     try:
         td = GCPnts_TangentialDeflection(curve, ang_defl, lin_defl, 2)
-        n = max(1, td.NbPoints() - 1)
+        n = max(1, min(_MAX_EDGE, td.NbPoints() - 1))
     except Exception:
         n = 1
-    while n < 100000 and not _even_ok(curve, info, n, lin_defl, ang_defl):
-        n = max(n + 1, int(n * 1.25))
+    while n < _MAX_EDGE and not _even_ok(curve, info, n, lin_defl, ang_defl):
+        n = min(_MAX_EDGE, max(n + 1, int(n * 1.25)))
     return n
 
 
@@ -208,7 +222,7 @@ def face_need(face_info, use, info):
     inv = math.hypot(a / su if math.isfinite(su) else 0.0, b / sv if math.isfinite(sv) else 0.0)
     if inv < 1e-15:
         return 1
-    return max(1, math.ceil(info.length * inv - 1e-6))
+    return max(1, min(_MAX_EDGE, math.ceil(info.length * inv - 1e-6)))
 
 
 def _p2d(pcurve, t):
@@ -436,53 +450,54 @@ def _orient(p, a, b, c):
     return (p[b, 0] - p[a, 0]) * (p[c, 1] - p[a, 1]) - (p[b, 1] - p[a, 1]) * (p[c, 0] - p[a, 0])
 
 
-def _recover(q, tris, constraints):
+def _recover(q, tris, constraints, budget=200000):
     """Make every constraint segment an edge of the triangulation by flipping the edges that cross it (Sloan).
-    Returns the triangles, or None if a segment can't be recovered."""
+    Returns the triangles, or None if a segment can't be recovered or the work passes `budget` edge visits
+    (the caller falls back: pathological boundaries must not hang the worker)."""
     tris = [tuple(int(x) for x in t) for t in tris]
     for t_i, t in enumerate(tris):
         if _orient(q, *t) < 0:
             tris[t_i] = (t[0], t[2], t[1])
+    em = {}
+    for i, (a, b, c) in enumerate(tris):
+        for x, y in ((a, b), (b, c), (c, a)):
+            em[(x, y)] = i
 
-    def edge_map():
-        m = {}
-        for i, (a, b, c) in enumerate(tris):
-            for x, y in ((a, b), (b, c), (c, a)):
-                m[(x, y)] = i
-        return m
-    em = edge_map()
-    for a, b in constraints:
-        if (a, b) in em or (b, a) in em:
-            continue
-        for _ in range(10 * len(tris)):
-            if (a, b) in em or (b, a) in em:
-                break
+    def put(i, t):
+        for x, y in ((t[0], t[1]), (t[1], t[2]), (t[2], t[0])):
+            em[(x, y)] = i
+        tris[i] = t
+    missing = [(a, b) for a, b in constraints if (a, b) not in em and (b, a) not in em]
+    work = 0
+    for a, b in missing:
+        while (a, b) not in em and (b, a) not in em:
             flipped = False
             for (x, y), i in list(em.items()):
-                if x > y or (y, x) not in em or len({x, y} & {a, b}):
+                work += 1
+                if work > budget:
+                    return None
+                if x > y or (y, x) not in em or len({x, y} & {a, b}) or em.get((x, y)) != i:
                     continue
-                # does segment xy properly cross ab?
                 if not (_orient(q, a, b, x) * _orient(q, a, b, y) < 0 and _orient(q, x, y, a) * _orient(q, x, y, b) < 0):
                     continue
                 j = em[(y, x)]
                 u = [v for v in tris[i] if v not in (x, y)][0]
                 w = [v for v in tris[j] if v not in (x, y)][0]
-                # the quad u-x-w-y must be convex for the flip
                 if _orient(q, u, w, x) * _orient(q, u, w, y) >= 0:
-                    continue
+                    continue  # the quad u-x-w-y isn't convex: this flip would fold
                 t1, t2 = (u, x, w), (w, y, u)
                 if _orient(q, *t1) < 0:
                     t1 = (u, w, x)
                 if _orient(q, *t2) < 0:
                     t2 = (w, u, y)
-                tris[i], tris[j] = t1, t2
-                em = edge_map()
+                for key in ((x, y), (y, x)):
+                    em.pop(key, None)
+                put(i, t1)
+                put(j, t2)
                 flipped = True
                 break
             if not flipped:
                 return None
-        if (a, b) not in em and (b, a) not in em:
-            return None
     return np.asarray(tris, dtype=np.int64)
 
 
@@ -535,7 +550,7 @@ def trimmed(face_info, edges, periods, grid=True):
     tri = _recover(q, tri, segs)
     if tri is None:
         return None
-    tri = tri[_inside(q[tri].mean(axis=1), segments)]
+    tri = tri[_interior(tri, segs)]
     uv_all = q / scale
     if index is not None:
         surf = face_info.surf
@@ -549,6 +564,35 @@ def trimmed(face_info, edges, periods, grid=True):
     area = _area2d(q, tri)
     tri = np.where((area < 0)[:, None], tri[:, ::-1], tri)
     return uv_all, xyz_all, tri
+
+
+def _interior(tri, constraints):
+    """Which triangles lie inside the boundary: flood from the outside (triangles on the convex hull), changing
+    side at every boundary segment. Robust where a centroid test isn't: nearly collinear boundary nodes leave
+    zero-area slivers whose centroids sit on the boundary."""
+    walls = {(min(int(a), int(b)), max(int(a), int(b))) for a, b in constraints}
+    owners = {}
+    for i, (a, b, c) in enumerate(tri):
+        for x, y in ((a, b), (b, c), (c, a)):
+            owners.setdefault((min(int(x), int(y)), max(int(x), int(y))), []).append(i)
+    side = np.full(len(tri), -1, dtype=np.int64)
+    queue = []
+    for key, ts in owners.items():
+        if len(ts) == 1 and side[ts[0]] < 0:
+            side[ts[0]] = 1 if key in walls else 0  # a hull edge: outside, unless it is itself a boundary segment
+            queue.append(ts[0])
+    while queue:
+        nxt = []
+        for i in queue:
+            a, b, c = (int(x) for x in tri[i])
+            for x, y in ((a, b), (b, c), (c, a)):
+                key = (min(x, y), max(x, y))
+                for j in owners[key]:
+                    if side[j] < 0:
+                        side[j] = side[i] ^ (1 if key in walls else 0)
+                        nxt.append(j)
+        queue = nxt
+    return side == 1
 
 
 def _regular_cells(tri, index, xyz, boundary_q):
@@ -624,23 +668,19 @@ def plan(faces, edge_list, kinds, ring_counts, lin_defl, ang_defl):
             for e in circles:
                 edges[e].count = max(edges[e].count, ring_counts[f])
             if len(circles) == 2:
-                pairs.append(([circles[0]], [circles[1]]))
+                pairs.append(([circles[0]], [circles[1]], None))
     for fi in infos:
         if fi.kind == "tfi":
             loop = fi.loops[0]
             ids = [[loop[k].edge for k in side] for side in fi.sides]
-            pairs.append((ids[0], ids[2]))
-            pairs.append((ids[1], ids[3]))
-    unmatched = equalize_pairs(pairs, edges)
-    bad = set(map(frozenset, (map(tuple, p) for p in unmatched)))
+            pairs.append((ids[0], ids[2], fi))
+            pairs.append((ids[1], ids[3], fi))
+    dropped = equalize_pairs(pairs, edges)
     left = []
     for fi in infos:
-        if fi.kind == "tfi":
-            loop = fi.loops[0]
-            ids = [tuple(loop[k].edge for k in side) for side in fi.sides]
-            if frozenset((ids[0], ids[2])) in bad or frozenset((ids[1], ids[3])) in bad:
-                fi.kind, fi.step = "grid", _fitted(fi, _capped(fi.step))
-                left.append(fi)
+        if fi.kind == "tfi" and any(fi is owner for owner in dropped):
+            fi.kind, fi.step = "grid", _fitted(fi, _capped(fi.step))
+            left.append(fi)
     for info in edges:
         build_points(info)
     return Plan(infos, edges, left)
@@ -676,25 +716,42 @@ def _is_seam(use, fi):
 
 
 def equalize_pairs(pairs, edges):
-    """Raise edge counts until both lists of every pair carry as many intervals in total (edges are shared, so
-    this runs along chains of faces); the extra intervals go to the edge with the longest ones. Returns the pairs
-    it couldn't match within the round limit."""
+    """Raise edge counts until both lists of every pair (a, b, owner) carry as many intervals in total; edges are
+    shared, so this runs along chains of faces. The extra intervals go to the edges with the longest ones. An
+    edge never grows past _GROWTH times its planned count (plus _GROWTH_MIN): chains that close on themselves
+    with a mismatch (a side of two edges opposite a side of one, meeting again further on) would otherwise grow
+    without end. A pair that would need more is dropped, with every other pair of its owner. Returns the owners
+    dropped (their faces get the trimmed grid, which needs no matched sides)."""
+    cap = [e.count * _GROWTH + _GROWTH_MIN for e in edges]
+    live = list(pairs)
+    dropped = []
+
     def total(ids):
         return sum(edges[i].count for i in ids)
     for _ in range(_EQUALIZE_ROUNDS):
         changed = False
-        for a, b in pairs:
+        for pair in list(live):
+            a, b, owner = pair
+            if pair not in live:
+                continue
             ta, tb = total(a), total(b)
             if ta == tb:
                 continue
-            low = a if ta < tb else b
-            for _ in range(abs(ta - tb)):
-                e = max(low, key=lambda i: (edges[i].length / edges[i].count, -i))
+            low, need = (a, tb - ta) if ta < tb else (b, ta - tb)
+            room = sum(cap[i] - edges[i].count for i in set(low))
+            if need > room or set(a) == set(b):
+                live = [p for p in live if p[2] is not owner or owner is None and p is not pair]
+                dropped.append(owner)
+                continue
+            for _ in range(need):
+                e = max((i for i in low if edges[i].count < cap[i]),
+                        key=lambda i: (edges[i].length / edges[i].count, -i))
                 edges[e].count += 1
             changed = True
         if not changed:
-            return []
-    return [(a, b) for a, b in pairs if total(a) != total(b)]
+            return [o for o in dropped if o is not None]
+    # still moving after the round limit: give up on every pair still unmatched
+    return [o for o in dropped if o is not None] + [p[2] for p in live if total(p[0]) != total(p[1]) and p[2] is not None]
 
 
 def ring(use, fi, edges, u0):

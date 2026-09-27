@@ -1,6 +1,6 @@
 # Where we are / what's next (bookmark)
 
-Updated: 2026-09-27, end of session 5 (milestone 1.5 signed off; milestone 2 phases A–D built on branch `milestone-2`). Read this first when resuming.
+Updated: 2026-09-28, end of session 6 (milestone 2 phases A–D built on branch `milestone-2`; CAD-style tessellation, ADR 0010). Read this first when resuming.
 
 ## State
 - **Milestone 0 (spike):** done — `SPIKE_REPORT.md`.
@@ -48,28 +48,43 @@ Updated: 2026-09-27, end of session 5 (milestone 1.5 signed off; milestone 2 pha
   immediate overlay preview, a drag handle and Draw Solid's snapping (ticks, labels, Ctrl+Wheel). **The maintainer
   doesn't like the yellow arrow and the preview's look**: to redo in a dedicated UX redesign (not now).
 
-- **Maintainer's bug, 2026-09-27 evening:** fans of slivers on fillet faces (`/mnt/e/bs_debug/fillet.blend`, a corner
-  cut by a big cylinder with every edge filleted). Cause and fix: ADR 0005 addendum (trimmed curved faces
-  re-triangulated in the surface's metric), commit `72a1076`; 217 unit + 210 Blender tests pass. **Not yet
-  installed/checked in the GUI.** Remaining: thin triangles along long boundary edges (edge refinement).
+- **Maintainer's bug, 2026-09-27 evening:** fans of slivers on fillet faces (`/mnt/e/bs_debug/fillet.blend`). A first
+  fix (ADR 0005 addendum, Delaunay lattice) still looked like a mosaic to the maintainer ("topologia pessima").
 
-## Next step (session 6)
-1. **Install and check the trimmed-face fix with the maintainer:** close Blender, build the Windows zip, install,
-   smoke test, relaunch `blender.exe >> spike/logs/gui-m2.log 2>&1`; open `E:\bs_debug\fillet.blend`, wireframe
-   overlay: the fillet bands are regular lattices (no fans); only a row of thinner triangles along their long
-   edges remains. Then fix that: refine the discretization of long boundary edges for both adjacent faces
-   (insert the same nodes in both; planar neighbours are rebuilt as polygons anyway), test on
-   `tests/unit/data/maintainer_fillet_part.py` (fraction of thin triangles → 0).
-2. **Fillet edge cases (maintainer's request):** research online the typical failure cases of CAD fillets/chamfers
-   (OCCT `BRepFilletAPI_MakeFillet` known failures and forum threads, FreeCAD/Fusion/Onshape/SolidWorks docs:
-   radius larger than a face, vertex blends where 3+ fillets meet, fillets across tangent chains, fillets on edges
-   between a face and a fillet, mixed convex/concave, fillets touching holes, chamfer asymmetric, variable edges,
-   filleting after booleans with tiny faces, seam edges, self-intersecting results); write
-   `docs/research/…-fillet-edge-cases.md`; turn each case into a test on our system (script + Fillet tool path),
-   and fix what fails following best practices (clear errors on the fillet's line, `max_fillet`, suggestions),
-   otherwise document the limitation.
-3. Then milestone 2 phases E (broken references) and F (20-part corpus criterion test), report, sign-off.
-4. Later: UX redesign of the tools' on-screen feedback (the maintainer dislikes the yellow handle and the preview).
+- **Session 6 (2026-09-28): CAD-style tessellation, ADR 0010.** Researched how Rhino, MoI, ACIS, Parasolid, SALOME
+  and Gmsh mesh trimmed faces (`docs/research/2026-09-28-*.md`); the maintainer set the scope: display meshes
+  follow CAD conventions (triangles), a later "convert to quads" button for CAD parts and NURBS surfaces.
+  `blendsolid/worker/meshing.py`: every edge discretized once and shared; four-sided curved faces as structured
+  grids with matched opposite sides (fillet bands in rows, trimmed cylinders in aligned columns); other curved
+  faces as grids trimmed by their boundary; flat faces from their boundary; BRepMesh only as a loud fallback.
+  `MESH_FORMAT` 6. The maintainer's first GUI test **hung the worker** (1000 mm box, cylinder cut on an edge,
+  Fillet drag): fuzzing found curvature spikes on OCCT's vertex blends, unbounded density and endless side
+  matching, quadratic boundary recovery and broken OCCT fillet results (now a clear part error); fixed (ADR 0010
+  addendum) with regression tests; over 1,000 fuzzed parts all under 1.5 s and closed. 233 unit + 210 Blender tests and `gui_check` (20/20, Linux) pass. **Windows zip built and installed; not yet checked by
+  the maintainer in the GUI.**
+
+## Next step (session 7)
+1. **GUI check of ADR 0010 with the maintainer (Windows):** relaunch `blender.exe >> spike/logs/gui-m2.log 2>&1`.
+   (a) open `E:\bs_debug\fillet.blend`, Trust, wireframe overlay: fillet bands in regular rows, the big quarter
+   cylinder in vertical columns aligned with the band, vertical fillets as tidy strips; (b) the scenario that hung:
+   new scene, Box 1000 mm, Draw Solid a cylinder cut on a vertical edge, Fillet tool on the cut face's edges, drag
+   the radius up and down: results keep coming (no endless "computing"), mesh closed. Ask for screenshots of both;
+   if the big cylinder's ~3 mm columns look too dense, tune `_ASPECT`/`_ASPECT_SPLIT` (meshing.py).
+2. **Known open case:** 1 of ~400 fuzzed parts has a face that falls back to BRepMesh (mesh open along it):
+   `tests/unit/data/fallback_open.brep`, strict xfail `test_fuzzed_part_without_fallback`. Find why `trimmed()`
+   gives up there (boundary recovery budget? pcurve loop?) and fix; the fuzz scripts are easy to recreate
+   (random box/cylinder cut on a 1000 mm box, fillet 1–4 random edges, `display_mesh` under an alarm, check
+   every mesh edge has two polygons).
+3. If the check shows other slow parts: add a per-job time budget in the worker (tessellation falls back to BRepMesh
+   for the remaining faces past a few seconds) — today only the client's 120 s job timeout exists.
+4. Fillet edge cases (maintainer's request): research online the typical failure cases of CAD fillets/chamfers
+   (OCCT `BRepFilletAPI_MakeFillet` known failures, FreeCAD/Fusion/Onshape/SolidWorks docs: radius larger than a
+   face, vertex blends where 3+ fillets meet, tangent chains, fillets next to fillets, mixed convex/concave,
+   fillets touching holes, asymmetric chamfers, tiny faces after booleans, seam edges, self-intersecting results);
+   write `docs/research/…-fillet-edge-cases.md`; turn each case into a test (script + Fillet tool path); fix what
+   fails (clear errors on the fillet's line, `max_fillet`, suggestions), otherwise document the limitation.
+5. Then milestone 2 phases E (broken references) and F (20-part corpus criterion test), report, sign-off.
+6. Later: UX redesign of the tools' on-screen feedback (the maintainer dislikes the yellow handle and the preview).
 
 ## Working agreement with the maintainer
 - Repo content in English; chat in Italian.
@@ -96,8 +111,6 @@ Updated: 2026-09-27, end of session 5 (milestone 1.5 signed off; milestone 2 pha
   a per-boolean on/off toggle (suppress without removing, like a modifier's eye); "Apply" — inline a cutter
   into the target's history so the cutter is no longer needed; cycling through a part's cutters
   (HardOps' Bool Scroll). Deleting a cutter keeps it restorable and "Remove cut" exist since the manual test.
-- **Trimmed curved faces' triangulation** (ADR 0005): shading is right (exact normals) but the wireframe of a
-  curved face cut by booleans still shows BRepMesh's slivers: structured grid + a band along the cut.
 - Windows worker watchdog blocked while a C call holds the GIL → use a Job object with kill-on-close.
 - Windows zip built with the build machine's pip environment markers (no colorama, has pexpect) → fix before any
   public release (milestone 3).

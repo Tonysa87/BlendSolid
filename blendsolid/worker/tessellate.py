@@ -29,7 +29,7 @@ from OCP.collections import IndexedDataMap_TopoDS_Shape_List_TopoDS_Shape_TopToo
 from OCP.GeomAbs import GeomAbs_Cone, GeomAbs_Cylinder, GeomAbs_Line, GeomAbs_Plane, GeomAbs_Sphere, GeomAbs_Torus
 from OCP.GProp import GProp_GProps
 from OCP.IMeshTools import IMeshTools_Parameters
-from OCP.TopAbs import TopAbs_EDGE, TopAbs_FACE, TopAbs_REVERSED, TopAbs_SOLID
+from OCP.TopAbs import TopAbs_EDGE, TopAbs_FACE, TopAbs_REVERSED, TopAbs_SOLID, TopAbs_VERTEX
 from OCP.TopExp import TopExp
 from OCP.TopLoc import TopLoc_Location
 from OCP.TopoDS import TopoDS, TopoDS_Compound
@@ -422,7 +422,11 @@ def tessellate_with_normals(shape, lin_defl=0.1, ang_defl=0.3):
         # a multiple of 4: nodes on the axes (the circle starts at its seam vertex) give the exact extents
         rings.append(4 * math.ceil(_TAU / _step(lin_defl, seg_angle, rev.max_circle_radius()) / 4)
                      if rev is not None and "circle" in rev.ends else 1)
-    layout = meshing.plan(faces, edge_map(shape), kinds, rings, lin_defl, seg_angle)
+    edges = edge_map(shape)
+    if not _plausible(shape, edges):
+        raise RuntimeError("the result has an edge far longer than the part itself (a known OCCT fillet failure): "
+                           "try another radius")
+    layout = meshing.plan(faces, edges, kinds, rings, lin_defl, seg_angle)
     fallback = None
     verts, tris, tri_face, normals, offset = [], [], [], [], 0
     for fid, (face, rev, fi) in enumerate(zip(faces, revolutions, layout.faces)):
@@ -475,6 +479,28 @@ def tessellate_with_normals(shape, lin_defl=0.1, ang_defl=0.3):
         return empty, np.zeros((0, 3), np.int32), np.zeros(0, np.int32), empty
     return (np.concatenate(verts).astype(np.float32), np.ascontiguousarray(np.concatenate(tris), dtype=np.int32),
             np.concatenate(tri_face), np.concatenate(normals).astype(np.float32))
+
+
+def _plausible(shape, edges):
+    """False if an edge is far longer than the part (measured between its vertices): OCCT's fillets sometimes
+    leave such edges (a 335 m edge on a 1 m part, its pcurve wound thousands of times), which neither our grids
+    nor BRepMesh can follow in reasonable time; the part reports an error instead of hanging the worker."""
+    from OCP.BRepAdaptor import BRepAdaptor_Curve
+    from OCP.GCPnts import GCPnts_AbscissaPoint
+    vertices = _map(shape, TopAbs_VERTEX)
+    pts = np.array([_vec(BRep_Tool.Pnt_s(TopoDS.Vertex(vertices.FindKey(i))))
+                    for i in range(1, vertices.Extent() + 1)]).reshape(-1, 3)
+    props = GProp_GProps()
+    BRepGProp.VolumeProperties_s(shape, props)
+    if props.Mass() < 0:
+        return False  # inside out: the same broken fillet results have a negative volume
+    # the part's size: its vertices' extent, or the side of a cube of its volume (a torus has one vertex)
+    diagonal = max(float(np.linalg.norm(pts.max(axis=0) - pts.min(axis=0))) if len(pts) else 0.0,
+                   props.Mass() ** (1 / 3))
+    for e in edges:
+        if not BRep_Tool.Degenerated_s(e) and GCPnts_AbscissaPoint.Length_s(BRepAdaptor_Curve(e)) > 20 * diagonal + 1.0:
+            return False
+    return True
 
 
 def _uv_ccw(t, uv):

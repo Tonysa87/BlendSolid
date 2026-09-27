@@ -82,3 +82,33 @@ BlendSolid tessellates every face itself from one shared discretization of the e
   400 mm face): regular but dense; the scene tolerance makes it coarser.
 - `MESH_FORMAT` is bumped: saved meshes are recomputed.
 - Quads: out of scope here (the future conversion button); the structured grids of point 3 are its easiest input.
+
+## Addendum (2026-09-28): robustness, after the worker hung in the GUI
+
+The maintainer's first GUI test hung the worker (a 1000 mm box, a cylinder cut on a vertical edge, a Fillet drag
+on the cut's edges: "computing" forever, 793 MB). Fuzzing 1,000+ random cut-and-fillet parts found the causes,
+each now a regression test (`tests/unit/data/*.brep`):
+
+- **Curvature spikes:** OCCT's vertex blends (the corner patches between fillets) have curvature radii down to
+  0.07 mm along their borders and derivatives vanishing at a collapsed side: one 33 mm edge asked for 10^15
+  intervals. The curvature per direction is now sampled only where both derivatives are at least 5% of their
+  largest, and taken as the largest sample but at most 4 times the median one.
+- **Unbounded density:** the 4:1 aspect cap never splits a direction into more than 8 times the cells its own
+  curvature asks (a 0.7 mm fillet along a 1.1 m arc asked for thousands of columns); a face gets at most 128 grid
+  cells each way, an edge at most 4,096 intervals.
+- **Side matching that never ends:** chains of four-sided faces can close on themselves with a mismatch. An edge
+  grows to at most 4 times its planned count plus 16 while sides are matched; a face whose sides can't be
+  matched within that is meshed as a trimmed grid.
+- **Open meshes:** nearly collinear boundary nodes on a flat face left zero-area Delaunay slivers that a centroid
+  test kept; triangles are now classified by flooding from the outside across boundary segments.
+- **Quadratic boundary recovery:** recovering boundary segments by edge flips rebuilt the whole edge table per
+  flip; it now updates it in place and gives up past a work budget (the face falls back to BRepMesh).
+- **Broken fillet results:** OCCT sometimes returns a fillet that passes BRepCheck but has an edge hundreds of
+  times longer than the part (a 335 m edge on a 1 m part, pcurve wound thousands of times) and a negative
+  volume; BRepMesh hangs on it too. The part now reports "the result has an edge far longer than the part
+  itself (a known OCCT fillet failure): try another radius" instead of hanging the worker.
+
+After the fixes: over 1,000 random parts, none over 1.5 s (tessellation of a whole part) and none open; the one
+broken fillet result reports the error above. Known trade-offs: a curvature spike is meshed at the face's typical curvature, so the
+tolerance can be exceeded locally on such corner patches; and the worker still has no per-job time budget (the
+client kills a job after 120 s).

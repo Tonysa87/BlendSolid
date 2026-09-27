@@ -186,3 +186,10 @@ spike/s08_build_extension.sh                                               # per
 - `context.preferences.system.ui_scale` is 0.0 in background mode: use `ui_scale or 1.0` for pixel thresholds.
 - `gui_check.py -- --only 17,18` runs single steps; a step that makes parts from Python must push an undo step
   (`ed.undo_push`) before testing undo, or the undo goes back past the part.
+- **Display tessellation (ADR 0010):** every face is meshed from one shared edge discretization
+  (`worker/meshing.py`); BRepMesh is only a loud fallback. OCCT's vertex blends (fillet corner patches) have
+  curvature spikes (radius 0.07 mm) and vanishing derivatives: never size a grid from the raw max curvature.
+  Any density rule needs a cap (cells per face, intervals per edge, growth while matching sides): an unbounded
+  one hung the worker in the GUI. Fuzz random cut+fillet parts (`display_mesh` time, closed mesh) after changes.
+- BRepMesh with `Angle = a` turned curves by about a/2 per segment (a 10 mm circle at 0.3 rad: 42 segments):
+  ADR 0010 keeps that density (`seg_angle = ang_defl / 2`); tests on normals and fillet volumes depend on it.

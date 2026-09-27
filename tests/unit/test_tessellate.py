@@ -537,3 +537,51 @@ def test_grid_tessellation_is_fast():
     start = time.perf_counter()
     tessellate.display_mesh(shape, 1.0, ANG)
     assert time.perf_counter() - start < 1.0
+
+
+# -- regressions found by fuzzing (2026-09-28: the maintainer's worker hung on a filleted corner cut) --------------
+
+def _read_brep(name):
+    import os
+    from OCP.BRep import BRep_Builder
+    from OCP.BRepTools import BRepTools
+    from OCP.TopoDS import TopoDS_Shape
+    shape = TopoDS_Shape()
+    BRepTools.Read_s(shape, os.path.join(os.path.dirname(__file__), "data", name), BRep_Builder())
+    return shape
+
+
+@pytest.mark.parametrize("name", [
+    "hang_vertex_blend.brep",        # corner patches with curvature spikes: 10^15 nodes asked of a 33 mm edge
+    "hang_thin_fillet.brep",         # a 0.7 mm fillet along a 1.1 m arc: thousands of columns from the 4:1 cap
+    "open_collinear_boundary.brep",  # nearly collinear boundary nodes on a flat face: slivers kept by a centroid test
+])
+def test_fuzzed_parts_mesh_quickly_and_closed(name):
+    import time
+    shape = _read_brep(name)
+    start = time.perf_counter()
+    m = tessellate.display_mesh(shape, 1.0, ANG)
+    assert time.perf_counter() - start < 2.0
+    pairs, _ = sides(m)
+    _, counts = np.unique(np.sort(pairs, axis=1), axis=0, return_counts=True)
+    assert (counts == 2).all()
+
+
+def test_implausible_fillet_edge_is_a_clear_error_not_a_hang():
+    # An OCCT fillet left a 335 m edge on a 1 m part (its pcurve wound thousands of times): neither our grids nor
+    # BRepMesh mesh it in reasonable time. The part reports an error the user can act on.
+    import time
+    shape = _read_brep("implausible_fillet_edge.brep")
+    start = time.perf_counter()
+    with pytest.raises(RuntimeError, match="far longer than the part"):
+        tessellate.display_mesh(shape, 1.0, ANG)
+    assert time.perf_counter() - start < 2.0
+
+
+@pytest.mark.xfail(reason="known (2026-09-28): one face of this fuzzed part isn't meshed from its edges (BRepMesh "
+                          "fallback, mesh open along it); see docs/NEXT.md", strict=True)
+def test_fuzzed_part_without_fallback():
+    m = tessellate.display_mesh(_read_brep("fallback_open.brep"), 1.0, ANG)
+    pairs, _ = sides(m)
+    _, counts = np.unique(np.sort(pairs, axis=1), axis=0, return_counts=True)
+    assert (counts == 2).all()
