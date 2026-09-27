@@ -201,6 +201,9 @@ installed and re-checked by the maintainer before moving on:
   deleted cutter keeps its script and placement and goes on cutting; the panel lists a part's booleans with
   Select, Restore and Remove. Suppress, Apply and cutter cycling are follow-ups (`docs/NEXT.md`).
 
+Decisions recorded: ADR 0005 (display tessellation, tolerance, exact normals), ADR 0006 (Draw Solid snapping
+and exact placements), ADR 0007 (live cutter lifecycle). Maintainer's session log: `spike/logs/gui-m1.5.log`.
+
 Still for the next session: steps 12 (Ctrl+Numpad keys and the Object menu by hand, conflicts with other
 add-ons), 13, 15, 16 (quit/restart with *Auto Run* off, the *Recompute* tooltip, Task Manager), then sign-off.
 

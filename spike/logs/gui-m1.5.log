@@ -1,0 +1,159 @@
+00:43.875  operator         | Deleted 3 object(s)
+03:33.516  operator         | Deleted 1 object(s)
+04:11.906  operator         | Deleted 1 object(s)
+04:48.641  operator         | Deleted 1 object(s)
+05:05.531  operator         | Deleted 1 object(s)
+05:16.344  operator         | Deleted 1 object(s)
+05:41.547  operator         | Deleted 1 object(s)
+08:41.000  operator         | Deleted 1 object(s)
+15:35.235  operator         | Saved "shading.blend"
+22:15.922  blend            | Saved session recovery to "C:\Users\Tony\AppData\Local\Temp\quit.blend"
+22:15.922  blend            | Writing user preferences: "E:\blender-5.2.2-windows-x64\portable\config\userpref.blend" 
+22:15.922  reports          | Preferences saved
+
+Blender quit
+00:04.718  blend            | Read blend: "E:\bs_debug\shading.blend"
+00:07.093  operator         | Deleted 1 object(s)
+04:57.593  operator         | Deleted 1 object(s)
+07:48.156  operator         | Deleted 1 object(s)
+25:20.796  blend            | Saved session recovery to "C:\Users\Tony\AppData\Local\Temp\quit.blend"
+
+Blender quit
+00:11.140  operator         | Deleted 3 object(s)
+02:20.515  operator         | Deleted 1 object(s)
+02:26.000  operator         | Deleted 1 object(s)
+02:37.218  operator         | Deleted 1 object(s)
+03:23.671  operator         | Deleted 1 object(s)
+13:24.421  blend            | Saved session recovery to "C:\Users\Tony\AppData\Local\Temp\quit.blend"
+
+Blender quit
+01:25.719  operator         | Deleted 3 object(s)
+02:07.594  operator         | Deleted 1 object(s)
+03:43.703  operator         | Deleted 1 object(s)
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+  File "E:\blender-5.2.2-windows-x64\5.2\scripts\startup\bl_ui\space_toolsystem_common.py", line 1206, in item_group_from_id
+    return cls._tool_get_group_by_id(context, idname, coerce=coerce)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\5.2\scripts\startup\bl_ui\space_toolsystem_common.py", line 386, in _tool_get_group_by_id
+    if subitem.idname == idname:
+       ^^^^^^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'idname'
+04:29.469  operator         | Deleted 1 object(s)
+05:47.656  operator         | Deleted 1 object(s)
+05:51.312  operator         | Deleted 1 object(s)
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+  File "E:\blender-5.2.2-windows-x64\5.2\scripts\startup\bl_ui\space_toolsystem_common.py", line 1206, in item_group_from_id
+    return cls._tool_get_group_by_id(context, idname, coerce=coerce)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\5.2\scripts\startup\bl_ui\space_toolsystem_common.py", line 386, in _tool_get_group_by_id
+    if subitem.idname == idname:
+       ^^^^^^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'idname'
+06:09.406  operator         | Deleted 1 object(s)
+06:10.812  operator         | Deleted 1 object(s)
+09:53.250  operator         | Deleted 1 object(s)
+10:17.937  operator         | Deleted 1 object(s)
+11:19.531  operator         | Deleted 1 object(s)
+15:32.891  operator         | Deleted 1 object(s)
+15:34.047  operator         | Deleted 1 object(s)
+40:21.812  blend            | Saved session recovery to "C:\Users\Tony\AppData\Local\Temp\quit.blend"
+
+Blender quit
+00:07.375  operator         | Deleted 3 object(s)
+00:22.015  operator         | Draw Solid snap step: 2 mm
+00:22.250  operator         | Draw Solid snap step: 5 mm
+00:22.406  operator         | Draw Solid snap step: 10 mm
+00:22.500  operator         | Draw Solid snap step: 20 mm
+00:23.328  operator         | Draw Solid snap step: 50 mm
+00:23.375  operator         | Draw Solid snap step: 100 mm
+00:23.453  operator         | Draw Solid snap step: 200 mm
+00:23.578  operator         | Draw Solid snap step: 500 mm
+00:23.890  operator         | Draw Solid snap step: 200 mm
+00:23.937  operator         | Draw Solid snap step: 100 mm
+00:23.984  operator         | Draw Solid snap step: 50 mm
+00:24.031  operator         | Draw Solid snap step: 20 mm
+00:24.078  operator         | Draw Solid snap step: 10 mm
+00:57.875  operator         | Draw Solid snap step: 20 mm
+00:57.906  operator         | Draw Solid snap step: 50 mm
+00:57.922  operator         | Draw Solid snap step: 100 mm
+00:57.953  operator         | Draw Solid snap step: 200 mm
+00:58.000  operator         | Draw Solid snap step: 500 mm
+00:58.281  operator         | Draw Solid snap step: 1000 mm
+00:58.312  operator         | Draw Solid snap step: 2000 mm
+00:58.328  operator         | Draw Solid snap step: 5000 mm
+00:58.343  operator         | Draw Solid snap step: 10000 mm
+00:58.359  operator         | Draw Solid snap step: 10000 mm
+00:58.406  operator         | Draw Solid snap step: 10000 mm
+00:58.781  operator         | Draw Solid snap step: 10000 mm
+00:58.812  operator         | Draw Solid snap step: 10000 mm
+00:58.843  operator         | Draw Solid snap step: 10000 mm
+00:58.875  operator         | Draw Solid snap step: 10000 mm
+00:58.906  operator         | Draw Solid snap step: 10000 mm
+01:05.531  operator         | Draw Solid snap step: 5000 mm
+01:05.656  operator         | Draw Solid snap step: 2000 mm
+01:05.797  operator         | Draw Solid snap step: 1000 mm
+01:06.297  operator         | Draw Solid snap step: 500 mm
+05:47.484  blend            | Saved session recovery to "C:\Users\Tony\AppData\Local\Temp\quit.blend"
+
+Blender quit
+06:32.454  operator         | Deleted 3 object(s)
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+  File "E:\blender-5.2.2-windows-x64\5.2\scripts\startup\bl_ui\space_toolsystem_common.py", line 1206, in item_group_from_id
+    return cls._tool_get_group_by_id(context, idname, coerce=coerce)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\5.2\scripts\startup\bl_ui\space_toolsystem_common.py", line 386, in _tool_get_group_by_id
+    if subitem.idname == idname:
+       ^^^^^^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'idname'
+11:33.969  operator         | Deleted 1 object(s)
+12:26.797  operator         | Deleted 1 object(s)
+22:40.704  blend            | Saved session recovery to "C:\Users\Tony\AppData\Local\Temp\quit.blend"
+
+Blender quit
+01:22.047  operator         | Deleted 3 object(s)
+03:21.531  operator         | ERROR Nothing to erase
+25:35.078  blend            | Saved session recovery to "C:\Users\Tony\AppData\Local\Temp\quit.blend"
+25:35.078  blend            | Writing user preferences: "E:\blender-5.2.2-windows-x64\portable\config\userpref.blend" 
+25:35.078  reports          | Preferences saved
+Error: Eraser will not be affecting anything (gpencil_paint_init)
+
+Blender quit
+04:37.360  operator         | Deleted 3 object(s)
+15:12.594  blend            | Saved session recovery to "C:\Users\Tony\AppData\Local\Temp\quit.blend"
+15:12.594  blend            | Writing user preferences: "E:\blender-5.2.2-windows-x64\portable\config\userpref.blend" 
+15:12.594  reports          | Preferences saved
+
+Blender quit
+00:42.063  operator         | Deleted 3 object(s)
+05:25.953  operator         | Saved "cut.blend"
+11:14.047  blend            | Saved session recovery to "C:\Users\Tony\AppData\Local\Temp\quit.blend"
+11:14.047  blend            | Writing user preferences: "E:\blender-5.2.2-windows-x64\portable\config\userpref.blend" 
+11:14.063  reports          | Preferences saved
+
+Blender quit
+02:13.344  operator         | Deleted 3 object(s)
+04:49.188  operator         | Saved "cut.blend"
+11:22.250  blend            | Saved session recovery to "C:\Users\Tony\AppData\Local\Temp\quit.blend"
+11:22.250  blend            | Writing user preferences: "E:\blender-5.2.2-windows-x64\portable\config\userpref.blend" 
+11:22.250  reports          | Preferences saved
+
+Blender quit
+00:28.343  blend            | Read blend: "E:\bs_debug\cut.blend"
+01:50.015  operator         | Deleted 1 object(s)
+03:30.421  operator         | Deleted 1 object(s)
+05:10.140  operator         | Deleted 1 object(s)
+07:01.625  operator         | Deleted 1 object(s)
+11:49.031  operator         | Deleted 1 object(s)
+11:53.843  operator         | Deleted 1 object(s)
+28:03.328  blend            | Saved session recovery to "C:\Users\Tony\AppData\Local\Temp\quit.blend"
+
+Blender quit
+02:03.125  operator         | Deleted 3 object(s)
+02:25.937  operator         | Deleted 3 object(s)
+03:02.672  operator         | Deleted 1 object(s)
+20:31.266  blend            | Saved session recovery to "C:\Users\Tony\AppData\Local\Temp\quit.blend"
+
+Blender quit
