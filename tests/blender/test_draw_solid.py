@@ -251,3 +251,70 @@ def test_exact_placement_is_used_until_edited_by_hand(clean):
     bpy.ops.blendsolid.draw_solid(location=(1.0, 0.0, 33.333333), rotation=(math.pi, 0.0, 0.0), **common)
     line = [ln for ln in part.source_of(box).splitlines() if "cut_2" in ln and "Location" in ln][0]
     assert "(1.0, 0.0, 33.333332" in line                          # edited by hand: the typed values win
+
+
+# -- snap feedback: axis colours, local grid, height ticks, labels (maintainer's request, manual GUI test) ------
+
+AXES = ((1.0, 0.2, 0.3), (0.5, 0.8, 0.1), (0.2, 0.5, 1.0))  # like Blender's theme axis_x / axis_y / axis_z
+
+
+def test_axis_color_mixes_the_axis_colours_by_direction():
+    assert drawing.axis_color(Vector((1, 0, 0)), AXES)[:3] == pytest.approx(AXES[0])
+    assert drawing.axis_color(Vector((0, 0, -2)), AXES)[:3] == pytest.approx(AXES[2])  # sign and length ignored
+    d = Vector((1, 0, 1)).normalized()                                                     # 45 degrees in XZ
+    assert drawing.axis_color(d, AXES)[:3] == pytest.approx([(a + b) / 2 for a, b in zip(AXES[0], AXES[2])])
+
+
+def test_marker_arms_are_coloured_by_their_world_axis():
+    front = Matrix(((1, 0, 0, 0), (0, 0, -1, 0), (0, 1, 0, 0), (0, 0, 0, 1)))  # a -Y face: X and Z in it
+    lines = drawing.marker_lines(Vector((0, 0, 0)), front, 0.5, AXES)
+    colours = sorted(tuple(round(c, 6) for c in colour[:3]) for _, _, colour in lines)
+    assert len(lines) == 5  # +-u, +-v and the normal stub
+    assert colours.count(AXES[0]) == 2 and colours.count(AXES[2]) == 2 and colours.count(AXES[1]) == 1
+    stub = [(a, b) for a, b, colour in lines if tuple(round(c, 6) for c in colour[:3]) == AXES[1]][0]
+    assert (stub[1] - stub[0]).normalized() == Vector((0, -1, 0))  # along the face normal, out of it
+
+
+def test_grid_is_drawn_on_the_plane_through_the_snap_nodes_and_fades():
+    plane = Matrix.Translation((0, 0, 0.02)) @ Euler((0, 0, math.radians(30))).to_matrix().to_4x4()
+    step = 0.01
+    segments = drawing.grid_segments(plane, (0.03, -0.02), step, half=4)
+    ax, ay, n, o = plane.col[0].xyz, plane.col[1].xyz, plane.col[2].xyz, plane.translation
+    for a, b, alpha_a, alpha_b, major in segments:
+        for p in (a, b):
+            assert abs((p - o).dot(n)) < 1e-6                                   # on the plane (float32)
+        u0, v0, u1, v1 = (a - o).dot(ax), (a - o).dot(ay), (b - o).dot(ax), (b - o).dot(ay)
+        on_u_line = abs(u0 - u1) < 1e-6
+        k = (u0 if on_u_line else v0) / step
+        assert abs(k - round(k)) < 1e-6                                         # through grid nodes
+        assert major == (round(k) % 5 == 0)                                      # every 5th line is major
+        assert 0.0 <= alpha_a <= 1.0 and 0.0 <= alpha_b <= 1.0
+    # the brightest point is the node under the mouse; the grid fades out at `half` steps from it
+    centre = o + ax * 0.03 + ay * -0.02
+    assert max(max(s[2], s[3]) for s in segments) == pytest.approx(1.0)
+    far = [alpha for a, b, alpha_a, alpha_b, _ in segments for p, alpha in ((a, alpha_a), (b, alpha_b))
+           if (p - centre).length >= 4 * step - 1e-9]
+    assert far and max(far) == pytest.approx(0.0)
+
+
+def test_grid_step_on_screen():
+    assert drawing.visible_grid_step(0.01, 0.001) == 0.01            # 10 px a cell: every line
+    assert drawing.visible_grid_step(0.01, 0.004) == pytest.approx(0.05)  # 2.5 px: only the major lines
+    assert drawing.visible_grid_step(0.01, 0.1) is None                # too dense even for the major lines
+
+
+def test_height_ticks_along_the_normal_every_step():
+    frame = Matrix.Translation((0.1, 0, 0))
+    ticks = drawing.height_ticks(frame, -0.023, 0.01, tick=0.002, half=3)
+    heights = sorted({round((a - frame.translation).dot(Vector((0, 0, 1))), 9) for a, _, _ in ticks})
+    assert heights == pytest.approx([-0.05, -0.04, -0.03, -0.02, -0.01, 0.0, 0.01])  # around -0.02, the nearest
+    for a, b, alpha in ticks:
+        assert (b - a).length == pytest.approx(0.002, abs=1e-6) and abs((b - a).dot(Vector((0, 0, 1)))) < 1e-9
+
+
+def test_labels_while_drawing():
+    box = drawing.Drawn("BOX", Matrix.Identity(4), length=250.0, width=300.5, height=-50.0)
+    assert drawing.labels(box, "BASE", 10.0) == ["250 × 300.5 mm", "snap 10 mm"]
+    assert drawing.labels(box, "HEIGHT", 0.0) == ["H 50 mm"]
+    cyl = drawing.Drawn("CYLINDER", Matrix.Identity(4), radius=12.3456)
+    assert drawing.labels(cyl, "BASE", 0.0) == ["R 12.346 mm"]

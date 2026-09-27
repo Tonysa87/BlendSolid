@@ -203,6 +203,89 @@ def frame_matrix(location_mm, rotation, factor):
     return Matrix.Translation(Vector(location_mm) * factor) @ Euler(rotation, "ZYX").to_matrix().to_4x4()
 
 
+# -- snap feedback (display only): colours by axis, a local grid, height ticks, labels -------------------------
+
+GRID_HALF = 8      # the local grid reaches this many steps from the node under the mouse, fading out
+GRID_MAJOR = 5     # every 5th grid line is a major one
+MIN_GRID_PX = 6    # grid cells smaller than this on screen are not drawn
+
+
+def axis_color(direction, axis_colors):
+    """RGBA of a direction: the X/Y/Z axis colours (Blender's theme) mixed by the squared components of the
+    unit direction, so an axis-aligned direction gets its axis colour and 45 degrees in XZ half of each."""
+    d = Vector(direction).normalized()
+    w = (d.x * d.x, d.y * d.y, d.z * d.z)
+    return tuple(sum(w[i] * axis_colors[i][c] for i in range(3)) for c in range(3)) + (1.0,)
+
+
+def marker_lines(point, plane, arm, axis_colors):
+    """(start, end, colour) segments of the snap marker at world `point` on `plane`: a cross along the plane's
+    axes and a stub along its normal (out of a face: where a union grows), each coloured by its world axis."""
+    lines = []
+    for axis in (plane.col[0].xyz, plane.col[1].xyz):
+        colour = axis_color(axis, axis_colors)
+        lines += [(point, point + axis * arm, colour), (point, point - axis * arm, colour)]
+    normal = plane.col[2].xyz
+    return lines + [(point, point + normal * arm, axis_color(normal, axis_colors))]
+
+
+def visible_grid_step(step, pixel):
+    """The grid step to draw (Blender units) for a snap `step` when one pixel is `pixel` Blender units: the
+    step itself, only the major lines when cells would be too small, or None when even those are."""
+    for s in (step, step * GRID_MAJOR):
+        if s / pixel >= MIN_GRID_PX:
+            return s
+    return None
+
+
+def _fade(t):
+    return max(0.0, 1.0 - t) ** 2
+
+
+def grid_segments(plane, centre, step, half=GRID_HALF):
+    """(start, end, alpha start, alpha end, major) segments of the grid of `step` (Blender units) on `plane`
+    around the node nearest `centre` (plane coords, Blender units). The lines go through the snap nodes
+    (grid_node's grid: from the plane's origin); alpha is 1 at that node and 0 at `half` steps from it."""
+    o, ax, ay = plane.translation, plane.col[0].xyz, plane.col[1].xyz
+    kc = (round(centre[0] / step), round(centre[1] / step))
+    at = lambda u, v: o + ax * (u * step) + ay * (v * step)
+    alpha = lambda u, v: _fade(math.hypot(u - kc[0], v - kc[1]) / half)
+    segments = []
+    for across in (0, 1):  # lines of constant u, then of constant v
+        for k in range(kc[across] - half, kc[across] + half + 1):
+            for j in range(kc[1 - across] - half, kc[1 - across] + half):
+                (u0, v0), (u1, v1) = ((k, j), (k, j + 1)) if across == 0 else ((j, k), (j + 1, k))
+                segments.append((at(u0, v0), at(u1, v1), alpha(u0, v0), alpha(u1, v1), k % GRID_MAJOR == 0))
+    return segments
+
+
+def height_ticks(frame, height, step, tick, half=GRID_HALF):
+    """(start, end, alpha) ticks every `step` (Blender units) along the normal of `frame` (a drawn solid's
+    base) around `height` (Blender units, signed): short segments of length `tick` along the frame's X."""
+    n, x, o = frame.col[2].xyz, frame.col[0].xyz, frame.translation
+    kc = round(height / step)
+    ticks = []
+    for k in range(kc - half, kc + half + 1):
+        c = o + n * (k * step)
+        ticks.append((c - x * (tick / 2), c + x * (tick / 2), _fade(abs(k - kc) / (half + 1))))
+    return ticks
+
+
+def _mm(value):
+    return f"{value:.3f}".rstrip("0").rstrip(".")
+
+
+def labels(drawn, stage, snap_mm):
+    """Text lines shown next to a solid being drawn: the base's size or the height, and the snap step while
+    Ctrl snaps (`snap_mm` > 0)."""
+    if stage == "HEIGHT":
+        lines = [f"H {_mm(abs(drawn.height))} mm"]
+    elif drawn.shape == "BOX":
+        lines = [f"{_mm(drawn.length)} × {_mm(drawn.width)} mm"]
+    else:
+        lines = [f"R {_mm(drawn.radius)} mm"]
+    return lines + ([f"snap {snap_mm:g} mm"] if snap_mm > 0 else [])
+
 def preview_lines(drawn, factor, segments=32):
     """World-space line segments (pairs of points) outlining `drawn` (for the gpu preview)."""
     h = drawn.height * factor

@@ -151,7 +151,10 @@ class BLENDSOLID_OT_draw_solid(bpy.types.Operator):
         self._p0 = self._p1 = p
         self._stage, self._drawn, self._base = "BASE", None, None
         self._factor = part.unit_factor(context.scene)
+        self._snap = 0.0  # mm while Ctrl snaps, else 0 (for the grid and labels)
         self._handle = bpy.types.SpaceView3D.draw_handler_add(_draw_preview, (self,), "WINDOW", "POST_VIEW")
+        self._label_handle = bpy.types.SpaceView3D.draw_handler_add(_draw_labels, (self,), "WINDOW", "POST_PIXEL")
+        _drawing.add(id(self))
         context.window_manager.modal_handler_add(self)
         self._header(context)
         return {"RUNNING_MODAL"}
@@ -195,6 +198,7 @@ class BLENDSOLID_OT_draw_solid(bpy.types.Operator):
         origin, direction = _mouse_ray(context, event)
         step = step_mm(context.scene)
         step = (step / 10 if event.shift else step) if event.ctrl else 0.0  # millimetres
+        self._snap = step
         if self._stage == "BASE":
             p = drawing.plane_coords(self._plane, origin, direction)
             if p is not None:
@@ -226,9 +230,11 @@ class BLENDSOLID_OT_draw_solid(bpy.types.Operator):
         context.area.header_text_set(text)
 
     def _finish(self, context):
-        if getattr(self, "_handle", None) is not None:
-            bpy.types.SpaceView3D.draw_handler_remove(self._handle, "WINDOW")
-            self._handle = None
+        for attr in ("_handle", "_label_handle"):
+            if getattr(self, attr, None) is not None:
+                bpy.types.SpaceView3D.draw_handler_remove(getattr(self, attr), "WINDOW")
+                setattr(self, attr, None)
+        _drawing.discard(id(self))
         if context.area is not None:
             context.area.header_text_set(None)
             context.area.tag_redraw()
@@ -325,6 +331,93 @@ def _draw_preview(op):
     gpu.state.blend_set("ALPHA")
     batch.draw(shader)
     gpu.state.blend_set("NONE")
+    if op._snap > 0:
+        _draw_snap_guides(op, bpy.context)
+
+
+def _draw_snap_guides(op, context):
+    """While Ctrl snaps: the grid around the dragged corner (base), or ticks every step along the normal
+    (height), so the nodes the drag can reach are visible after the step changes."""
+    region, rv3d, factor = context.region, context.region_data, op._factor
+    step = op._snap * factor
+    colour = marker_color(op._target)
+    if op._stage == "BASE":
+        u, v = drawing.grid_node(op._plane, op._p1, factor, op._snap)
+        point = op._plane.translation + op._plane.col[0].xyz * u + op._plane.col[1].xyz * v
+        pixel = _pixel_size(region, rv3d, point)
+        shown = None if pixel is None else drawing.visible_grid_step(step, pixel)
+        if shown is not None:
+            _draw_grid(context, op._plane, (u, v), shown, colour)
+    else:
+        frame = op._base.frame
+        pixel = _pixel_size(region, rv3d, frame.translation + frame.col[2].xyz * (op._drawn.height * factor))
+        if pixel is not None and step / pixel >= drawing.MIN_GRID_PX:
+            ui = context.preferences.system.ui_scale
+            ticks = drawing.height_ticks(frame, op._drawn.height * factor, step, tick=18 * ui * pixel)
+            _draw_segments(region, [(a, b, colour[:3] + (alpha,), colour[:3] + (alpha,)) for a, b, alpha in ticks],
+                           2.5 * ui)
+
+
+def _draw_labels(op):
+    """The base's size or the height, and the snap step, next to the solid being drawn (pixel space)."""
+    try:
+        drawn, stage, factor, snap = op._drawn, op._stage, op._factor, op._snap
+        plane, p1 = op._plane, op._p1
+    except (ReferenceError, AttributeError):
+        return
+    if drawn is None:
+        return
+    context = bpy.context
+    if stage == "BASE":
+        at = plane.translation + plane.col[0].xyz * p1[0] + plane.col[1].xyz * p1[1]
+    else:
+        at = drawn.frame.translation + drawn.frame.col[2].xyz * (drawn.height * factor)
+    here = view3d_utils.location_3d_to_region_2d(context.region, context.region_data, at)
+    if here is None:
+        return
+    import blf  # drawing only
+    size = 14 * context.preferences.system.ui_scale
+    blf.size(0, size)
+    blf.enable(0, blf.SHADOW)
+    blf.shadow(0, 3, 0.0, 0.0, 0.0, 0.8)
+    blf.color(0, 1.0, 1.0, 1.0, 1.0)
+    for i, text in enumerate(drawing.labels(drawn, stage, snap)):
+        blf.position(0, here.x + 16, here.y - 16 - i * size * 1.3, 0)
+        blf.draw(0, text)
+    blf.disable(0, blf.SHADOW)
+
+
+def _pixel_size(region, rv3d, point):
+    """Blender units one pixel spans at world `point` (None when the point is behind the view)."""
+    here = view3d_utils.location_3d_to_region_2d(region, rv3d, point)
+    if here is None:
+        return None
+    return (view3d_utils.region_2d_to_location_3d(region, rv3d, (here.x + 1, here.y), point) - point).length or None
+
+
+def _draw_segments(region, segments, width):
+    """Draw (start, end, colour start, colour end) world segments, alpha blended, over the geometry."""
+    if not segments:
+        return
+    import gpu
+    from gpu_extras.batch import batch_for_shader
+    shader = gpu.shader.from_builtin("POLYLINE_SMOOTH_COLOR")
+    pos = [p for a, b, _, _ in segments for p in (a, b)]
+    col = [c for _, _, ca, cb in segments for c in (ca, cb)]
+    batch = batch_for_shader(shader, "LINES", {"pos": pos, "color": col})
+    shader.uniform_float("viewportSize", (region.width, region.height))
+    shader.uniform_float("lineWidth", width)
+    gpu.state.blend_set("ALPHA")
+    gpu.state.depth_test_set("NONE")
+    batch.draw(shader)
+    gpu.state.blend_set("NONE")
+
+
+def _draw_grid(context, plane, centre, step, colour):
+    rgb = colour[:3]
+    segments = [(a, b, rgb + (alpha_a * (0.9 if major else 0.5),), rgb + (alpha_b * (0.9 if major else 0.5),))
+                for a, b, alpha_a, alpha_b, major in drawing.grid_segments(plane, centre, step)]
+    _draw_segments(context.region, segments, 1.5 * context.preferences.system.ui_scale)
 
 
 class BLENDSOLID_OT_snap_step(bpy.types.Operator):
@@ -349,7 +442,7 @@ def _hover(context, origin, direction, near=()):
     if p is None:
         return None
     u, v = drawing.grid_node(plane, p, part.unit_factor(context.scene), step_mm(context.scene))
-    return plane.translation + plane.col[0].xyz * u + plane.col[1].xyz * v, plane, target
+    return plane.translation + plane.col[0].xyz * u + plane.col[1].xyz * v, plane, target, (u, v)
 
 
 def hover_node(context, origin, direction):
@@ -357,15 +450,21 @@ def hover_node(context, origin, direction):
     return None if found is None else found[0]
 
 
+_drawing = set()  # Draw Solid modals in progress: the hover marker hides while one draws its own guides
+MARKER_ARM_PX = 20  # before Blender's interface scale (preferences.system.ui_scale)
+
+
 def marker_color(target):
     """White: the drawing would start on the 3D cursor's plane (a new part); orange: on a part's face (a union
-    or a cut, by the direction of the height)."""
+    or a cut, by the direction of the height). The marker's centre ring and the snap grid use it."""
     return (1.0, 1.0, 1.0, 0.9) if target is None else (1.0, 0.55, 0.1, 1.0)
 
 
 class BLENDSOLID_GT_snap_marker(bpy.types.Gizmo):
-    """A cross on the grid node a Ctrl drag would start from, drawn while the Draw Solid tool is active.
-    Blender doesn't tell a gizmo whether Ctrl is held, so it is always shown."""
+    """The grid node a Ctrl drag would start from, drawn while the Draw Solid tool is active: a cross along the
+    drawing plane and a stub along its normal, each arm in its world axis colour (X red, Y green, Z blue,
+    mixed on tilted planes), a ring (orange over a part, white over the cursor plane) and the snap grid
+    around it. Blender doesn't tell a gizmo whether Ctrl is held, so it is always shown."""
     bl_idname = "BLENDSOLID_GT_snap_marker"
 
     def setup(self):
@@ -377,7 +476,7 @@ class BLENDSOLID_GT_snap_marker(bpy.types.Gizmo):
         return -1  # never "selected": the click goes to the tool's keymap
 
     def draw(self, context):
-        if self.mouse is None or context.region_data is None:
+        if self.mouse is None or context.region_data is None or _drawing:
             return
         region, rv3d = context.region, context.region_data
         origin = view3d_utils.region_2d_to_origin_3d(region, rv3d, self.mouse)
@@ -385,23 +484,27 @@ class BLENDSOLID_GT_snap_marker(bpy.types.Gizmo):
         found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
         if found is None:
             return
-        point, plane, target = found
-        here = view3d_utils.location_3d_to_region_2d(region, rv3d, point)
-        if here is None:
-            return
-        arm = (view3d_utils.region_2d_to_location_3d(region, rv3d, (here.x + 8, here.y), point) - point).length
-        x, y = plane.col[0].xyz * arm, plane.col[1].xyz * arm
-        import gpu  # not available in background mode
-        from gpu_extras.batch import batch_for_shader
-        shader = gpu.shader.from_builtin("POLYLINE_UNIFORM_COLOR")
-        batch = batch_for_shader(shader, "LINES", {"pos": [point - x, point + x, point - y, point + y]})
-        shader.uniform_float("viewportSize", (region.width, region.height))
-        shader.uniform_float("lineWidth", 2.0)
-        shader.uniform_float("color", marker_color(target))
-        gpu.state.blend_set("ALPHA")
-        gpu.state.depth_test_set("NONE")
-        batch.draw(shader)
-        gpu.state.blend_set("NONE")
+        draw_marker(context, *found)
+
+
+def draw_marker(context, point, plane, target, node):
+    """The snap marker at grid node `point` (plane coords `node`) and the grid around it (see the gizmo)."""
+    region, rv3d = context.region, context.region_data
+    pixel = _pixel_size(region, rv3d, point)
+    if pixel is None:
+        return
+    ui = context.preferences.system.ui_scale
+    colour = marker_color(target)
+    shown = drawing.visible_grid_step(step_mm(context.scene) * part.unit_factor(context.scene), pixel)
+    if shown is not None:
+        _draw_grid(context, plane, node, shown, colour)
+    theme = context.preferences.themes[0].user_interface
+    axes = (tuple(theme.axis_x), tuple(theme.axis_y), tuple(theme.axis_z))
+    lines = [(a, b, c, c) for a, b, c in drawing.marker_lines(point, plane, MARKER_ARM_PX * ui * pixel, axes)]
+    ring = [point + (plane.col[0].xyz * math.cos(a) + plane.col[1].xyz * math.sin(a)) * (5 * ui * pixel)
+            for a in (2 * math.pi * k / 16 for k in range(17))]
+    lines += [(ring[k], ring[k + 1], colour, colour) for k in range(16)]
+    _draw_segments(region, lines, 3.0 * ui)
 
 
 class BLENDSOLID_GGT_draw_hover(bpy.types.GizmoGroup):
