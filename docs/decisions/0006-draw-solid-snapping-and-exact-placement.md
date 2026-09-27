@@ -33,6 +33,14 @@ curved face the drawing plane is the tangent plane, which touches the face along
 4. **Curved faces:** a solid drawn on a face without an exact plane reaches past it — a cut starts outside,
    a union inside the part — by the footprint's half-diagonal, capped at half the free space in front of the
    face (or the part's thickness behind it).
+   The plane on a curved face is tangent to the surface (2026-09-27, after the maintainer saw the grid spin
+   about the snap cross on a cone's side): its normal is the worker's exact vertex normals interpolated across
+   the triangle hit (the triangle's own normal jumped ~12° from triangle to triangle and was up to 6° off; the
+   interpolated one is within 1.4° on the default cone), its X the horizontal tangent (part Z × normal) and Y
+   up the surface. The flat-face rule (part X projected, part Y past |n.x| = 0.9) switched axis mid-surface:
+   on a tilted tangent plane the two projections differ, and the grid turned by up to ~180° under the mouse.
+   Flat faces keep their rule, so scripts written on them are unchanged. The exact surface normal at the point
+   (from the worker) would remove the remaining 1–2° tilt of a solid drawn on a curved face.
 5. **Snap guides (added at the end of the manual GUI test, maintainer's request):** the node marker is a cross
    along the drawing plane plus a stub along its normal, each arm in its world axis colour (Blender's theme
    X/Y/Z colours, mixed by the squared components of the direction on tilted planes), 20 px scaled with the

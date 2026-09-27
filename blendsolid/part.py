@@ -168,6 +168,34 @@ def face_plane(obj, polygon_index):
     return None if math.isnan(nx) else ((nx, ny, nz), d)
 
 
+def curved_face_normal(obj, polygon_index, location):
+    """The surface's world normal at world `location` on mesh polygon `polygon_index`, if that polygon belongs
+    to a curved BRep face: the worker's exact vertex normals interpolated across the triangle (the polygon's
+    own normal jumps from triangle to triangle). None on a flat face or a mesh without exact normals."""
+    planes = obj.data.get(PLANES_KEY)
+    attr = obj.data.attributes.get(FACE_ATTR)
+    custom = obj.data.attributes.get("custom_normal")
+    if planes is None or attr is None or custom is None or not 0 <= polygon_index < len(obj.data.polygons):
+        return None
+    fid = attr.data[polygon_index].value
+    if not 0 <= 4 * fid < len(planes) or not math.isnan(planes[4 * fid]):
+        return None
+    ids = obj.data.polygons[polygon_index].vertices
+    if len(ids) != 3:
+        return None
+    from mathutils import Vector, geometry
+    corners = [obj.data.vertices[i].co for i in ids]
+    p = obj.matrix_world.inverted_safe() @ Vector(location)
+    area = geometry.area_tri(*corners)
+    if area <= 0.0:
+        return None
+    weights = [geometry.area_tri(p, corners[(k + 1) % 3], corners[(k + 2) % 3]) / area for k in range(3)]
+    n = sum((Vector(custom.data[i].vector) * w for i, w in zip(ids, weights)), Vector())
+    if n.length == 0.0:
+        return None
+    return (obj.matrix_world.to_3x3().inverted_safe().transposed() @ n).normalized()
+
+
 def mesh_volume(mesh):
     v = np.empty(len(mesh.vertices) * 3, dtype=np.float64)
     mesh.vertices.foreach_get("co", v)

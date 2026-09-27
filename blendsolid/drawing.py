@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from mathutils import Euler, Matrix, Vector, geometry
 
 AXIS_SNAP = 1e-4  # a face normal this close to one of the part's axes is taken as that axis exactly
+CURVED_POLE = 1e-3  # a curved face's normal this close to the part's Z has no horizontal tangent
 # Snap steps in millimetres, chosen with Ctrl+Wheel; Ctrl snaps to the step, Shift+Ctrl to a tenth of it.
 STEPS = (0.1, 0.5, 1.0, 2.0, 5.0, 10.0, 20.0, 50.0, 100.0, 200.0, 500.0, 1000.0, 2000.0, 5000.0, 10000.0)
 
@@ -95,6 +96,21 @@ def plane_on_face(location, normal, obj_matrix):
     local_x = Vector((1, 0, 0)) if abs(local_n.x) < 0.9 else Vector((0, 1, 0))
     o = obj_matrix.translation
     return _frame(o + n * (Vector(location) - o).dot(n), rot @ local_x, n)
+
+
+def plane_on_curved_face(location, normal, obj_matrix):
+    """The drawing plane tangent to a curved face at `location` (world `normal`, the surface's): X is the
+    horizontal tangent in the part's frame (part Z x normal), Y goes up the surface, so the grid turns with the
+    surface and never jumps (the flat-face rule's X switches axis past |n.x| = 0.9: on a cone's side the grid
+    spun about the mouse). Where the normal is along the part's Z there is no horizontal tangent: flat-face
+    rule. Origin as plane_on_face."""
+    rot = obj_matrix.to_3x3().normalized()
+    n = Vector(normal).normalized()
+    x = rot.col[2].cross(n)
+    if x.length < CURVED_POLE:
+        return plane_on_face(location, n, obj_matrix)
+    o = obj_matrix.translation
+    return _frame(o + n * (Vector(location) - o).dot(n), x, n)
 
 
 def plane_on_part_face(normal, d_mm):

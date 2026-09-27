@@ -20,6 +20,7 @@ class GizmoSpec:
     k: float            # extent along that axis per unit of the parameter (2 for a radius)
     level: str = ""     # "min"/"max": put the arrow on the bottom/top Z level instead of the middle
     shift: tuple[str, int] | None = None   # (param, axis): move the arrow's origin by that parameter
+    from_min: bool = False  # measure from the bounding box's low side whatever the align (a wedge's top edge)
 
 
 @dataclass(frozen=True)
@@ -65,7 +66,8 @@ PRIMITIVES = {p.kind: p for p in (
                                  ("top_length", "Top Length", 10.0)),
               "Wedge({name}_length, {name}_height, {name}_width, 0, 0, {name}_top_length, {name}_width, "
               "rotation=(90, 0, 0), align={align}{mode})",
-              (GizmoSpec("length", 0, 1.0), GizmoSpec("width", 1, 1.0), GizmoSpec("height", 2, 1.0))),
+              (GizmoSpec("length", 0, 1.0), GizmoSpec("width", 1, 1.0), GizmoSpec("height", 2, 1.0),
+               GizmoSpec("top_length", 0, 1.0, level="max", from_min=True))),  # top edge from the low X side
 )}
 
 _EXTENTS = {
@@ -74,7 +76,7 @@ _EXTENTS = {
     "sphere": lambda v: (2 * v["radius"],) * 3,
     "cone": lambda v: (2 * max(v["bottom_radius"], v["top_radius"]),) * 2 + (v["height"],),
     "torus": lambda v: (2 * (v["major_radius"] + v["minor_radius"]),) * 2 + (2 * v["minor_radius"],),
-    "wedge": lambda v: (v["length"], v["width"], v["height"]),
+    "wedge": lambda v: (max(v["length"], v["top_length"]), v["width"], v["height"]),
 }
 
 
@@ -134,7 +136,7 @@ def arrows(feature, values):
     out = []
     for g in prim.gizmos:
         origin, direction = list(mid), [0.0, 0.0, 0.0]
-        a = align[g.axis]
+        a = "MIN" if g.from_min else align[g.axis]
         if a == "CENTER":
             scale, direction[g.axis] = g.k / 2, 1.0
         elif a == "MIN":

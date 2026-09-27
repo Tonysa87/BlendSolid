@@ -198,3 +198,1410 @@ Blender quit
 00:19.938  operator         | Deleted 3 object(s)
 04:49.563  operator         | Copied 1 selected object(s)
 04:49.781  operator         | Copied 1 selected object(s)
+14:35.188  operator         | Deleted 1 object(s)
+14:52.813  operator         | Deleted 1 object(s)
+22:08.234  blend            | Saved session recovery to "C:\Users\Tony\AppData\Local\Temp\quit.blend"
+
+Blender quit
+00:04.906  operator         | Deleted 3 object(s)
+00:28.485  operator         | Deleted 1 object(s)
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 10 out of range, size 0
+01:07.063  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+01:07.063  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 10 out of range, size 0
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 10 out of range, size 0
+01:07.078  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+01:07.078  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 10 out of range, size 0
+Traceback (most recent call last):
+01:07.078  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 6 out of range, size 0
+Traceback (most recent call last):
+01:07.094  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 6 out of range, size 0
+Traceback (most recent call last):
+01:07.094  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 6 out of range, size 0
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+01:07.110  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 6 out of range, size 0
+Traceback (most recent call last):
+01:07.110  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 6 out of range, size 0
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+01:07.125  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+IndexError: bpy_prop_collection[index]: index 6 out of range, size 0
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+01:07.125  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+IndexError: bpy_prop_collection[index]: index 6 out of range, size 0
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 6 out of range, size 0
+01:07.141  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+01:07.297  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 4 out of range, size 0
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+01:07.297  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 2 out of range, size 0
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+01:07.313  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 2 out of range, size 0
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+01:07.313  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 2 out of range, size 0
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 8 out of range, size 0
+01:07.313  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+Traceback (most recent call last):
+01:07.313  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 4 out of range, size 0
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+01:07.328  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 4 out of range, size 0
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+01:07.328  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 2 out of range, size 0
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+01:07.344  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 2 out of range, size 0
+Traceback (most recent call last):
+01:07.344  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 2 out of range, size 0
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 0 out of range, size 0
+01:07.344  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 0 out of range, size 0
+01:07.360  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+01:07.360  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 0 out of range, size 0
+Traceback (most recent call last):
+01:07.375  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 0 out of range, size 0
+Traceback (most recent call last):
+01:07.375  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 0 out of range, size 0
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 0 out of range, size 0
+01:07.391  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+01:07.391  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 0 out of range, size 0
+Traceback (most recent call last):
+01:07.406  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 0 out of range, size 0
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+01:07.406  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 0 out of range, size 0
+Traceback (most recent call last):
+01:07.422  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 0 out of range, size 0
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+01:07.422  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 0 out of range, size 0
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+01:07.438  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 0 out of range, size 0
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+01:07.438  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 0 out of range, size 0
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+01:07.531  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 0 out of range, size 0
+Traceback (most recent call last):
+01:07.594  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 0 out of range, size 0
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+01:07.594  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 0 out of range, size 0
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 82 out of range, size 0
+01:07.594  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 82 out of range, size 0
+01:07.610  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+01:07.610  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+IndexError: bpy_prop_collection[index]: index 82 out of range, size 0
+Traceback (most recent call last):
+01:07.625  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 82 out of range, size 0
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 80 out of range, size 0
+01:07.625  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 80 out of range, size 0
+01:07.625  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+01:07.641  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 80 out of range, size 0
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+01:07.641  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 80 out of range, size 0
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+01:07.641  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 80 out of range, size 0
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+01:07.656  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 80 out of range, size 0
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 80 out of range, size 0
+01:07.656  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+01:07.672  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 80 out of range, size 0
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+01:07.672  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+IndexError: bpy_prop_collection[index]: index 80 out of range, size 0
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+01:07.688  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 80 out of range, size 0
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 80 out of range, size 0
+01:07.688  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+01:07.703  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 80 out of range, size 0
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 80 out of range, size 0
+01:07.703  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+01:07.719  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 80 out of range, size 0
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+01:07.719  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 80 out of range, size 0
+Traceback (most recent call last):
+01:07.735  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 80 out of range, size 0
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 80 out of range, size 0
+01:07.766  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+01:07.766  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 80 out of range, size 0
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+01:07.797  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 80 out of range, size 0
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 80 out of range, size 0
+01:07.891  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 80 out of range, size 0
+01:07.906  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+01:07.922  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 80 out of range, size 0
+Traceback (most recent call last):
+01:07.922  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 80 out of range, size 0
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 80 out of range, size 0
+01:07.922  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+01:07.938  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 79 out of range, size 0
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+01:07.938  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+IndexError: bpy_prop_collection[index]: index 78 out of range, size 0
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+01:07.953  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 78 out of range, size 0
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+01:07.953  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 78 out of range, size 0
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 76 out of range, size 0
+01:07.953  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+01:07.969  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 76 out of range, size 0
+Traceback (most recent call last):
+01:07.969  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 74 out of range, size 0
+Traceback (most recent call last):
+01:07.969  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 72 out of range, size 0
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 68 out of range, size 0
+01:07.985  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+01:07.985  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 62 out of range, size 0
+Traceback (most recent call last):
+01:08.594  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 64 out of range, size 0
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 72 out of range, size 0
+01:08.610  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 74 out of range, size 0
+01:08.610  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 76 out of range, size 0
+01:08.625  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+01:08.641  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 78 out of range, size 0
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+01:08.641  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 80 out of range, size 0
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 80 out of range, size 0
+01:08.656  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+01:08.672  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 80 out of range, size 0
+Traceback (most recent call last):
+01:08.672  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 80 out of range, size 0
+Traceback (most recent call last):
+01:08.688  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 81 out of range, size 0
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+01:08.703  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 81 out of range, size 0
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 81 out of range, size 0
+01:08.719  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+01:08.750  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 80 out of range, size 0
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 80 out of range, size 0
+01:08.766  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 81 out of range, size 0
+01:08.781  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 81 out of range, size 0
+01:08.781  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+Traceback (most recent call last):
+01:08.797  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 81 out of range, size 0
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+01:09.203  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+IndexError: bpy_prop_collection[index]: index 81 out of range, size 0
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+01:09.219  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 82 out of range, size 0
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 0 out of range, size 0
+01:09.219  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+Traceback (most recent call last):
+01:09.235  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 1 out of range, size 0
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+01:09.250  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 4 out of range, size 0
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+01:09.266  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 6 out of range, size 0
+Traceback (most recent call last):
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 488, in draw
+    found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 444, in _hover
+    plane, target, _ = pick(context, origin, direction, near=near)
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\ops_draw.py", line 312, in pick
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+             ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid\part.py", line 180, in curved_face_normal
+    fid = attr.data[polygon_index].value
+          ~~~~~~~~~^^^^^^^^^^^^^^^
+IndexError: bpy_prop_collection[index]: index 12 out of range, size 0
+01:09.266  bpy.rna          | ERROR Python script error in BLENDSOLID_GT_snap_marker.draw
