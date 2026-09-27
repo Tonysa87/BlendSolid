@@ -190,9 +190,21 @@ class BLENDSOLID_PT_part(bpy.types.Panel):
         row.operator("blendsolid.recompute", icon="FILE_REFRESH")
 
 
+class BLENDSOLID_PT_display(bpy.types.Panel):
+    bl_label = "Display"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_category = "BlendSolid"
+    bl_parent_id = "BLENDSOLID_PT_part"
+    bl_options = {"DEFAULT_CLOSED"}
+
+    def draw(self, context):
+        self.layout.prop(context.scene, "blendsolid_tolerance")
+
+
 CLASSES = [BS_Param, BLENDSOLID_AP_preferences, BLENDSOLID_OT_new_part, BLENDSOLID_OT_trust_scripts,
            BLENDSOLID_OT_edit_script,
-           BLENDSOLID_OT_recompute, BLENDSOLID_PT_part]
+           BLENDSOLID_OT_recompute, BLENDSOLID_PT_part, BLENDSOLID_PT_display]
 
 
 def register():
@@ -202,9 +214,14 @@ def register():
     bpy.types.Object.blendsolid_params = CollectionProperty(type=BS_Param)
     bpy.types.Object.blendsolid_error = StringProperty()
     bpy.types.Object.blendsolid_error_line = IntProperty()
+    bpy.types.Scene.blendsolid_tolerance = FloatProperty(
+        name="Tolerance (mm)", default=part.DEFAULT_TOLERANCE, min=0.001, soft_min=0.01, soft_max=10.0, precision=3,
+        description="Largest distance between a part's mesh and its exact surface, in millimetres: smaller values "
+                    "give smoother but heavier meshes (every part is rebuilt when it changes)")
 
 
 def unregister():
+    del bpy.types.Scene.blendsolid_tolerance
     for name in ("blendsolid_error_line", "blendsolid_error", "blendsolid_params", "blendsolid_script"):
         delattr(bpy.types.Object, name)
     for cls in reversed(CLASSES):

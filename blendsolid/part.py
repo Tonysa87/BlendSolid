@@ -49,12 +49,27 @@ def unit_factor(scene=None):
     return 0.001 / scale if scale > 0 else 0.001
 
 
-def tag_for(source, factor, deps=()):
-    """The tag stored on a mesh computed from `source` and converted with `factor` (see applied_hash()):
-    changing either one makes the mesh stale. `deps`: one string per part the script uses through ref() (its
-    id, tag and placement: see deps.resolve()), so changing a cutter makes this part stale too. Without deps
-    the tag is milestone 1's, so meshes saved by it stay up to date."""
-    return source_hash(f"{source}\0unit-factor={factor!r}" + "".join(f"\0ref={d}" for d in deps))
+DEFAULT_TOLERANCE = 1.0  # millimetres
+
+
+def tolerance(scene=None):
+    """The scene's display tolerance in millimetres: the largest distance allowed between a part's mesh and
+    its exact surface (smaller: smoother and heavier meshes)."""
+    if scene is None:
+        scene = getattr(bpy.context, "scene", None)
+        if scene is None and bpy.data.scenes:
+            scene = bpy.data.scenes[0]
+    value = getattr(scene, "blendsolid_tolerance", DEFAULT_TOLERANCE) if scene is not None else DEFAULT_TOLERANCE
+    return value if value > 0 else DEFAULT_TOLERANCE
+
+
+def tag_for(source, factor, deps=(), tol=None):
+    """The tag stored on a mesh computed from `source`, tessellated with tolerance `tol` (default: the scene's)
+    and converted with `factor` (see applied_hash()): changing any of them makes the mesh stale. `deps`: one
+    string per part the script uses through ref() (its id, tag and placement: see deps.resolve()), so changing
+    a cutter makes this part stale too."""
+    tol = tolerance() if tol is None else tol
+    return source_hash(f"{source}\0unit-factor={factor!r}\0tolerance={tol!r}" + "".join(f"\0ref={d}" for d in deps))
 
 
 def current_tag(obj, factor=None):

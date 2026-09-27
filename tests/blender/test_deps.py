@@ -156,9 +156,11 @@ def test_untrusted_cutter_is_an_error_until_trusted(clean):
         trust.reset_for_file(bpy.context.preferences, bpy.data.filepath)
 
 
-def test_parts_without_references_keep_their_milestone_1_tag(clean):
+def test_tag_of_a_part_without_references_is_script_unit_factor_and_tolerance(clean):
+    # ADR 0005: the display tolerance joined the tag, so meshes saved before it are recomputed once.
     obj = part.new_part(bpy.context)
-    assert part.current_tag(obj) == part.source_hash(f"{part.source_of(obj)}\0unit-factor={part.unit_factor()!r}")
+    assert part.current_tag(obj) == part.source_hash(
+        f"{part.source_of(obj)}\0unit-factor={part.unit_factor()!r}\0tolerance={part.tolerance()!r}")
 
 
 def test_resolve_sends_the_cutter_in_the_target_frame(clean):
