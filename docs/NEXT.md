@@ -48,9 +48,8 @@ the SurfacePsycho analysis (below).
 - Snap guides: not compared in detail with BoxCutter's grid or CAD sketch grids (Plasticity, Fusion 360) —
   worth a look if the maintainer finds them lacking (e.g. grid clipped to the face, snapping to edges/midpoints).
 - The drag's grid/labels are drawn by the modal; the hover marker hides while a modal runs (`ops_draw._drawing`).
-- **To analyse (maintainer's pointer, 2026-09-27):** SurfacePsycho, a Blender NURBS/CAD add-on —
-  https://extensions.blender.org/add-ons/surfacepsycho/ — what it does, how (kernel, data model, UI), license,
-  and whether it helps or overlaps BlendSolid (especially milestones 4–6: SubD → NURBS, G2 surfaces/fillets).
+- **SurfacePsycho analysed** (2026-09-27): `docs/research/2026-09-27-surfacepsycho.md` — Geometry Nodes kernel,
+  GPL-3.0, no booleans/fillets; its Blend Surfaces UX and analysis tools are inputs for milestones 4–5.
 - The maintainer's logos and icons in several sizes are in `logo/BlendSolid_icone_e_logo.pdf` (for the
   extension icon, README and the GitHub page when needed).
 - From milestone 1.5 (full list and reasoning: `docs/milestone-1.5-report.md`'s "Concerns / follow-ups"):
