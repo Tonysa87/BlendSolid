@@ -4,6 +4,7 @@ The script is the source of truth; the mesh is a cache tagged with the hash of t
 and of the unit factor it was converted with (ADR 0003: scripts are in millimetres, meshes in Blender units).
 """
 import hashlib
+import math
 import os
 import uuid
 
@@ -14,6 +15,7 @@ from . import params, trust
 
 FACE_ATTR = "brep_face_id"
 HASH_KEY = "bs_source_hash"
+PLANES_KEY = "bs_face_planes"  # per BRep face: exact plane (nx, ny, nz, d mm, part frame) or NaN, flattened
 ERROR_TAG_KEY = "bs_error_tag"
 PART_ID_KEY = "bs_part_id"  # on the part's Text: identity follows the script (Shift+D copies it, Alt+D and
                             # Ctrl+L share it — see ensure_unique_scripts()), which is what ref() names
@@ -50,6 +52,7 @@ def unit_factor(scene=None):
 
 
 DEFAULT_TOLERANCE = 1.0  # millimetres
+MESH_FORMAT = 2  # part of every tag: bumping it recomputes saved meshes (2: exact face planes stored)
 
 
 def tolerance(scene=None):
@@ -69,7 +72,8 @@ def tag_for(source, factor, deps=(), tol=None):
     string per part the script uses through ref() (its id, tag and placement: see deps.resolve()), so changing
     a cutter makes this part stale too."""
     tol = tolerance() if tol is None else tol
-    return source_hash(f"{source}\0unit-factor={factor!r}\0tolerance={tol!r}" + "".join(f"\0ref={d}" for d in deps))
+    return source_hash(f"{source}\0unit-factor={factor!r}\0tolerance={tol!r}\0mesh={MESH_FORMAT}"
+                       + "".join(f"\0ref={d}" for d in deps))
 
 
 def current_tag(obj, factor=None):
@@ -100,6 +104,11 @@ def apply_result(obj, event, factor):
     """`factor`: the unit factor event["tag"] was computed with (the caller checked it is still current)."""
     verts = np.asarray(event["verts"], dtype=np.float64) * factor  # millimetres -> Blender units
     fill_mesh(obj.data, verts, event["tris"], event["tri_face"])
+    planes = event.get("planes")
+    if planes is not None:
+        obj.data[PLANES_KEY] = np.asarray(planes, dtype=np.float64).ravel().tolist()
+    elif PLANES_KEY in obj.data:
+        del obj.data[PLANES_KEY]
     obj.data[HASH_KEY] = event["tag"]
     set_error(obj, "")
 
@@ -137,6 +146,20 @@ def fill_mesh(mesh, verts, tris, tri_face):
     attr = mesh.attributes.get(FACE_ATTR) or mesh.attributes.new(FACE_ATTR, "INT", "FACE")
     attr.data.foreach_set("value", np.ascontiguousarray(tri_face, dtype=np.int32))
     mesh.update()
+
+
+def face_plane(obj, polygon_index):
+    """The exact plane (normal, d in millimetres, in obj's frame) of the BRep face that mesh polygon
+    `polygon_index` belongs to, or None (a curved face, or a mesh computed before planes were stored)."""
+    planes = obj.data.get(PLANES_KEY)
+    attr = obj.data.attributes.get(FACE_ATTR)
+    if planes is None or attr is None or not 0 <= polygon_index < len(attr.data):
+        return None
+    fid = attr.data[polygon_index].value
+    if not 0 <= 4 * fid < len(planes):
+        return None
+    nx, ny, nz, d = planes[4 * fid:4 * fid + 4]
+    return None if math.isnan(nx) else ((nx, ny, nz), d)
 
 
 def mesh_volume(mesh):

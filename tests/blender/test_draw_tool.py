@@ -44,7 +44,8 @@ class Driver:
         self.reports.append(message)
 
     def execute(self, context):
-        self.executed = {k: getattr(self, k) for k in ("shape", "mode", "target", "location", "rotation", "height")}
+        self.executed = {k: getattr(self, k) for k in ("shape", "mode", "target", "location", "rotation", "height",
+                                                        "exact")}
         self.executed.update({k: getattr(self, k) for k in ("length", "width", "radius") if hasattr(self, k)})
         return bpy.ops.blendsolid.draw_solid(**self.executed)
 
@@ -339,3 +340,70 @@ def test_a_part_the_tools_cannot_edit_is_drawn_on_as_a_new_part(clean, rays, mon
         monkeypatch.setattr(trust, "_trusted_texts", set())
     plane, target = ops_draw.pick_plane(Driver("BOX").context, Vector((0.0, 0.0, 1.0)), Vector((0.0, 0.0, -1.0)))
     assert target is None and plane.translation.z == pytest.approx(0.02)  # still on the top face
+
+
+def _placements(source):
+    """(location, rotation) numbers of every `with Locations(Location(...))` line of a part script."""
+    import re
+    found = re.findall(r"Location\(\(([^)]*)\), \(([^)]*)\)\)", source)
+    return [(tuple(float(x) for x in loc.split(",")), tuple(float(x) for x in rot.split(","))) for loc, rot in found]
+
+
+def test_cuts_on_faces_of_a_moved_part_are_exact(clean, rays):
+    # Found in the manual GUI test: a cut drawn upwards from the bottom face started 3e-05 mm above it (a skin
+    # closed the pocket) and a side cut was rotated 90.000003 degrees: float32 noise from the mesh and
+    # matrix_world. Planes of a part's flat faces now come exact from the worker.
+    box = box_part()
+    box.location = (0.04, -0.05, 0.0)  # not representable in float32
+    bpy.context.view_layer.update()
+    wait_for(lambda: up_to_date(box))
+    below = lambda kind, value, at: SimpleNamespace(type=kind, value=value, ctrl=True, shift=False,
+                                                    ray=(Vector(at) - Vector((0, 0, 1.0)), Vector((0, 0, 1.0))))
+    d = Driver("BOX")
+    d.run([
+        below("LEFTMOUSE", "PRESS", (0.0301, -0.0602, 0.0)),        # bottom face, snapped to (-10, -10) mm
+        below("MOUSEMOVE", "NOTHING", (0.0499, -0.0398, 0.0)),
+        below("LEFTMOUSE", "RELEASE", (0.0499, -0.0398, 0.0)),        # (10, 10) mm
+        d.side_event("MOUSEMOVE", "NOTHING", (0.04, -0.05, 0.0102), ctrl=True),  # 10 mm up into the part
+        d.side_event("LEFTMOUSE", "PRESS", (0.04, -0.05, 0.0102), ctrl=True),
+    ])
+    assert d.executed["mode"] == "CUT"
+    d2 = Driver("BOX")  # on the +X face (x = 20 mm in the part)
+    d2.run([
+        d2.x_face_event("LEFTMOUSE", "PRESS", (0.06, -0.0551, 0.0049)),
+        d2.x_face_event("MOUSEMOVE", "NOTHING", (0.06, -0.0449, 0.0151)),
+        d2.x_face_event("LEFTMOUSE", "RELEASE", (0.06, -0.0449, 0.0151)),
+        d2.event("MOUSEMOVE", "NOTHING", (0.055, -0.05, 0.01)),
+        d2.event("LEFTMOUSE", "PRESS", (0.055, -0.05, 0.01)),
+    ])
+    assert d2.executed["mode"] == "CUT"
+    bottom, side = _placements(part.source_of(box))  # the box itself has no Location line
+    assert bottom[0][2] == 0.0 and side[0][0] == 20.0          # exactly on the faces
+    for angle in bottom[1] + side[1]:
+        assert angle % 90.0 == 0.0                               # exact right angles
+
+
+def test_a_drag_started_on_a_face_edge_still_picks_the_part(clean):
+    # Found in the manual GUI test: a Ctrl drag started on a part's corner (where the snap marker sat) missed
+    # the part by a hair and made a new part instead of a boolean. Rays a few pixels around the mouse are
+    # tried when the one under it misses.
+    box = box_part()  # x -20..20, y -15..15, z 0..20 mm
+    corner = Vector((-0.02, 0.015, 0.0))
+    straight_up = (corner - Vector((0.00001, -0.00001, 1.0)), Vector((0, 0, 1.0)))  # just outside the corner
+    plane, target, _ = ops_draw.pick(bpy.context, *straight_up)
+    assert target is None  # the ray itself misses
+    near = [(straight_up[0] + Vector(o), straight_up[1]) for o in ((0.0002, -0.0002, 0), (-0.0002, 0.0002, 0))]
+    plane, target, local = ops_draw.pick(bpy.context, *straight_up, near=near)
+    assert target == box and local is not None and local.origin == (0.0, 0.0, 0.0) and local.z == (0.0, 0.0, -1.0)
+    # Looking up at the corner, slightly from the side: a near ray hitting the -X side face loses to one hitting
+    # the bottom face, which faces the view more.
+    tilted = Vector((0.3, 0, 1.0)).normalized()
+    side_ray = (Vector((-0.02 - 0.3, 0.0, 0.01 - 1.0)), tilted)          # meets x = -20 mm at z = 10 mm
+    bottom_ray = (Vector((-0.019 - 0.3, 0.0, -1.0)), tilted)             # meets z = 0 at x = -19 mm
+    miss = (Vector((-0.021 - 0.3, 0.02, -1.0)), tilted)
+    _, target, local = ops_draw.pick(bpy.context, *miss, near=[side_ray, bottom_ray])
+    assert target == box and local.z == (0.0, 0.0, -1.0)
+
+
+def test_marker_colour_tells_a_part_face_from_the_cursor_plane():
+    assert ops_draw.marker_color(None) != ops_draw.marker_color(object())

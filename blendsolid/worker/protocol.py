@@ -12,7 +12,7 @@ import json
 
 import numpy as np
 
-ALLOWED_DTYPES = {"float32", "int32"}
+ALLOWED_DTYPES = {"float32", "float64", "int32"}  # float64: exact face planes
 
 
 class ProtocolError(RuntimeError):

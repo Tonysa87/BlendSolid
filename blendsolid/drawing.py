@@ -29,6 +29,41 @@ class Drawn:
     width: float = 0.0          # mm (box)
     radius: float = 0.0         # mm (cylinder)
     height: float = 0.0         # mm, signed: > 0 along +Z of the frame (out of a face), < 0 into it
+    local: "LocalPlane | None" = None  # the frame in the part's own coordinates, exact (plane_on_part_face)
+
+
+@dataclass(frozen=True)
+class LocalPlane:
+    """A plane or frame in a part's own coordinates, in float64 (mathutils matrices are float32, whose noise
+    left skins and slivers in booleans): origin in millimetres, unit axes (Z the plane normal)."""
+    origin: tuple
+    x: tuple
+    y: tuple
+    z: tuple
+
+    def moved(self, u_mm, v_mm):
+        o = tuple(self.origin[i] + self.x[i] * u_mm + self.y[i] * v_mm for i in range(3))
+        return LocalPlane(o, self.x, self.y, self.z)
+
+    def matrix(self, factor):
+        """As a mathutils 4x4 matrix in Blender units (float32: for display and ray casting only)."""
+        m = Matrix.Identity(4)
+        for i in range(3):
+            m[i][0], m[i][1], m[i][2], m[i][3] = self.x[i], self.y[i], self.z[i], self.origin[i] * factor
+        return m
+
+
+def euler_zyx(x, y, z):
+    """The 'ZYX' Euler angles (radians, float64) of the rotation whose columns are unit axes x, y, z: what
+    mathutils' to_euler("ZYX") gives (R = Rx @ Ry @ Rz), without its float32 rounding."""
+    m = [[x[0], y[0], z[0]], [x[1], y[1], z[1]], [x[2], y[2], z[2]]]
+    sy = max(-1.0, min(1.0, m[0][2]))
+    ry = math.asin(sy)
+    if abs(sy) < 1.0 - 1e-12:
+        rx, rz = math.atan2(-m[1][2], m[2][2]), math.atan2(-m[0][1], m[0][0])
+    else:  # gimbal lock: put the whole remaining rotation on X
+        rx, rz = math.atan2(m[2][1], m[1][1]), 0.0
+    return tuple(a + 0.0 for a in (rx, ry, rz))  # + 0.0: no -0.0
 
 
 def _frame(origin, x_axis, z_axis):
@@ -60,6 +95,26 @@ def plane_on_face(location, normal, obj_matrix):
     local_x = Vector((1, 0, 0)) if abs(local_n.x) < 0.9 else Vector((0, 1, 0))
     o = obj_matrix.translation
     return _frame(o + n * (Vector(location) - o).dot(n), rot @ local_x, n)
+
+
+def plane_on_part_face(normal, d_mm):
+    """The drawing plane on a part's flat face as a LocalPlane (float64, the part's own coordinates), from the
+    face's exact plane (unit `normal` in the part's frame, n . p = d_mm): origin the part's origin projected
+    on it, axes as plane_on_face. Built without the float32 mesh or matrix_world, so placements are exact."""
+    n = [float(c) for c in normal]
+    length = math.sqrt(sum(c * c for c in n))
+    n = [c / length for c in n]
+    for i in range(3):  # an axis-aligned face gets an exact axis
+        if abs(abs(n[i]) - 1.0) < AXIS_SNAP:
+            n = [0.0, 0.0, 0.0]
+            n[i] = math.copysign(1.0, normal[i])
+    x = [1.0, 0.0, 0.0] if abs(n[0]) < 0.9 else [0.0, 1.0, 0.0]
+    dot = sum(x[i] * n[i] for i in range(3))
+    x = [x[i] - n[i] * dot for i in range(3)]
+    length = math.sqrt(sum(c * c for c in x))
+    x = [c / length for c in x]
+    y = [n[1] * x[2] - n[2] * x[1], n[2] * x[0] - n[0] * x[2], n[0] * x[1] - n[1] * x[0]]
+    return LocalPlane(tuple(c * d_mm + 0.0 for c in n), tuple(x), tuple(c + 0.0 for c in y), tuple(n))
 
 
 def plane_at_cursor(cursor_matrix):
@@ -100,24 +155,30 @@ def grid_node(plane, p, factor, step_mm):
     return tuple(snap(x / factor, step_mm) * factor for x in p)
 
 
-def drawn_solid(shape, plane, p0, p1, height, factor, step_mm=0.0):
+def drawn_solid(shape, plane, p0, p1, height, factor, step_mm=0.0, local=None):
     """The solid of a drag: base from plane coords p0 to p1 (Blender units; a box's opposite corners, a
     cylinder's centre and a point on its rim), `height` in Blender units (signed). With `step_mm` > 0 both
-    corners (a cylinder's centre) go to the nearest grid nodes and the radius and height snap to the step."""
+    corners (a cylinder's centre) go to the nearest grid nodes and the radius and height snap to the step.
+    `local`: the same plane as a LocalPlane (plane_on_part_face): Drawn.local is then the exact frame."""
     to_mm = 1.0 / factor
     # In millimetres, so snapped dimensions are exact multiples of the step.
     a0, b0 = (snap(x * to_mm, step_mm) for x in p0)
     if shape == "BOX":
         a1, b1 = (snap(x * to_mm, step_mm) for x in p1)
-        cu, cv = (a0 + a1) / 2 / to_mm, (b0 + b1) / 2 / to_mm
+        cu_mm, cv_mm = (a0 + a1) / 2, (b0 + b1) / 2
         dims = {"length": abs(a1 - a0), "width": abs(b1 - b0)}
     else:
-        cu, cv = a0 / to_mm, b0 / to_mm
+        cu_mm, cv_mm = a0, b0
         dims = {"radius": snap(math.hypot(p1[0] * to_mm - a0, p1[1] * to_mm - b0), step_mm)}
-    center = plane.translation + plane.col[0].xyz * cu + plane.col[1].xyz * cv
+    frame = _moved(plane, cu_mm / to_mm, cv_mm / to_mm)
+    return Drawn(shape, frame, height=snap(height * to_mm, step_mm), local=None if local is None
+                 else local.moved(cu_mm, cv_mm), **dims)
+
+
+def _moved(plane, u, v):
     frame = plane.copy()
-    frame.translation = center
-    return Drawn(shape, frame, height=snap(height * to_mm, step_mm), **dims)
+    frame.translation = plane.translation + plane.col[0].xyz * u + plane.col[1].xyz * v
+    return frame
 
 
 def placement(frame, reference, factor):
@@ -128,6 +189,11 @@ def placement(frame, reference, factor):
     location = tuple(v / factor for v in local.translation)
     rotation = tuple(local.to_3x3().normalized().to_euler("ZYX"))
     return location, rotation
+
+
+def placement_local(local):
+    """(location mm, rotation radians) of a LocalPlane frame: placement() for an exact frame."""
+    return local.origin, euler_zyx(local.x, local.y, local.z)
 
 
 def frame_matrix(location_mm, rotation, factor):

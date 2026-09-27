@@ -20,7 +20,7 @@ from OCP.BRepGProp import BRepGProp
 from OCP.BRepMesh import BRepMesh_IncrementalMesh
 from OCP.BRepTools import BRepTools
 from OCP.collections import IndexedMap_TopoDS_Shape_TopTools_ShapeMapHasher as ShapeMap
-from OCP.GeomAbs import GeomAbs_Cone, GeomAbs_Cylinder, GeomAbs_Line, GeomAbs_Sphere, GeomAbs_Torus
+from OCP.GeomAbs import GeomAbs_Cone, GeomAbs_Cylinder, GeomAbs_Line, GeomAbs_Plane, GeomAbs_Sphere, GeomAbs_Torus
 from OCP.GProp import GProp_GProps
 from OCP.IMeshTools import IMeshTools_Parameters
 from OCP.TopAbs import TopAbs_EDGE, TopAbs_FACE, TopAbs_REVERSED, TopAbs_SOLID
@@ -310,6 +310,25 @@ def _weld(pts, t):
     t = inv[t]
     t = t[(t[:, 0] != t[:, 1]) & (t[:, 1] != t[:, 2]) & (t[:, 0] != t[:, 2])]
     return pts[first], t
+
+
+def face_planes(shape):
+    """Per face (face_map order): the exact plane of a flat face as (nx, ny, nz, d), the normal pointing out of
+    the solid and d = n . p for its points (millimetres, float64); NaN for a curved face. Tools place solids
+    on these instead of the float32 display mesh, whose noise would leave skins and slivers in booleans."""
+    out = np.full((len(face_map(shape)), 4), np.nan)
+    for fid, face in enumerate(face_map(shape)):
+        surf = BRepAdaptor_Surface(face)
+        if surf.GetType() != GeomAbs_Plane:
+            continue
+        pos = surf.Plane().Position()
+        d, o = pos.Direction(), pos.Location()
+        n = np.array([d.X(), d.Y(), d.Z()])
+        if face.Orientation() == TopAbs_REVERSED:
+            n = -n
+        n[np.abs(n) < 1e-15] = 0.0  # no -0.0 / 1e-17 components on axis-aligned faces
+        out[fid] = (*n, float(n @ np.array([o.X(), o.Y(), o.Z()])) + 0.0)
+    return out
 
 
 def _self_contained(rev):

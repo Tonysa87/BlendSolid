@@ -34,7 +34,7 @@ def test_message_without_arrays():
 def test_rejects_unsupported_dtype_on_send():
     a, _ = Pipe()
     with pytest.raises(protocol.ProtocolError):
-        protocol.send_message(a, {"type": "x"}, {"v": np.zeros(3, dtype=np.float64)})
+        protocol.send_message(a, {"type": "x"}, {"v": np.zeros(3, dtype=np.int64)})
 
 
 def test_rejects_malformed_header():
@@ -78,3 +78,12 @@ def test_closed_peer_raises_eof_error():
     a.close()
     with pytest.raises(EOFError):
         protocol.recv_message(b)
+
+
+def test_float64_arrays_round_trip():
+    # Exact face planes travel as float64.
+    a, b = Pipe()
+    planes = np.array([[0.0, 0.0, 1.0, 130.0], [np.nan] * 4], dtype=np.float64)
+    protocol.send_message(a, {"type": "r"}, {"planes": planes})
+    _, arrays = protocol.recv_message(b)
+    np.testing.assert_array_equal(arrays["planes"], planes)

@@ -64,6 +64,7 @@ class RunResult:
     verts: np.ndarray | None = None
     tris: np.ndarray | None = None
     tri_face: np.ndarray | None = None
+    planes: np.ndarray | None = None  # per face: exact plane (nx, ny, nz, d) or NaN (tessellate.face_planes)
     timing: dict = field(default_factory=dict)
 
 
@@ -176,11 +177,12 @@ def run_script(source, lin_defl=0.1, ang_defl=0.3, deps=(), tag=None, cache=None
         if not info["valid"]:
             return RunResult(False, "`result` is not a valid solid (BRepCheck failed)")
         verts, tris, tri_face = tessellate.tessellate(wrapped, lin_defl, ang_defl)
+        planes = tessellate.face_planes(wrapped)
         if tag is not None:
             cache.put(tag, shape)
         t2 = time.perf_counter()
         return RunResult(True, volume=info["volume"], faces=info["faces"], verts=verts, tris=tris, tri_face=tri_face,
-                         timing={"script": t1 - t0, "tessellate": t2 - t1})
+                         planes=planes, timing={"script": t1 - t0, "tessellate": t2 - t1})
     except Exception as e:
         # tessellate.check/tessellate (and any OCCT call here) must never take down the worker process.
         return RunResult(False, f"{type(e).__name__}: {e}")

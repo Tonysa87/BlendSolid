@@ -78,6 +78,13 @@ def arrow_set(obj_name, param, scale, offset):
     item.value = max(_minimum(param), offset / (scale * part.unit_factor()))  # -> ui._write_param
 
 
+def _drawing_tool_active(context):
+    """While the Draw Solid tool is active a click must start a drawing, even over a selected part's arrows."""
+    workspace = getattr(context, "workspace", None)
+    tool = workspace.tools.from_space_view3d_mode("OBJECT", create=False) if workspace is not None else None
+    return tool is not None and tool.idname == "blendsolid.draw_solid_tool"
+
+
 class BLENDSOLID_GGT_parameters(bpy.types.GizmoGroup):
     bl_idname = "BLENDSOLID_GGT_parameters"
     bl_label = "BlendSolid Parameters"
@@ -89,7 +96,7 @@ class BLENDSOLID_GGT_parameters(bpy.types.GizmoGroup):
     def poll(cls, context):
         obj = context.object
         return (context.mode == "OBJECT" and obj is not None and part.is_local_part(obj)
-                and not part.is_scaled(obj))
+                and not part.is_scaled(obj) and not _drawing_tool_active(context))
 
     def setup(self, context):
         self.key = None

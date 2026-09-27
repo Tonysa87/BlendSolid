@@ -77,3 +77,23 @@ def runtime_tick_until_synced(obj):
     from blendsolid import runtime
     runtime.tick()
     assert obj.blendsolid_params.get("box_1_height") is not None
+
+
+def _set_tool(idname):
+    win = bpy.context.window
+    area = next(a for a in win.screen.areas if a.type == "VIEW_3D")
+    region = next(r for r in area.regions if r.type == "WINDOW")
+    with bpy.context.temp_override(window=win, area=area, region=region):
+        bpy.ops.wm.tool_set_by_id(name=idname)
+
+
+def test_arrows_hide_while_the_draw_solid_tool_is_active(clean):
+    # Found in the manual GUI test: a selected part's arrows took the click meant to start a drawing.
+    obj = add_box()
+    try:
+        _set_tool("blendsolid.draw_solid_tool")
+        assert bpy.context.workspace.tools.from_space_view3d_mode("OBJECT").idname == "blendsolid.draw_solid_tool"
+        assert not gizmos.BLENDSOLID_GGT_parameters.poll(bpy.context)
+    finally:
+        _set_tool("builtin.select_box")
+    assert obj.select_get() and gizmos.BLENDSOLID_GGT_parameters.poll(bpy.context)

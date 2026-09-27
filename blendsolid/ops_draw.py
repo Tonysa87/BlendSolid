@@ -7,7 +7,9 @@ execute(), Blender's redo re-runs execute() with the values edited in the Adjust
 tests call it directly. The result is one feature with a fixed placement (a Location in the part's frame).
 """
 import dataclasses
+import json
 import math
+import struct
 
 import bpy
 from bpy.props import EnumProperty, FloatProperty, FloatVectorProperty, IntProperty, StringProperty
@@ -39,6 +41,10 @@ def change_step(scene, direction):
     return step_mm(scene)
 
 
+def _f32(x):
+    return struct.unpack("f", struct.pack("f", x))[0]
+
+
 def _local_part(name):
     obj = bpy.data.objects.get((name, None)) if name else None
     return obj if part.is_local_part(obj) else None
@@ -63,6 +69,9 @@ class BLENDSOLID_OT_draw_solid(bpy.types.Operator):
     width: FloatProperty(name="Width", default=10.0, min=0.001, precision=3, step=100)
     radius: FloatProperty(name="Radius", default=5.0, min=0.001, precision=3, step=100)
     height: FloatProperty(name="Height", default=10.0, min=0.001, precision=3, step=100)
+    # Float properties are float32: the exact (float64) placement of a drawing, used while location and
+    # rotation still hold its float32 rounding (edited by hand in the redo panel, they win).
+    exact: StringProperty(options={"HIDDEN", "SKIP_SAVE"})
 
     def draw(self, context):
         layout = self.layout
@@ -95,7 +104,8 @@ class BLENDSOLID_OT_draw_solid(bpy.types.Operator):
             self.report({"ERROR"}, part.scaled_message(reference))
             return {"CANCELLED"}
         kind = KIND[self.shape]
-        frame = drawing.frame_matrix(self.location, self.rotation, factor)
+        location, rotation = self._placement()
+        frame = drawing.frame_matrix(location, rotation, factor)
         if self.mode == "NEW":
             matrix = (reference.matrix_world if reference is not None else Matrix.Identity(4)) @ frame
             ops_add.add_primitive_part(context, kind, self._values(), matrix=matrix)
@@ -103,7 +113,7 @@ class BLENDSOLID_OT_draw_solid(bpy.types.Operator):
         spec = primitives.feature_spec(
             kind, self._values(), mode="ADD" if self.mode == "UNION" else "SUBTRACT",
             align=primitives.BASE if self.mode == "UNION" else primitives.TOP,
-            location=tuple(self.location), rotation=tuple(math.degrees(a) for a in self.rotation))
+            location=location, rotation=tuple(math.degrees(a) for a in rotation))
         try:
             source, _ = script_model.append_feature(part.source_of(reference), spec)
         except script_model.NotCanonical as e:
@@ -112,6 +122,19 @@ class BLENDSOLID_OT_draw_solid(bpy.types.Operator):
         reference.blendsolid_script.from_string(source)
         return {"FINISHED"}
 
+    def _placement(self):
+        """(location mm, rotation radians): the exact ones while the float32 properties still match them."""
+        location, rotation = tuple(self.location), tuple(self.rotation)
+        if self.exact:
+            try:
+                e = json.loads(self.exact)
+                if (all(_f32(a) == b for a, b in zip(e["location"], location))
+                        and all(_f32(a) == b for a, b in zip(e["rotation"], rotation))):
+                    return tuple(e["location"]), tuple(e["rotation"])
+            except (ValueError, KeyError, TypeError):
+                pass
+        return location, rotation
+
     # -- interactive drawing (the Draw Solid tool's left click) ---------------------------------------------------
 
     def invoke(self, context, event):
@@ -119,7 +142,8 @@ class BLENDSOLID_OT_draw_solid(bpy.types.Operator):
             return {"CANCELLED"}
         self.shape = context.scene.blendsolid_draw_shape
         origin, direction = _mouse_ray(context, event)
-        self._plane, self._target = pick_plane(context, origin, direction)
+        near = _near_rays(context, (event.mouse_region_x, event.mouse_region_y)) if context.region else ()
+        self._plane, self._target, self._local = pick(context, origin, direction, near=near)
         p = drawing.plane_coords(self._plane, origin, direction)
         if p is None:
             return {"CANCELLED"}
@@ -173,7 +197,8 @@ class BLENDSOLID_OT_draw_solid(bpy.types.Operator):
             p = drawing.plane_coords(self._plane, origin, direction)
             if p is not None:
                 self._p1 = p
-            self._drawn = drawing.drawn_solid(self.shape, self._plane, self._p0, self._p1, 0.0, self._factor, step)
+            self._drawn = drawing.drawn_solid(self.shape, self._plane, self._p0, self._p1, 0.0, self._factor, step,
+                                              local=self._local)
         else:
             h = drawing.height_along_normal(self._plane, self._base.frame.translation, origin, direction)
             self._drawn = dataclasses.replace(self._base, height=drawing.snap(h / self._factor, step))
@@ -213,25 +238,69 @@ def _mouse_ray(context, event):
             view3d_utils.region_2d_to_vector_3d(context.region, context.region_data, coord))
 
 
-def pick_plane(context, origin, direction):
-    """(drawing plane, target part or None) under the mouse ray: the face of the first object hit (looking
-    through wire-display objects such as cutters), else the plane through the 3D cursor. The target is that
-    object if it is a BlendSolid part the tools can edit (local, unscaled, trusted, canonical script); any
-    other object is drawn on as a new part, on its face's plane."""
-    depsgraph = context.evaluated_depsgraph_get()
+PICK_RADIUS_PX = 3  # a drag started this close to a part's face (e.g. on its edge) starts on that face
+
+
+def _near_rays(context, coord, radius=PICK_RADIUS_PX):
+    """Rays through 8 points `radius` pixels around region coordinate `coord` (for pick(near=...))."""
+    region, rv3d = context.region, context.region_data
+    rays = []
+    for k in range(8):
+        a = k * math.pi / 4
+        c = (coord[0] + radius * math.cos(a), coord[1] + radius * math.sin(a))
+        rays.append((view3d_utils.region_2d_to_origin_3d(region, rv3d, c),
+                     view3d_utils.region_2d_to_vector_3d(region, rv3d, c)))
+    return rays
+
+
+def _first_hit(context, depsgraph, origin, direction):
+    """(location, normal, polygon index, object) of the first object a ray hits, looking through wire-display
+    objects such as cutters, or None."""
     start, direction = Vector(origin), Vector(direction).normalized()
     for _ in range(16):
-        hit, location, normal, _, obj, _ = context.scene.ray_cast(depsgraph, start, direction)
+        hit, location, normal, index, obj, _ = context.scene.ray_cast(depsgraph, start, direction)
         if not hit:
-            break
+            return None
         obj = obj.original
         if obj.display_type in {"WIRE", "BOUNDS"}:
             start = location + direction * max(1e-6, location.length * 1e-6)
             continue
-        is_part = (part.is_local_part(obj) and not part.is_scaled(obj) and trust.is_trusted(obj)
-                   and script_model.is_canonical(part.source_of(obj)))
-        return drawing.plane_on_face(location, normal, obj.matrix_world), (obj if is_part else None)
-    return drawing.plane_at_cursor(context.scene.cursor.matrix), None
+        return location, normal, index, obj
+    return None
+
+
+def pick_plane(context, origin, direction):
+    """(drawing plane, target part or None) under the mouse ray: see pick()."""
+    return pick(context, origin, direction)[:2]
+
+
+def pick(context, origin, direction, near=()):
+    """(drawing plane, target part or None, the plane in the target's own coordinates or None) under the mouse
+    ray: the face of the first object hit (looking through wire-display objects such as cutters), else the
+    plane through the 3D cursor. When the ray misses, the `near` rays (a few pixels around the mouse) are
+    tried and the face most facing the view wins, so a drag started on a face's edge or corner starts on the
+    face looked at. The
+    target is the object hit if it is a BlendSolid part the tools can edit (local, unscaled, trusted,
+    canonical script); any other object is drawn on as a new part, on its face's plane. On a target's flat
+    face the plane comes from the face's exact plane (the worker's, not the float32 mesh), so what is drawn
+    there sits exactly on the face."""
+    depsgraph = context.evaluated_depsgraph_get()
+    found = _first_hit(context, depsgraph, origin, direction)
+    if found is None:
+        # On an edge or a corner several faces are near: the one facing the view most is the one looked at.
+        view = Vector(direction).normalized()
+        hits = [h for h in (_first_hit(context, depsgraph, o, d) for o, d in near) if h is not None]
+        found = max(hits, key=lambda h: abs(Vector(h[1]).normalized().dot(view)), default=None)
+    if found is None:
+        return drawing.plane_at_cursor(context.scene.cursor.matrix), None, None
+    location, normal, index, obj = found
+    is_part = (part.is_local_part(obj) and not part.is_scaled(obj) and trust.is_trusted(obj)
+               and script_model.is_canonical(part.source_of(obj)))
+    exact = part.face_plane(obj, index) if is_part and not obj.modifiers else None
+    if exact is not None:
+        local = drawing.plane_on_part_face(exact[0], exact[1])
+        return obj.matrix_world @ local.matrix(part.unit_factor(context.scene)), obj, local
+    return drawing.plane_on_face(location, normal, obj.matrix_world), (obj if is_part else None), None
 
 
 def _draw_preview(op):
@@ -271,19 +340,25 @@ class BLENDSOLID_OT_snap_step(bpy.types.Operator):
         return {"FINISHED"}
 
 
-def _hover(context, origin, direction):
-    """(world point, plane) of the grid node where a Ctrl drag starting under the mouse ray would begin."""
-    plane, _ = pick_plane(context, origin, direction)
+def _hover(context, origin, direction, near=()):
+    """(world point, plane, target) of the grid node where a Ctrl drag starting under the mouse would begin."""
+    plane, target, _ = pick(context, origin, direction, near=near)
     p = drawing.plane_coords(plane, origin, direction)
     if p is None:
         return None
     u, v = drawing.grid_node(plane, p, part.unit_factor(context.scene), step_mm(context.scene))
-    return plane.translation + plane.col[0].xyz * u + plane.col[1].xyz * v, plane
+    return plane.translation + plane.col[0].xyz * u + plane.col[1].xyz * v, plane, target
 
 
 def hover_node(context, origin, direction):
     found = _hover(context, origin, direction)
     return None if found is None else found[0]
+
+
+def marker_color(target):
+    """White: the drawing would start on the 3D cursor's plane (a new part); orange: on a part's face (a union
+    or a cut, by the direction of the height)."""
+    return (1.0, 1.0, 1.0, 0.9) if target is None else (1.0, 0.55, 0.1, 1.0)
 
 
 class BLENDSOLID_GT_snap_marker(bpy.types.Gizmo):
@@ -305,10 +380,10 @@ class BLENDSOLID_GT_snap_marker(bpy.types.Gizmo):
         region, rv3d = context.region, context.region_data
         origin = view3d_utils.region_2d_to_origin_3d(region, rv3d, self.mouse)
         direction = view3d_utils.region_2d_to_vector_3d(region, rv3d, self.mouse)
-        found = _hover(context, origin, direction)
+        found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
         if found is None:
             return
-        point, plane = found
+        point, plane, target = found
         here = view3d_utils.location_3d_to_region_2d(region, rv3d, point)
         if here is None:
             return
@@ -320,7 +395,7 @@ class BLENDSOLID_GT_snap_marker(bpy.types.Gizmo):
         batch = batch_for_shader(shader, "LINES", {"pos": [point - x, point + x, point - y, point + y]})
         shader.uniform_float("viewportSize", (region.width, region.height))
         shader.uniform_float("lineWidth", 2.0)
-        shader.uniform_float("color", (1.0, 1.0, 1.0, 0.9))
+        shader.uniform_float("color", marker_color(target))
         gpu.state.blend_set("ALPHA")
         gpu.state.depth_test_set("NONE")
         batch.draw(shader)
@@ -350,9 +425,13 @@ def drawn_properties(drawn, target, factor):
         mode = "NEW"
         if height < 0:  # drawn downwards: the new part's frame looks the other way
             frame = frame @ Matrix.Rotation(math.pi, 4, "X")
-    location, rotation = drawing.placement(frame, target.matrix_world if target is not None else None, factor)
+    if target is not None and drawn.local is not None:  # exact: already in the part's frame
+        location, rotation = drawing.placement_local(drawn.local)
+    else:
+        location, rotation = drawing.placement(frame, target.matrix_world if target is not None else None, factor)
     props = {"shape": drawn.shape, "mode": mode, "target": target.name if target is not None else "",
-             "location": location, "rotation": rotation, "height": abs(height)}
+             "location": location, "rotation": rotation, "height": abs(height),
+             "exact": json.dumps({"location": list(location), "rotation": list(rotation)})}
     if drawn.shape == "BOX":
         props.update(length=drawn.length, width=drawn.width)
     else:
