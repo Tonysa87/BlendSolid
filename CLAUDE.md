@@ -157,3 +157,11 @@ spike/s08_build_extension.sh                                               # per
   skins and slivers in OCCT booleans.
 - `scene.ray_cast` misses exactly on a face's edge or corner (not watertight): pick with a few-pixel ring of
   extra rays (`ops_draw.pick(near=...)`).
+- **Scripts write numbers with 6 decimals**, but a face can sit off that grid (a wall at `c ± w/2`): a placement on
+  a face's exact plane is written with 10 decimals (`FeatureSpec.exact`), or the feature starts 5e-07 mm off
+  the face (past OCCT's 1e-07 tolerance) and leaves a skin.
+- `bpy.utils.register_tool(after=<a tool inside a group>, separator=True)` puts a `None` inside that group and
+  Blender's own toolbar code raises; pass `group=True` for a button of its own after the group.
+- The WSLg offscreen screenshot renders the scene only (no draw handlers or gizmos): to see an overlay, draw it
+  into the `GPUOffScreen` after `draw_view3d` with the view/window matrices loaded; on Windows `gui_check`'s
+  screenshots are of the real window and include overlays.

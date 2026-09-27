@@ -1,39 +1,44 @@
 # Where we are / what's next (bookmark)
 
-Updated: 2026-09-27, end of session 3 (manual GUI test, first half). Read this first when resuming.
+Updated: 2026-09-27, end of session 4 (manual GUI test finished, snap guides built). Read this first when resuming.
 
 ## State
 - **Milestone 0 (spike):** done — `SPIKE_REPORT.md`.
 - **Milestone 1 (history as code):** done, merged to `main` and pushed — `docs/milestone-1-report.md`
   (105 automated tests, smoke tests on Windows + Linux, manual GUI test 8/8 OK).
-- **Milestone 1.5 (build without selectors): manual GUI test half done** — `docs/milestone-1.5-report.md`.
-  On 2026-09-27 the maintainer ran steps 1–11 and 14 by hand; every problem found was fixed test-first and
-  re-checked by them (display tessellation + tolerance + exact normals, ADR 0005; Draw Solid snap ladder,
-  sidebar access, worker warm-up, exact placements, edge picking, curved-face clearance, arrows hidden while
-  drawing, ADR 0006; restorable deleted cutters and a per-part booleans list, ADR 0007). 327 automated tests
-  pass; `tools/gui_check.py` PASS on Linux and Windows on the final code. All merged to `main` **locally, not pushed** (push only when the
-  milestone is signed off). The Windows 0.2.0 zip with all of it is installed in the portable Blender.
+- **Milestone 1.5 (build without selectors): manual GUI test passed (16/16), sign-off pending one check** —
+  `docs/milestone-1.5-report.md`. Session 4 (2026-09-27 afternoon) ran steps 12, 13, 15, 16 with the maintainer
+  and fixed what they showed: placements on exact face planes written with 10 decimals (a 5e-07 mm skin over a
+  pocket drawn from an earlier pocket's wall), Draw Solid as its own toolbar button (it sat inside Blender's Add
+  group with a `None` separator that made Blender's toolbar code raise). At the end the maintainer asked for
+  **snap guides**, now built (ADR 0006 point 5): axis-coloured marker (X red / Y green / Z blue, mixed on tilted
+  planes) with a normal stub and an orange/white ring, a local fading grid of the current step, height ticks,
+  and labels (size/height, snap step). 160 unit + 175 Blender = 335 tests pass; `tools/gui_check.py` PASS on
+  Linux and Windows; the snap guides were checked in the real Windows viewport (gui_check screenshot) and with an
+  offscreen probe on Linux — **not yet by the maintainer**. Everything is merged to `main` **locally, not
+  pushed**. The Windows 0.2.0 zip installed in the portable Blender is exactly `main`'s code. *Auto Run Python
+  Scripts* in the portable preferences was turned off for step 16 and turned back on (as it was).
 
 ## Next step (session with the maintainer)
-Finish the manual GUI test (plan `docs/superpowers/plans/2026-09-26-milestone-1.5-build-without-selectors.md`,
-Task 14 Step 1), guided one step at a time with exact actions and expected results (the maintainer asked for
-that level of detail):
-- Launch: `/mnt/e/blender-5.2.2-windows-x64/blender.exe >> spike/logs/gui-m1.5.log 2>&1` (run in background).
-  To install a new build, the maintainer must close Blender first (the running worker locks the files):
-  `"$PY" tools/build_extension.py --platform windows-x64 --blender "$BL"`, then `install-file`, then
-  `tools/smoke_installed.py` on Windows.
-- **Step 12:** Ctrl+Numpad + / * and Object menu → BlendSolid Boolean by hand; ask about other add-ons using the
-  same keys (Bool Tool).
-- **Step 13:** Draw Solid through a wire cutter picks the part behind it.
-- **Step 15:** Ctrl+Z back to the empty scene and Ctrl+Shift+Z to the end; each press is one action.
-- **Step 16:** save, quit, restart with *Auto Run Python Scripts* off, open: cached meshes, untrusted panel,
-  *Recompute* greyed with its tooltip; *Trust Scripts in This File* recomputes the stale parts; quit → no
-  worker left in Task Manager.
-- Corrections still valid: switch to Select Box (`W`) before steps that click objects; pick the wire cutter by
-  its lines or in the Outliner; use an angled view for the height stage of a drag.
-- Then: fill in the remaining "Manual" cells and the sign-off in `docs/milestone-1.5-report.md`, set the README
-  status to `✅ **Done**` (and mention the new tolerance/snapping/booleans list in "Try it" if useful), delete the
-  git-ignored SDD ledger (`.superpowers/sdd/2026-09-26-milestone-1.5-build-without-selectors/`), push `main`.
+1. **Check the snap guides** (the last open item), guided step by step. Launch
+   `/mnt/e/blender-5.2.2-windows-x64/blender.exe >> spike/logs/gui-m1.5.log 2>&1` (in background), then:
+   - Draw Solid tool, mouse over empty space: white ring, red/green cross, blue stub up, white grid around it;
+     over a box's top face: orange ring and orange grid; over a side face: red/blue cross, green stub (±Y).
+   - Ctrl+Wheel before clicking: the grid spacing changes at once (50 → 20 → 10 mm…); zoomed far out the fine
+     lines disappear first (only every 5th), then the whole grid.
+   - Ctrl+drag a base: the grid follows the dragged corner, the label shows `L × W mm` and `snap N mm`; release,
+     move for the height with Ctrl: ticks every step along the normal, label `H … mm`.
+   - A cursor rotated 30–45°: the cross/stub colours mix (e.g. purple between X and Z).
+   Ask whether size (20 px), grid reach (8 steps), fade and label size feel right; tune the constants
+   (`ops_draw.MARKER_ARM_PX`, `drawing.GRID_HALF`, `GRID_MAJOR`, `MIN_GRID_PX`, grid alphas in `_draw_grid`).
+   To install a new build, the maintainer must close Blender first (the worker locks the files):
+   `"$PY" tools/build_extension.py --platform windows-x64 --blender "$BL"`, `install-file`, then
+   `tools/smoke_installed.py` on Windows.
+2. **Sign off milestone 1.5:** sign-off line in `docs/milestone-1.5-report.md` (and the snap guides' "Manual"
+   note), README status `✅ **Done**`, delete the git-ignored SDD ledger
+   (`.superpowers/sdd/2026-09-26-milestone-1.5-build-without-selectors/`), push `main`.
+3. Then the next milestone (2, selectors from clicks) — or first the post-1.5 follow-ups the maintainer picks
+   (live cutter suppress/apply/cycling below). Ask which.
 
 ## Working agreement with the maintainer
 - Repo content in English; chat in Italian.
@@ -59,14 +64,17 @@ that level of detail):
 - Maintainer reported an error on `Ctrl+D` during the milestone 1 GUI test (not a Blender 5.2 default duplicate key;
   nothing in the console) — not investigated.
 - Optional GPU acceleration (fairing, SubD → NURBS) is an R&D note in the spec.
+- Snap guides: not compared in detail with BoxCutter's grid or CAD sketch grids (Plasticity, Fusion 360) —
+  worth a look if the maintainer finds them lacking (e.g. grid clipped to the face, snapping to edges/midpoints).
+- The drag's grid/labels are drawn by the modal; the hover marker hides while a modal runs (`ops_draw._drawing`).
 - **To analyse (maintainer's pointer, 2026-09-27):** SurfacePsycho, a Blender NURBS/CAD add-on —
   https://extensions.blender.org/add-ons/surfacepsycho/ — what it does, how (kernel, data model, UI), license,
   and whether it helps or overlaps BlendSolid (especially milestones 4–6: SubD → NURBS, G2 surfaces/fillets).
 - The maintainer's logos and icons in several sizes are in `logo/BlendSolid_icone_e_logo.pdf` (for the
   extension icon, README and the GitHub page when needed).
 - From milestone 1.5 (full list and reasoning: `docs/milestone-1.5-report.md`'s "Concerns / follow-ups"):
-  fixed Draw Solid placements don't follow later upstream changes to their target; no hover highlight or real
-  grid snapping in Draw Solid; "Apply" (inlining a cutter into its target) not built; a cutter's `SyntaxError`
+  fixed Draw Solid placements don't follow later upstream changes to their target; no hover highlight of the face
+  in Draw Solid (the snap guides show the plane); "Apply" (inlining a cutter) not built; a cutter's `SyntaxError`
   still shows an opaque filename to script-editing users; duplicating/pasting a target+cutter pair twice
   double-cuts the second target; `ref()` is re-parsed every reconcile tick with no perf test against many
   cutters; tag stability relies on 6-decimal rounding; the cone primitive can't be dialled to a perfectly

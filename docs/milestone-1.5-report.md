@@ -8,8 +8,9 @@ From `docs/spec.md`'s milestone table, milestone 1.5's success criterion, verbat
 > (Shift+A), the Draw Solid tool (on a face or the grid; union/cut by drag direction) and booleans between
 > parts with live cutters; every step is one undo step and one script edit
 
-**Met by automated evidence**; the manual GUI test with the maintainer is under way (session of 2026-09-27: steps
-1–11 and 14 done, with the fixes they led to; steps 12, 13, 15, 16 and the sign-off left for the next session).
+**Met by automated evidence and by the manual GUI test** (all 16 steps passed with the maintainer on 2026-09-27,
+after the fixes they led to). **Sign-off pending** one last check by the maintainer: the snap guides they asked
+for at the end of the test (see "Manual GUI test").
 
 - `tests/blender/test_success_criterion.py::test_build_the_default_part_and_a_bracket_with_three_holes` builds
   both parts with operators only (no hand-written script): the milestone 1 default part (box + boss, a Draw
@@ -38,7 +39,7 @@ Fresh run, `BL=~/blender/blender-5.2.2-linux-x64/blender tools/test.sh`:
 ```
 
 Total **238 passed**, 0 failed, wall time ~40 s (`time tools/test.sh`: real 0m40.4s). After the fixes of the manual
-test session (2026-09-27): **160 unit + 167 Blender = 327 passed**, 0 failed.
+test session (2026-09-27): **160 unit + 175 Blender = 335 passed**, 0 failed.
 
 ## What was built
 
@@ -167,8 +168,8 @@ steps of the manual test plan were instead driven automatically, unattended, in 
 | 15 | Undo to the empty scene, then redo everything | OK | OK | OK |
 | 16 | Save, reopen untrusted, Trust Scripts, recompute | OK | OK | OK (no worker left after quitting) |
 
-The Linux and Windows columns are the re-run of 2026-09-27 on the final code (`GUI CHECK PASS` on both; on
-Windows the worker process was gone once Blender quit).
+The Linux and Windows columns are the re-run of 2026-09-27 evening on the code with the snap guides
+(`GUI CHECK PASS` on both; on Windows the worker process was gone once Blender quit).
 
 One bug was found and fixed this way (not by a person): the parameter panel could stay stale after an undo that
 lands on a step pushed before the reconcile tick had mirrored the script into `blendsolid_params` (commit
@@ -206,6 +207,15 @@ installed and re-checked by the maintainer before moving on:
   written with 10 decimals (ADR 0006).
 - **Tracebacks from Blender's toolbar (step 13 log):** the tool had been registered inside Blender's Add group
   with a separator, which put a `None` inside the group; it is now a toolbar button of its own.
+- **Snap guides (maintainer's request after step 16):** after changing the step with Ctrl+Wheel it was hard to
+  see where the nodes were, and the snap cross said nothing about orientation. The marker is now bigger (20 px,
+  scaled with the interface), its arms and a stub along the plane normal take the world axis colours (X red,
+  Y green, Z blue, mixed on tilted planes), a ring keeps orange (part) / white (cursor plane); a local grid of
+  the current step fades out 8 steps around the node (every 5th line major; cells under 8 px on screen are not
+  drawn); while dragging with Ctrl the grid follows the dragged corner and the height stage shows ticks every
+  step along the normal; labels next to the solid show the base size or the height and the snap step
+  (ADR 0006). Checked in the real Windows viewport (`gui_check` screenshots) and with an offscreen probe on
+  Linux; **the maintainer's own check is the last open item before sign-off.**
 
 Decisions recorded: ADR 0005 (display tessellation, tolerance, exact normals), ADR 0006 (Draw Solid snapping
 and exact placements), ADR 0007 (live cutter lifecycle). Maintainer's session log: `spike/logs/gui-m1.5.log`.
@@ -308,8 +318,8 @@ From the plan:
   target's own earlier features move it later — research risk 2, not addressed this milestone.
 - Recompute latency while dragging gizmos on complex parts is untested beyond this milestone's simple parts —
   research risk 1.
-- No hover highlight of the face before a Draw Solid click (the snap cross shows the node and whether it is on a
-  part) — a candidate for milestone 2 alongside face picking.
+- No hover highlight of the face before a Draw Solid click (the snap marker and grid show the node, the plane and
+  whether it is on a part) — a candidate for milestone 2 alongside face picking.
 - "Apply" (inlining a cutter permanently into its target's script), per-boolean suppress and cutter cycling
   were not built (`docs/NEXT.md`).
 - Trimmed curved faces are still triangulated by BRepMesh: right shading (exact normals), sliver wireframe.

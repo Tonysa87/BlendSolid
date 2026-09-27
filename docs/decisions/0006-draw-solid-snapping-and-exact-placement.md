@@ -1,6 +1,7 @@
 # ADR 0006 — Draw Solid: snapping, and exact placements on faces
 
-- **Status:** accepted (2026-09-27, maintainer's requests and bugs found in the milestone 1.5 manual GUI test)
+- **Status:** accepted (2026-09-27, maintainer's requests and bugs found in the milestone 1.5 manual GUI test);
+  amended the same day (placement decimals, snap guides)
 - **Date:** 2026-09-27
 - **Context from:** manual GUI test, steps 6–8; research on BoxCutter, HardOps, Plasticity, Blender's Add Cube
 
@@ -32,6 +33,16 @@ curved face the drawing plane is the tangent plane, which touches the face along
 4. **Curved faces:** a solid drawn on a face without an exact plane reaches past it — a cut starts outside,
    a union inside the part — by the footprint's half-diagonal, capped at half the free space in front of the
    face (or the part's thickness behind it).
+5. **Snap guides (added at the end of the manual GUI test, maintainer's request):** the node marker is a cross
+   along the drawing plane plus a stub along its normal, each arm in its world axis colour (Blender's theme
+   X/Y/Z colours, mixed by the squared components of the direction on tilted planes), 20 px scaled with the
+   interface; a ring in the old colours (orange: a part, white: the cursor plane). Around it, a local grid of
+   the current step fading out over 8 steps (every 5th line major); cells under 8 px on screen fall back to the
+   major lines, or no grid. While dragging with Ctrl the grid follows the dragged corner; in the height stage
+   ticks mark every step along the normal. Labels next to the solid give the base size or the height and the
+   snap step. World axes (not the part's) match the navigation gizmo the user always sees. A local, fading
+   grid rather than one over the whole face: on large faces with small steps a full grid is a wall of lines
+   (not compared in detail with BoxCutter's or CAD sketch grids yet).
 
 ## Consequences
 
@@ -47,4 +58,7 @@ curved face the drawing plane is the tangent plane, which touches the face along
   closed the pocket. Only the component that must lie on the face gets the extra digits; the base centre in
   the plane is rounded to 6 decimals like the parameters (mouse positions are float32), so freehand scripts
   stay readable (`Location((0.0, 15.0000015, 10.0), ...)`).
+- The snap guides can't be tested headless (no GPU in background mode): their geometry is
+  (`drawing.axis_color`, `marker_lines`, `grid_segments`, `visible_grid_step`, `height_ticks`, `labels`), and
+  `tools/gui_check.py` draws the preview with Ctrl held in a real window.
 - Tests: `tests/blender/test_draw_tool.py`, `test_draw_solid.py` (exactness, picking, clearance, snapping).
