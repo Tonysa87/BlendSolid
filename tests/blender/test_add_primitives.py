@@ -123,3 +123,13 @@ def test_duplicate_part_ids_are_made_unique(clean, older_name, newer_name):
     runtime.tick()
     assert part.part_id(older) == older_id
     assert part.part_id(newer) not in (None, older_id)
+
+
+@pytest.mark.parametrize("kind", sorted(primitives.PRIMITIVES))
+def test_computed_primitive_is_smooth_shaded(clean, cursor, kind):
+    # Curved BRep faces must not render faceted: every triangle smooth, normals interpolated per vertex.
+    cursor.location, cursor.rotation_euler = (0, 0, 0), (0, 0, 0)
+    getattr(bpy.ops.blendsolid, f"add_{kind}")()
+    obj = bpy.context.view_layer.objects.active
+    wait_for(lambda: up_to_date(obj))
+    assert all(p.use_smooth for p in obj.data.polygons)

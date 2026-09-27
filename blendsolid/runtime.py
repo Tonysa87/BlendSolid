@@ -120,6 +120,7 @@ def _poll_events(factor):
 
 def tick():
     factor = part.unit_factor()  # ADR 0003; part of every tag, so a unit scale change recomputes every part
+    tol = part.tolerance()  # also part of every tag: changing it recomputes every part
     _poll_events(factor)
     groups = part.part_groups()  # built once per tick: everything below is linear in the number of objects
     index = deps.part_index(groups)
@@ -170,7 +171,7 @@ def tick():
 
             if worker_error is None:
                 try:
-                    client().submit(obj.name, source, tag, deps=resolved.deps)
+                    client().submit(obj.name, source, tag, lin_defl=tol, deps=resolved.deps)
                 except (WorkerStartError, FileNotFoundError) as e:  # FileNotFoundError: no worker libraries
                     worker_error = e
             if worker_error is not None:

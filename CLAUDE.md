@@ -140,3 +140,9 @@ spike/s08_build_extension.sh                                               # per
   (`poll()` receives `context.object = None`).
 - Headless tests of undo races must call `runtime.tick()` before `ed.undo()` to put a recompute in flight
   (timers don't fire in background mode).
+- **Display tessellation (ADR 0005):** BRepMesh triangulates curved faces with Delaunay in (u, v) space and gives
+  fans, slivers and a distorted seam band that no parameter fixes; full faces of revolution get BlendSolid's own
+  structured grids (`worker/tessellate.py`). The tolerance is a scene setting (mm, default 1) and part of the tag.
+- OCP 8: `Bnd_Box.Get()` can't be called (unregistered return type); use `SquareExtent()`/`CornerMin()`.
+- A scratch script named like a stdlib module (`inspect.py`) next to a script breaks numpy imports in Blender's
+  Python ("No module named 'bpy'"): name probes `bl_*.py`.
