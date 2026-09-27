@@ -161,11 +161,11 @@ steps of the manual test plan were instead driven automatically, unattended, in 
 | 9 | Ctrl / Shift+Ctrl snapping | OK | OK | OK |
 | 10 | Esc / right-click cancel a drag | OK | OK | OK |
 | 11 | Live cutter: boolean, move, rotate, edit radius | OK | OK | OK |
-| 12 | Other booleans (Ctrl+Numpad +/*, Object menu) | OK | OK | booleans used OK; keys/menu/add-on conflicts pending |
-| 13 | Draw through a wire cutter | OK | OK | pending |
+| 12 | Other booleans (Ctrl+Numpad +/*, Object menu) | OK | OK | OK (keys, Object menu; no conflicting add-on) |
+| 13 | Draw through a wire cutter | OK | OK | OK after fixes: placement decimals, toolbar group |
 | 14 | Deleted cutter (now restorable, see below) | OK | OK | OK (behaviour changed on request) |
-| 15 | Undo to the empty scene, then redo everything | OK | OK | pending |
-| 16 | Save, reopen untrusted, Trust Scripts, recompute | OK | OK | pending |
+| 15 | Undo to the empty scene, then redo everything | OK | OK | OK |
+| 16 | Save, reopen untrusted, Trust Scripts, recompute | OK | OK | OK (no worker left after quitting) |
 
 The Linux and Windows columns are the re-run of 2026-09-27 on the final code (`GUI CHECK PASS` on both; on
 Windows the worker process was gone once Blender quit).
@@ -200,12 +200,17 @@ installed and re-checked by the maintainer before moving on:
 - **Deleted cutters (step 14, maintainer's request, after research on Fusion 360 / HardOps / Onshape):** a
   deleted cutter keeps its script and placement and goes on cutting; the panel lists a part's booleans with
   Select, Restore and Remove. Suppress, Apply and cutter cycling are follow-ups (`docs/NEXT.md`).
+- **A skin over a pocket drawn from an earlier pocket's wall (step 13).** The wall sat at
+  y = -93.652651 + 53.694279 / 2 = -66.8055115 mm and the placement was written rounded to 6 decimals: the cut
+  started 5e-07 mm inside the material, past OCCT's 1e-07 mm tolerance. Placements on exact face planes are now
+  written with 10 decimals (ADR 0006).
+- **Tracebacks from Blender's toolbar (step 13 log):** the tool had been registered inside Blender's Add group
+  with a separator, which put a `None` inside the group; it is now a toolbar button of its own.
 
 Decisions recorded: ADR 0005 (display tessellation, tolerance, exact normals), ADR 0006 (Draw Solid snapping
 and exact placements), ADR 0007 (live cutter lifecycle). Maintainer's session log: `spike/logs/gui-m1.5.log`.
 
-Still for the next session: steps 12 (Ctrl+Numpad keys and the Object menu by hand, conflicts with other
-add-ons), 13, 15, 16 (quit/restart with *Auto Run* off, the *Recompute* tooltip, Task Manager), then sign-off.
+All 16 steps passed (second session, 2026-09-27 afternoon: steps 12, 13, 15, 16).
 
 ## Deviations from the design notes
 

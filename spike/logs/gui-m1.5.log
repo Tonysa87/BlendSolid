@@ -179,3 +179,19 @@ Traceback (most recent call last):
 AttributeError: 'NoneType' object has no attribute 'idname'
 06:06.625  operator         | Deleted 1 object(s)
 08:43.484  operator         | Saved "cut.blend"
+=== session 4b (fixes: placement decimals, toolbar group) Sun Sep 27 15:09:41 CEST 2026 ===
+00:19.296  operator         | Deleted 3 object(s)
+06:49.390  operator         | Deleted 2 object(s)
+06:58.484  operator         | Deleted 3 object(s)
+20:00.750  blend            | Saved session recovery to "C:\Users\Tony\AppData\Local\Temp\quit.blend"
+20:00.750  blend            | Writing user preferences: "E:\blender-5.2.2-windows-x64\portable\config\userpref.blend" 
+20:00.750  reports          | Preferences saved
+Repository data: E:\blender-5.2.2-windows-x64\portable\extensions\blender_org not found, sync required!
+
+Blender quit
+=== session 4c (step 16, Auto Run off) Sun Sep 27 15:30:16 CEST 2026 ===
+04:51.812  operator         | Deleted 3 object(s)
+05:06.891  blend            | Read blend: "E:\bs_debug\cut.blend"
+05:28.187  blend            | Saved session recovery to "C:\Users\Tony\AppData\Local\Temp\quit.blend"
+
+Blender quit
