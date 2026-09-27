@@ -2,8 +2,8 @@
 
 **Exact BRep/NURBS CAD modeling inside Blender, with a parametric history written as code and a 100% native Blender interface.**
 
-> **Status: early development (pre-alpha).** Milestones 0 (feasibility spike) and 1 (history as code) are done;
-> 1.5 (build without selectors) is implemented, with its manual GUI test pending. A part is a build123d script
+> **Status: early development (pre-alpha).** Milestones 0 (feasibility spike), 1 (history as code) and
+> 1.5 (build without selectors) are done. A part is a build123d script
 > behind the scenes, with draggable parameters, undo and a separate geometry process; parts can now be built
 > with parametric primitives (Shift+A), the interactive Draw Solid tool and booleans between parts with live
 > cutters, no clicking on faces or edges yet. It is a developer preview, not ready for production work — watch
@@ -71,7 +71,7 @@ Each milestone has a measurable success criterion.
 | --- | --- | --- | --- |
 | 0 | Feasibility spike | OCP runs in Blender 5.2; solid visible as mesh; `--split-platforms` build under 100 MB; no DLL conflicts; proxy and GN gizmos tested; undo doesn't corrupt state | ✅ **Done** — see [SPIKE_REPORT.md](SPIKE_REPORT.md) |
 | 1 | History as code | History script stored in the `.blend`; changing a parameter recomputes correctly; worker in a separate process | ✅ **Done** — see [docs/milestone-1-report.md](docs/milestone-1-report.md) |
-| 1.5 | Build without selectors | Parametric primitives (Shift+A), Draw Solid on a face or the grid (union/cut by drag direction), booleans between parts with live cutters — see [modeling workflows research](docs/research/2026-09-26-modeling-workflows.md) | ⚠️ **Implemented** — manual GUI test passed, sign-off pending, see [docs/milestone-1.5-report.md](docs/milestone-1.5-report.md) |
+| 1.5 | Build without selectors | Parametric primitives (Shift+A), Draw Solid on a face or the grid (union/cut by drag direction), booleans between parts with live cutters — see [modeling workflows research](docs/research/2026-09-26-modeling-workflows.md) | ✅ **Done** — see [docs/milestone-1.5-report.md](docs/milestone-1.5-report.md) |
 | 2 | Selectors from clicks | Face/edge → feature provenance first; 95% of clicked edges and faces on a set of 20 parts produce a unique selector that survives 3 upstream changes | Planned |
 | 3 | Publishable MVP | MVP column of the feature catalog complete; published on extensions.blender.org | Planned |
 | 4 | SubD → NURBS | Regular faces converted within tolerance; solid valid for OCCT | Planned |

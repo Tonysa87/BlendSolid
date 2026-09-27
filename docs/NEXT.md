@@ -1,45 +1,21 @@
 # Where we are / what's next (bookmark)
 
-Updated: 2026-09-27, end of session 4 (manual GUI test finished, snap guides built). Read this first when resuming.
+Updated: 2026-09-27, session 5 (milestone 1.5 signed off). Read this first when resuming.
 
 ## State
 - **Milestone 0 (spike):** done — `SPIKE_REPORT.md`.
-- **Milestone 1 (history as code):** done, merged to `main` and pushed — `docs/milestone-1-report.md`
-  (105 automated tests, smoke tests on Windows + Linux, manual GUI test 8/8 OK).
-- **Milestone 1.5 (build without selectors): manual GUI test passed (16/16), sign-off pending one check** —
-  `docs/milestone-1.5-report.md`. Session 4 (2026-09-27 afternoon) ran steps 12, 13, 15, 16 with the maintainer
-  and fixed what they showed: placements on exact face planes written with 10 decimals (a 5e-07 mm skin over a
-  pocket drawn from an earlier pocket's wall), Draw Solid as its own toolbar button (it sat inside Blender's Add
-  group with a `None` separator that made Blender's toolbar code raise). At the end the maintainer asked for
-  **snap guides**, now built (ADR 0006 point 5): axis-coloured marker (X red / Y green / Z blue, mixed on tilted
-  planes) with a normal stub and an orange/white ring, a local fading grid of the current step, height ticks,
-  and labels (size/height, snap step). 160 unit + 175 Blender = 335 tests pass; `tools/gui_check.py` PASS on
-  Linux and Windows; the snap guides were checked in the real Windows viewport (gui_check screenshot) and with an
-  offscreen probe on Linux — **not yet by the maintainer**. Everything is merged to `main` and **pushed** (at the
-  maintainer's request, before the sign-off). The Windows 0.2.0 zip installed in the portable Blender is exactly
-  `main`'s code. *Auto Run Python Scripts* in the portable preferences was turned off for step 16 and turned
-  back on (as it was).
+- **Milestone 1 (history as code):** done — `docs/milestone-1-report.md`.
+- **Milestone 1.5 (build without selectors):** **done, signed off by the maintainer on 2026-09-27** —
+  `docs/milestone-1.5-report.md` (manual GUI test 16/16, then the snap guides checked in the Windows viewport:
+  empty space, top/side/cylindrical faces, Ctrl+Wheel step, zoom fading, drag labels, cursor rotated 40°; no
+  tuning asked). The Windows 0.2.0 zip installed in the portable Blender is `main`'s code.
+- The git-ignored SDD ledger `.superpowers/sdd/2026-09-26-milestone-1.5-build-without-selectors/` is still on
+  disk (deleting it was blocked by the permission classifier): the maintainer may delete it by hand.
 
-## Next step (session with the maintainer)
-1. **Check the snap guides** (the last open item), guided step by step. Launch
-   `/mnt/e/blender-5.2.2-windows-x64/blender.exe >> spike/logs/gui-m1.5.log 2>&1` (in background), then:
-   - Draw Solid tool, mouse over empty space: white ring, red/green cross, blue stub up, white grid around it;
-     over a box's top face: orange ring and orange grid; over a side face: red/blue cross, green stub (±Y).
-   - Ctrl+Wheel before clicking: the grid spacing changes at once (50 → 20 → 10 mm…); zoomed far out the fine
-     lines disappear first (only every 5th), then the whole grid.
-   - Ctrl+drag a base: the grid follows the dragged corner, the label shows `L × W mm` and `snap N mm`; release,
-     move for the height with Ctrl: ticks every step along the normal, label `H … mm`.
-   - A cursor rotated 30–45°: the cross/stub colours mix (e.g. purple between X and Z).
-   Ask whether size (20 px), grid reach (8 steps), fade and label size feel right; tune the constants
-   (`ops_draw.MARKER_ARM_PX`, `drawing.GRID_HALF`, `GRID_MAJOR`, `MIN_GRID_PX`, grid alphas in `_draw_grid`).
-   To install a new build, the maintainer must close Blender first (the worker locks the files):
-   `"$PY" tools/build_extension.py --platform windows-x64 --blender "$BL"`, `install-file`, then
-   `tools/smoke_installed.py` on Windows.
-2. **Sign off milestone 1.5:** sign-off line in `docs/milestone-1.5-report.md` (and the snap guides' "Manual"
-   note), README status `✅ **Done**`, delete the git-ignored SDD ledger
-   (`.superpowers/sdd/2026-09-26-milestone-1.5-build-without-selectors/`), commit and push.
-3. Then the next milestone (2, selectors from clicks) — or first the post-1.5 follow-ups the maintainer picks
-   (live cutter suppress/apply/cycling below). Ask which.
+## Next step
+Ask the maintainer which comes first: **milestone 2 (selectors from clicks)**, or the post-1.5 follow-ups
+(live cutters: per-boolean suppress toggle, "Apply" to inline a cutter, cycling through a part's cutters), or
+the SurfacePsycho analysis (below).
 
 ## Working agreement with the maintainer
 - Repo content in English; chat in Italian.

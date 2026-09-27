@@ -9,8 +9,8 @@ From `docs/spec.md`'s milestone table, milestone 1.5's success criterion, verbat
 > parts with live cutters; every step is one undo step and one script edit
 
 **Met by automated evidence and by the manual GUI test** (all 16 steps passed with the maintainer on 2026-09-27,
-after the fixes they led to). **Sign-off pending** one last check by the maintainer: the snap guides they asked
-for at the end of the test (see "Manual GUI test").
+after the fixes they led to), including the snap guides they asked for at the end of the test.
+**Signed off by the maintainer on 2026-09-27.**
 
 - `tests/blender/test_success_criterion.py::test_build_the_default_part_and_a_bracket_with_three_holes` builds
   both parts with operators only (no hand-written script): the milestone 1 default part (box + boss, a Draw
@@ -215,7 +215,9 @@ installed and re-checked by the maintainer before moving on:
   drawn); while dragging with Ctrl the grid follows the dragged corner and the height stage shows ticks every
   step along the normal; labels next to the solid show the base size or the height and the snap step
   (ADR 0006). Checked in the real Windows viewport (`gui_check` screenshots) and with an offscreen probe on
-  Linux; **the maintainer's own check is the last open item before sign-off.**
+  Linux; **checked by the maintainer on 2026-09-27** (marker in empty space and over top/side/cylindrical
+  faces, Ctrl+Wheel step and zoom fading, base and height drag with labels, cursor rotated 40°): all as
+  expected, no tuning asked.
 
 Decisions recorded: ADR 0005 (display tessellation, tolerance, exact normals), ADR 0006 (Draw Solid snapping
 and exact placements), ADR 0007 (live cutter lifecycle). Maintainer's session log: `spike/logs/gui-m1.5.log`.
