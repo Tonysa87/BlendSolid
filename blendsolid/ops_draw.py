@@ -182,7 +182,8 @@ class BLENDSOLID_OT_draw_solid(bpy.types.Operator):
             if abs(self._drawn.height) < MIN_MM:
                 self.report({"WARNING"}, "The solid has no height: nothing drawn")
                 return {"CANCELLED"}
-            for key, value in drawn_properties(self._drawn, self._target, self._factor).items():
+            clearance = curved_face_clearance(context, self._drawn, self._target, self._factor)
+            for key, value in drawn_properties(self._drawn, self._target, self._factor, clearance).items():
                 setattr(self, key, value)
             return self.execute(context)
         self._header(context)
@@ -415,10 +416,35 @@ class BLENDSOLID_GGT_draw_hover(bpy.types.GizmoGroup):
         self.gizmos.new(BLENDSOLID_GT_snap_marker.bl_idname)
 
 
-def drawn_properties(drawn, target, factor):
+def curved_face_clearance(context, drawn, target, factor):
+    """Millimetres a solid drawn on a part's face without an exact plane (a curved face) must reach past it.
+    Its base lies on the tangent plane, which touches a curved face along a line: a boolean with a face that
+    close leaves slivers. So a cut starts outside the face and a union inside the part, by the footprint's
+    half-diagonal (enough to cover the curvature under it), but at most half the free space in front of the
+    face (a cut must not bite the far wall of a hole) or half the part's thickness behind it (a union must not
+    come out the other side). 0 on a flat face with an exact plane, or for a new part."""
+    if target is None or drawn.local is not None or drawn.height == 0:
+        return 0.0
+    half = math.hypot(drawn.length, drawn.width) / 2 if drawn.shape == "BOX" else drawn.radius
+    outward = drawn.frame.col[2].xyz.normalized() * (1.0 if drawn.height < 0 else -1.0)  # cut: out of the face
+    base = drawn.frame.translation
+    depsgraph = context.evaluated_depsgraph_get()
+    start = base + outward * max(1e-6, half * factor * 1e-3)
+    hit, location, *_ = context.scene.ray_cast(depsgraph, start, outward)
+    room = (location - base).length / factor if hit else math.inf
+    return min(half, room / 2)
+
+
+def drawn_properties(drawn, target, factor, clearance=0.0):
     """The draw_solid operator properties for a drag (drawing.Drawn) on part `target` (or None): on a part,
-    a positive height (out of the face) is a union and a negative one a cut; elsewhere it is a new part."""
+    a positive height (out of the face) is a union and a negative one a cut; elsewhere it is a new part.
+    `clearance` (mm, curved_face_clearance): how far the solid reaches past the face it was drawn on."""
     frame, height = drawn.frame, drawn.height
+    if clearance:
+        frame = frame.copy()
+        away = 1.0 if height < 0 else -1.0  # a cut starts outside the face, a union inside the part
+        frame.translation = frame.translation + frame.col[2].xyz.normalized() * (away * clearance * factor)
+        height += -clearance if height < 0 else clearance
     if target is not None:
         mode = "UNION" if height > 0 else "CUT"
     else:

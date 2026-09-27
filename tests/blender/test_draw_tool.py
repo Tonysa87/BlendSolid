@@ -407,3 +407,29 @@ def test_a_drag_started_on_a_face_edge_still_picks_the_part(clean):
 
 def test_marker_colour_tells_a_part_face_from_the_cursor_plane():
     assert ops_draw.marker_color(None) != ops_draw.marker_color(object())
+
+
+def test_a_cut_into_a_curved_face_starts_outside_it(clean, rays):
+    # Found in the manual GUI test: a cylinder cut drawn on a cylinder's side started on the tangent plane,
+    # which touches the side along a line, and the boolean left sliver faces there. On a face without an exact
+    # plane the tool now starts outside it by a clearance covering the curvature under the footprint.
+    bpy.context.scene.cursor.location = (0, 0, 0)
+    bpy.ops.blendsolid.add_cylinder(radius=10, height=20)
+    cyl = bpy.context.view_layer.objects.active
+    wait_for(lambda: up_to_date(cyl))
+    bpy.context.view_layer.update()
+    d = Driver("CYLINDER")
+    d.run([
+        d.x_face_event("LEFTMOUSE", "PRESS", (0.0, 0.0, 0.01)),         # the side, at x = 10 mm
+        d.x_face_event("MOUSEMOVE", "NOTHING", (0.0, 0.003, 0.01)),
+        d.x_face_event("LEFTMOUSE", "RELEASE", (0.0, 0.003, 0.01)),      # radius 3 mm
+        d.event("MOUSEMOVE", "NOTHING", (0.005, 0.0, 0.01)),              # 5 mm into the part
+        d.event("LEFTMOUSE", "PRESS", (0.005, 0.0, 0.01)),
+    ])
+    assert d.executed["mode"] == "CUT"
+    # the click lands on the tessellated side, a few micrometres inside the exact one
+    assert d.executed["height"] == pytest.approx(5 + 3, abs=0.02)       # depth + clearance (the radius)
+    assert d.executed["location"][0] == pytest.approx(10 + 3, abs=0.02)  # starts 3 mm outside the side
+    wait_for(lambda: up_to_date(cyl))
+    faces = len({f.value for f in cyl.data.attributes["brep_face_id"].data})
+    assert faces == 5  # side, top, bottom, the hole's wall and its floor: no slivers
