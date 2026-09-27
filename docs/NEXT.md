@@ -38,14 +38,22 @@ Updated: 2026-09-27, session 5 (milestone 1.5 signed off; milestone 2 phase A bu
   reference, dragged, undone). The Windows zip with the tool is built (`dist/`) but **not installed**: the
   maintainer's Blender was open.
 
+- **Phase D done:** `blendsolid/ops_pushpull.py` (the `blendsolid.push_pull` operator and the **Push/Pull** tool:
+  press on a flat face, drag along its normal, out adds / in cuts, Ctrl snaps; writes
+  `extrude(face("box_1", "+X"), amount=push_1_amount, mode=Mode.ADD)`). `gui_check` 19/19 PASS on Linux;
+  215 unit + 206 Blender tests pass. The Windows zip in `dist/` has phases A–D; **not installed yet**.
+
 ## Next step
-1. **GUI check of the Fillet tool with the maintainer** (Windows): close Blender, install the zip, smoke test,
-   relaunch `blender.exe >> spike/logs/gui-m2.log 2>&1`. Then: toolbar → Fillet (icon under Draw Solid); hover a
-   part: the edge under the mouse turns light blue (the face's outline inside a face); click an edge (orange),
-   Shift+click another; press and drag: the fillet grows live, the header shows the radius; C switches to a
-   chamfer; release: one feature, one undo step (Ctrl+Z removes it). Check a part with a Bevel modifier too.
-   Also ask what blocked step 4 of the phase A check (Draw Solid on a beveled part: gui_check step 17 passes).
-2. Phase D: Push/Pull tool (design section D), then E (broken references), F (corpus criterion test).
+1. **GUI check of Fillet and Push/Pull with the maintainer** (Windows): close Blender, install the zip, smoke
+   test, relaunch `blender.exe >> spike/logs/gui-m2.log 2>&1`, then:
+   - Toolbar → **Fillet** (under Draw Solid): hover a part: the edge under the mouse turns light blue (inside a
+     face: its outline); click an edge (orange), Shift+click another; press and drag: the fillet grows live, the
+     header shows the radius; C: chamfer; Ctrl: snap; release: one feature, Ctrl+Z removes it.
+   - Toolbar → **Push/Pull**: hover a flat face (outline); press and drag outwards: a block grows; inwards: a
+     pocket; Ctrl snaps; release commits, Ctrl+Z undoes.
+   - Change an upstream parameter (e.g. the box length in the sidebar): the fillet and the push follow their faces.
+   - Ask what blocked step 4 of the phase A check (Draw Solid on a beveled part; gui_check step 17 passes).
+2. Then phase E (broken references: warnings, last good match signature) and F (20-part corpus criterion test).
 
 ## Working agreement with the maintainer
 - Repo content in English; chat in Italian.
