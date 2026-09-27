@@ -10,8 +10,8 @@ Updated: 2026-09-27, end of session 3 (manual GUI test, first half). Read this f
   On 2026-09-27 the maintainer ran steps 1–11 and 14 by hand; every problem found was fixed test-first and
   re-checked by them (display tessellation + tolerance + exact normals, ADR 0005; Draw Solid snap ladder,
   sidebar access, worker warm-up, exact placements, edge picking, curved-face clearance, arrows hidden while
-  drawing; restorable deleted cutters and a per-part booleans list). 327 automated tests pass; `tools/gui_check.py`
-  PASS on Linux and Windows on the final code. All merged to `main` **locally, not pushed** (push only when the
+  drawing, ADR 0006; restorable deleted cutters and a per-part booleans list, ADR 0007). 327 automated tests
+  pass; `tools/gui_check.py` PASS on Linux and Windows on the final code. All merged to `main` **locally, not pushed** (push only when the
   milestone is signed off). The Windows 0.2.0 zip with all of it is installed in the portable Blender.
 
 ## Next step (session with the maintainer)
@@ -35,17 +35,14 @@ that level of detail):
   status to `✅ **Done**` (and mention the new tolerance/snapping/booleans list in "Try it" if useful), delete the
   git-ignored SDD ledger (`.superpowers/sdd/2026-09-26-milestone-1.5-build-without-selectors/`), push `main`.
 
-## Open question for the maintainer
-- **Commit trailer rule:** should every commit keep a fixed `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`
-  line regardless of which model actually wrote it, or should the trailer name the model that wrote each commit
-  (as this session's commits do)? Settle this before milestone 2's first commit.
-
 ## Working agreement with the maintainer
 - Repo content in English; chat in Italian.
 - Work autonomously; record non-trivial decisions as ADRs (`docs/decisions/`) or ledger rulings; ask only for
   spec scope changes, publication/licensing/distribution, or anything touching the maintainer's own Blender install.
-- Commit trailer: currently the model that wrote each commit (e.g. `Co-Authored-By: Claude Sonnet 5
-  <noreply@anthropic.com>`) + the session's `Claude-Session:` line — see "Open question" above.
+- Commit trailer: keep the fixed `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>` line for this
+  project (settled 2026-09-27); the maintainer wants it removed for good in the future.
+- GUI tests: one step at a time, exact actions and expected results; when a screenshot shows a mesh problem,
+  measure exactly what it shows first; installing a build needs the maintainer to close Blender.
 
 ## Open follow-ups (not blocking)
 - **Live cutters, after milestone 1.5** (maintainer's request, 2026-09-27; research: Fusion 360 timeline

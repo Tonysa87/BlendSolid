@@ -1,0 +1,44 @@
+# ADR 0006 — Draw Solid: snapping, and exact placements on faces
+
+- **Status:** accepted (2026-09-27, maintainer's requests and bugs found in the milestone 1.5 manual GUI test)
+- **Date:** 2026-09-27
+- **Context from:** manual GUI test, steps 6–8; research on BoxCutter, HardOps, Plasticity, Blender's Add Cube
+
+## Context
+
+Draw Solid snapped only to 1 mm (0.1 mm with Shift) and only dimensions and the base centre. Solids drawn on a
+part's face were placed from the float32 mesh hit point and `matrix_world`, converted with `mathutils` (float32,
+π → 180.000005°) and stored in float32 operator properties: a cut from a bottom face started 3e-05 mm above it
+(a skin closed the pocket) and side cuts were rotated 90.000003°, so OCCT booleans left skins and slivers. A drag
+started exactly on a part's corner missed the part (ray casts aren't watertight) and made a new part. On a
+curved face the drawing plane is the tangent plane, which touches the face along a line: booleans left slivers.
+
+## Decision
+
+1. **Snapping (Blender/BoxCutter convention):** Ctrl snaps, Shift+Ctrl uses a tenth of the step. The step is a
+   scene setting on a ladder 0.1 mm – 10 m, changed with Ctrl+Wheel before the first click (tool keymap) or
+   while drawing (modal); the wheel alone still zooms. Snapping is absolute: both corners of a box (a cylinder's
+   centre) go to grid nodes, radius and height to multiples of the step. The grid is the 3D cursor's plane, or
+   on a part's face the part's own origin projected on it. A cross marks the node under the mouse: orange over
+   a part (union/cut), white over the cursor plane (new part). Shape and step are shown in the tool header and
+   in the BlendSolid sidebar, whose button activates the tool. A part's parameter arrows hide while the tool is
+   active (they took the click).
+2. **Exact placements on flat faces:** the worker sends each flat face's plane in float64 (`face_planes`,
+   stored on the mesh); Draw Solid builds the drawing plane from it in the part's own coordinates
+   (`drawing.LocalPlane`, float64 Euler angles) and keeps the exact placement through the float32 redo
+   properties (a hidden `exact` property, used while the visible values still match it).
+3. **Edge picking:** when the ray under the mouse misses, rays 3 px around it are tried; on an edge the face
+   most facing the view wins.
+4. **Curved faces:** a solid drawn on a face without an exact plane reaches past it — a cut starts outside,
+   a union inside the part — by the footprint's half-diagonal, capped at half the free space in front of the
+   face (or the part's thickness behind it).
+
+## Consequences
+
+- Scripts written on flat faces carry exact numbers (0, 130, 90°); the maintainer's parts rebuild with the
+  expected face counts and volumes (e.g. 738000 mm³, 26 faces instead of slivers).
+- On curved faces the numbers are not round (tessellated hit point, tangent plane) and the tool is a little
+  longer than drawn by the clearance, visible in the redo panel.
+- Blender gives no modifier state outside a modal operator, so the snap cross can't depend on Ctrl being held:
+  it is always shown while the tool is active.
+- Tests: `tests/blender/test_draw_tool.py`, `test_draw_solid.py` (exactness, picking, clearance, snapping).
