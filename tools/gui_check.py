@@ -1143,8 +1143,6 @@ def step17():
 def step18():
     """Milestone 2 phase C: the Fillet tool. Click an edge, Shift+click another (the selection holds both), then
     drag: one fillet feature naming both edges by reference, the part recomputed without error."""
-    for sub in ("ops_fillet", "picking"):
-        setattr(bs, sub, importlib.import_module(bs.part.__name__.rsplit(".", 1)[0] + "." + sub))
     CLICK = bs.ops_fillet.BLENDSOLID_OT_fillet_click
     orig_header = CLICK._header
 
@@ -1213,8 +1211,53 @@ def step18():
     return f"2 edges picked by reference, dragged radius {radius:.2f} mm -> {removed:.1f} mm³ less; one undo removes it"
 
 
+def step19():
+    """Milestone 2 phase D: the Push/Pull tool. Press on the default part's +X face and drag outwards along its
+    normal (a block is added), then on the top face and drag inwards (a pocket is cut); one feature and one undo
+    step each."""
+    deselect()
+    obj = bs.part.new_part(bpy.context)  # box 40 x 30 x 20 from the origin, boss, fillet
+    obj.location = (0.0, -0.4, 0.0)
+    name = obj.name
+    yield from settled(name)
+    op(bpy.ops.ed.undo_push, message="Part for step 19")  # made from Python: not an undo step by itself
+    v0, n_feat = mm3(ob(name)), len(features(ob(name)))
+    with override():
+        bpy.ops.wm.tool_set_by_id(name="blendsolid.push_pull_tool")
+    if not SIM:
+        return "SKIP: needs --enable-event-simulate"
+    yield from set_view((45, -385, 10), rot_deg=(70, 0, 50), dist=0.18)
+    yield from warm_up()
+    for start_mm, end_mm, sign in (((40, -392, 10), (52, -392, 10), 1), ((30, -396, 20), (30, -396, 14), -1)):
+        yield from settled(name)
+        a, b = px(start_mm), px(end_mm)
+        yield from move(a, a, 1)
+        ev("LEFTMOUSE", "PRESS", a, ctrl=True)
+        yield 0.1
+        yield from move(a, b, ctrl=True)
+        yield 0.3
+        ev("LEFTMOUSE", "RELEASE", b, ctrl=True)
+        yield 0.3
+    feats = [n for n, _ in features(ob(name))]
+    expect(feats[n_feat:] == ["push_1", "push_2"], f"features {feats}")
+    source = bs.part.source_of(ob(name))
+    expect('extrude(face("box_1", "+X"), amount=push_1_amount, mode=Mode.ADD)' in source, "no pull on box_1 +X")
+    expect('extrude(face("box_1", "+Z"), amount=-push_2_amount, mode=Mode.SUBTRACT)' in source, "no push on box_1 +Z")
+    yield from settled(name)
+    values = {p.name: p.value for p in ob(name).blendsolid_params}
+    expect(ob(name).blendsolid_error == "", f"error {ob(name).blendsolid_error!r}")
+    expect(abs(values["push_1_amount"] - 12) < 1.01 and abs(values["push_2_amount"] - 6) < 1.01,
+           f"amounts {values['push_1_amount']}, {values['push_2_amount']} (Ctrl snapped, about 12 and 6)")
+    screenshot("push-pull")
+    op(bpy.ops.ed.undo)
+    yield from settled(name)
+    expect([n for n, _ in features(ob(name))][n_feat:] == ["push_1"], "one undo doesn't remove only the push")
+    return (f"pull +X {values['push_1_amount']:g} mm, push top {values['push_2_amount']:g} mm "
+            f"({mm3(ob(name)) - v0:+.1f} mm³ after undoing the push)")
+
+
 STEPS = [step1, step2, step3, step4, step5, step6, step7, step8, step9, step10, step11, step12, step13, step14,
-         step15, step16, step17, step18]
+         step15, step16, step17, step18, step19]
 
 
 def scenario():
@@ -1229,7 +1272,7 @@ def scenario():
         if name is None:
             raise Fail("the blendsolid add-on is not enabled")
         for sub in ("part", "runtime", "gizmos", "ops_add", "ops_boolean", "ops_draw", "drawing", "primitives",
-                    "script_model", "params", "trust", "ui", "deps"):
+                    "script_model", "params", "trust", "ui", "deps", "ops_fillet", "ops_pushpull", "picking"):
             setattr(bs, sub, importlib.import_module(f"{name}.{sub}"))
         log(f"add-on {name} from {os.path.dirname(sys.modules[name].__file__)}; event simulation: {SIM}; out {OUT}")
         instrument()
