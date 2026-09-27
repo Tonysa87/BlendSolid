@@ -1140,8 +1140,81 @@ def step17():
     return f"{how}; +{added:.1f} mm³ on {beveled.name} (z = {o.location[2]} mm), Bevel result closed"
 
 
+def step18():
+    """Milestone 2 phase C: the Fillet tool. Click an edge, Shift+click another (the selection holds both), then
+    drag: one fillet feature naming both edges by reference, the part recomputed without error."""
+    for sub in ("ops_fillet", "picking"):
+        setattr(bs, sub, importlib.import_module(bs.part.__name__.rsplit(".", 1)[0] + "." + sub))
+    CLICK = bs.ops_fillet.BLENDSOLID_OT_fillet_click
+    orig_header = CLICK._header
+
+    class AreaRecorder:
+        def __init__(self, area):
+            self.area = area
+
+        def header_text_set(self, text):
+            rec.headers.append(text)
+            self.area.header_text_set(text)
+    CLICK._header = lambda self, context: orig_header(self, SimpleNamespace(area=AreaRecorder(context.area),
+                                                                           scene=context.scene))
+    deselect()
+    obj = bs.part.new_part(bpy.context)  # the default part: box 40 x 30 x 20 from the origin, boss, fillet
+    obj.location = (0.0, -0.2, 0.0)
+    name = obj.name
+    yield from settled(name)
+    op(bpy.ops.ed.undo_push, message="Part for step 18")  # made from Python: not an undo step by itself
+    v0, n_feat = mm3(ob(name)), len(features(ob(name)))
+    with override():
+        bpy.ops.wm.tool_set_by_id(name="blendsolid.fillet_tool")
+    bs.ops_fillet.select(None)
+    if not SIM:
+        return "SKIP: needs --enable-event-simulate"
+    yield from set_view((20, -200, 20), rot_deg=(60, 0, 20), dist=0.15)
+    yield from warm_up()
+    front, right = px((30, -199.7, 20)), px((39.7, -185, 20))  # near the top front edge; near the top right edge
+    for xy, shift in ((front, False), (right, True)):
+        yield from move(xy, xy, 1, shift=shift)
+        ev("LEFTMOUSE", "PRESS", xy, shift=shift)
+        yield 0.1
+        ev("LEFTMOUSE", "RELEASE", xy, shift=shift)
+        yield 0.3
+    sel_obj, refs = bs.ops_fillet.selection()
+    expect(sel_obj is not None and sel_obj.name == name and len(refs) == 2, f"selection {refs}")
+    expect(refs[0] == 'edge_between(face("box_1", "+Z"), face("box_1", "-Y"))', f"first pick {refs[0]}")
+    expect(refs[1] == 'edge_between(face("box_1", "+X"), face("box_1", "+Z"))', f"second pick {refs[1]}")
+    screenshot("fillet-selected")
+    rec.headers.clear()
+    start = px((20, -200, 20))
+    yield from move(start, start, 1)
+    ev("LEFTMOUSE", "PRESS", start)
+    yield 0.1
+    yield from move(start, (start[0], start[1] + 40))
+    yield 0.3
+    expect(any(h and h.startswith("Fillet: radius") for h in rec.headers), f"headers {set(rec.headers)}")
+    ev("LEFTMOUSE", "RELEASE", (start[0], start[1] + 40))
+    yield 0.3
+    feats = features(ob(name))
+    expect(len(feats) == n_feat + 1 and feats[-1][0] == "fillet_2", f"features {feats}")
+    source = bs.part.source_of(ob(name))
+    expect(f"fillet({refs[0]} + {refs[1]}, radius=fillet_2_radius)" in source, "the feature doesn't name both edges")
+    for _ in range(40):
+        yield 0.5
+        if ob(name).blendsolid_error or up_to_date(ob(name)):
+            break
+    expect(ob(name).blendsolid_error == "", f"error {ob(name).blendsolid_error!r} (line {ob(name).blendsolid_error_line})")
+    yield from settled(name)
+    radius = next(p.value for p in ob(name).blendsolid_params if p.name == "fillet_2_radius")
+    expect(ob(name).blendsolid_error == "" and mm3(ob(name)) < v0, f"error {ob(name).blendsolid_error!r}")
+    screenshot("fillet-done")
+    removed = v0 - mm3(ob(name))
+    op(bpy.ops.ed.undo)
+    yield from settled(name)
+    expect(len(features(ob(name))) == n_feat and close(mm3(ob(name)), v0), "one undo doesn't remove the fillet")
+    return f"2 edges picked by reference, dragged radius {radius:.2f} mm -> {removed:.1f} mm³ less; one undo removes it"
+
+
 STEPS = [step1, step2, step3, step4, step5, step6, step7, step8, step9, step10, step11, step12, step13, step14,
-         step15, step16, step17]
+         step15, step16, step17, step18]
 
 
 def scenario():
