@@ -59,6 +59,11 @@ that level of detail):
 - Maintainer reported an error on `Ctrl+D` during the milestone 1 GUI test (not a Blender 5.2 default duplicate key;
   nothing in the console) — not investigated.
 - Optional GPU acceleration (fairing, SubD → NURBS) is an R&D note in the spec.
+- **To analyse (maintainer's pointer, 2026-09-27):** SurfacePsycho, a Blender NURBS/CAD add-on —
+  https://extensions.blender.org/add-ons/surfacepsycho/ — what it does, how (kernel, data model, UI), license,
+  and whether it helps or overlaps BlendSolid (especially milestones 4–6: SubD → NURBS, G2 surfaces/fillets).
+- The maintainer's logos and icons in several sizes are in `logo/BlendSolid_icone_e_logo.pdf` (for the
+  extension icon, README and the GitHub page when needed).
 - From milestone 1.5 (full list and reasoning: `docs/milestone-1.5-report.md`'s "Concerns / follow-ups"):
   fixed Draw Solid placements don't follow later upstream changes to their target; no hover highlight or real
   grid snapping in Draw Solid; "Apply" (inlining a cutter into its target) not built; a cutter's `SyntaxError`
