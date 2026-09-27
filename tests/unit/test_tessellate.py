@@ -7,7 +7,7 @@ import pytest
 from OCP.BRepAdaptor import BRepAdaptor_Surface
 from OCP.GeomAPI import GeomAPI_ProjectPointOnSurf
 from OCP.BRep import BRep_Tool
-from OCP.GeomAbs import GeomAbs_Plane
+from OCP.GeomAbs import GeomAbs_Cone, GeomAbs_Cylinder, GeomAbs_Plane
 from OCP.gp import gp_Pnt
 
 import tessellate  # worker module, imported as the worker does
@@ -363,3 +363,49 @@ def test_mirrored_solids_have_outward_planes_and_merged_polygons():
     holed = bd.mirror(bd.Box(40, 30, 20) - bd.Pos(5, 0, 0) * bd.Cylinder(6, 30), bd.Plane.YZ).wrapped
     m = tessellate.display_mesh(holed, LIN, ANG)
     assert m.poly_sizes.max() > 3  # the holed faces merged (the convexity test isn't inverted)
+
+
+# -- trimmed curved faces (maintainer's fillet.blend, 2026-09-27): no fans of slivers ------------------------------
+
+def _maintainer_fillet():
+    """The maintainer's fillet.blend part (2026-09-27): a corner cut by a big cylinder, holes, and every edge of
+    the cut filleted: toroidal and cylindrical fillet faces bounded by curves (not iso-lines) where they meet."""
+    import os
+    import provenance
+    source = open(os.path.join(os.path.dirname(__file__), "data", "maintainer_fillet_part.py")).read()
+    ns = provenance.namespace(provenance.Tracker())
+    exec(provenance.instrument(source, "<part>"), ns)
+    return ns["result"]
+
+
+TRIMMED = {
+    "maintainer_fillet": _maintainer_fillet,
+    "holed_cylinder": lambda: bd.Cylinder(150, 300) - bd.Pos(150, 0, 0) * bd.Rot(0, 90, 0) * bd.Cylinder(60, 200),
+}
+
+
+@pytest.mark.parametrize("name", sorted(TRIMMED))
+def test_trimmed_curved_faces_have_no_slivers(name):
+    shape = TRIMMED[name]().wrapped
+    lin = 1.0
+    v, t, f, _ = tessellate.tessellate_with_normals(shape, lin, ANG)
+    v = v.astype(np.float64)
+    for fid, face in curved_faces(shape):
+        ft = t[f == fid]
+        kind = BRepAdaptor_Surface(face).GetType()
+        if kind not in (GeomAbs_Cylinder, GeomAbs_Cone):  # curved both ways: a lattice, few thin triangles
+            thin = (min_angles(v, ft) < 5).mean()  # BRepMesh on the fillet's torus: 82% under 10 degrees
+            assert thin <= 0.05, f"face {fid}: {thin:.0%} of its triangles under 5 degrees"
+        # no fans (the maintainer's screenshot): few triangles around any vertex (a cylinder's one row
+        # along its straight generatrix is long thin triangles by design, ADR 0005)
+        valence = np.bincount(ft.ravel())
+        assert valence.max() <= 12, f"face {fid}: a vertex with {valence.max()} triangles"
+        surf = BRep_Tool.Surface_s(face)
+        a, b, c = v[ft[:, 0]], v[ft[:, 1]], v[ft[:, 2]]
+        for p in np.concatenate([(a + b + c) / 3, (a + b) / 2])[:: max(1, len(ft) // 50)]:
+            proj = GeomAPI_ProjectPointOnSurf(gp_Pnt(*p), surf)
+            assert proj.NbPoints() > 0 and proj.LowerDistance() < lin * 1.05
+    m = tessellate.display_mesh(shape, lin, ANG)
+    pairs, _ = sides(m)
+    _, counts = np.unique(pairs, axis=0, return_counts=True)
+    assert (counts == 2).all()  # still welded to the neighbouring faces

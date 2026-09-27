@@ -234,6 +234,160 @@ def _zip(a, b, ua, ub, out):
             j += 1
 
 
+# -- trimmed curved faces: BRepMesh's triangles re-laid in the surface's own metric (ADR 0005) --------------------
+
+_SLIVER_DEG = 15.0  # a face whose BRepMesh triangulation has a smaller angle is re-triangulated (when it improves)
+_MAX_INTERIOR = 20000  # interior nodes per face, at most
+_SMOOTHING = 4  # Laplacian passes over the interior nodes
+_ASPECT = 4.0  # longest / shortest lattice step on a face curved both ways
+
+
+def _min_angles(pts, t):
+    a, b, c = pts[t[:, 0]], pts[t[:, 1]], pts[t[:, 2]]
+
+    def ang(p, q, r):
+        u, w = q - p, r - p
+        d = np.linalg.norm(u, axis=1) * np.linalg.norm(w, axis=1)
+        return np.degrees(np.arccos(np.clip(np.einsum("ij,ij->i", u, w) / np.maximum(d, 1e-300), -1, 1)))
+    return np.minimum(np.minimum(ang(a, b, c), ang(b, c, a)), ang(c, a, b))
+
+
+def _inside(points, segments):
+    """Even-odd test of 2D `points` against closed boundary `segments` ((m, 2, 2)): True inside."""
+    inside = np.zeros(len(points), dtype=bool)
+    a, b = segments[:, 0], segments[:, 1]
+    for start in range(0, len(points), 2048):
+        p = points[start:start + 2048, None, :]
+        crosses = (a[None, :, 1] > p[..., 1]) != (b[None, :, 1] > p[..., 1])
+        dy = np.where(np.abs(b[:, 1] - a[:, 1]) < 1e-300, 1e-300, b[:, 1] - a[:, 1])
+        x = a[None, :, 0] + (p[..., 1] - a[None, :, 1]) * (b[None, :, 0] - a[None, :, 0]) / dy[None, :]
+        inside[start:start + 2048] = (crosses & (p[..., 0] < x)).sum(axis=1) % 2 == 1
+    return inside
+
+
+def _distance_to(points, segments):
+    """Distance of 2D `points` to the nearest of `segments` ((m, 2, 2))."""
+    out = np.full(len(points), np.inf)
+    a, d = segments[:, 0], segments[:, 1] - segments[:, 0]
+    dd = np.maximum(np.einsum("ij,ij->i", d, d), 1e-300)
+    for start in range(0, len(points), 2048):
+        p = points[start:start + 2048, None, :]
+        s = np.clip(np.einsum("nmk,mk->nm", p - a[None], d) / dd[None], 0.0, 1.0)
+        closest = a[None] + s[..., None] * d[None]
+        out[start:start + 2048] = np.linalg.norm(p - closest, axis=2).min(axis=1)
+    return out
+
+
+def _remeshed(face, tri, pts, lin_defl, ang_defl):
+    """A trimmed curved face re-triangulated: BRepMesh's boundary nodes kept (the neighbours stay conforming), its
+    interior replaced by a triangular lattice laid in (u, v) scaled by the surface's metric, Delaunay-triangulated
+    there. BRepMesh triangulates in raw (u, v): on a fillet's torus (radii 250 and 5 mm) one parameter spans 50
+    times the length of the other and the triangles are fans of slivers. Returns (pts, triangles, uv) or None
+    when this doesn't give better triangles (the caller keeps BRepMesh's)."""
+    from scipy.spatial import Delaunay
+    t0 = np.array([tri.Triangle(i).Get() for i in range(1, tri.NbTriangles() + 1)], dtype=np.int64).reshape(-1, 3) - 1
+    if len(t0) < 2:
+        return None
+    uv = np.array([(tri.UVNode(i).X(), tri.UVNode(i).Y()) for i in range(1, tri.NbNodes() + 1)])
+    surf = BRepAdaptor_Surface(face)
+    # the metric: lengths per unit of u and of v, and the normal curvature along each, sampled over the nodes
+    su, sv, ku, kv = [], [], 0.0, 0.0
+    for u, v in uv[:: max(1, len(uv) // 40)]:
+        props = BRepLProp_SLProps(surf, u, v, 2, 1e-9)
+        du, dv = props.D1U(), props.D1V()
+        su.append(du.Magnitude())
+        sv.append(dv.Magnitude())
+        if props.IsNormalDefined() and du.Magnitude() > 1e-12 and dv.Magnitude() > 1e-12:
+            n = props.Normal()
+            ku = max(ku, abs(props.D2U().Dot(gp_Vec(n.XYZ()))) / du.SquareMagnitude())
+            kv = max(kv, abs(props.D2V().Dot(gp_Vec(n.XYZ()))) / dv.SquareMagnitude())
+    scale = np.array([max(np.median(su), 1e-12), max(np.median(sv), 1e-12)])
+    q = uv * scale
+    # the boundary: edges of one triangle only (directed as in the triangles)
+    directed = np.concatenate([t0[:, [0, 1]], t0[:, [1, 2]], t0[:, [2, 0]]])
+    keys, counts = np.unique(np.sort(directed, axis=1), axis=0, return_counts=True)
+    boundary = keys[counts == 1]
+    if not len(boundary):
+        return None
+    # One lattice step per direction, from the normal curvature along it (chord sag within lin_defl, angle
+    # within ang_defl). Curved both ways: at most _ASPECT times longer one way than the other (a fillet's torus has
+    # radii 250 and 5 mm: isotropic would be thousands of nodes, the raw ratio needles). A straight direction (a
+    # cylinder's generatrix) gets one step over the whole face: one row of triangles, as on ADR 0005's full faces.
+    extent = q.max(axis=0) - q.min(axis=0)
+    steps = [min(np.sqrt(8 * lin_defl / k), ang_defl / k) if k > 1e-12 else np.inf for k in (ku, kv)]
+    if all(np.isfinite(steps)):
+        low = min(steps)
+        steps = [min(x, _ASPECT * low) for x in steps]
+    steps = [max(min(x, extent[axis]), 1e-9) for axis, x in enumerate(steps)]
+    q = q / np.array(steps)  # the lattice step is 1 in both directions
+    scale = scale / np.array(steps)
+    h = 1.0
+    segments = q[boundary]
+
+    def flat(qq):
+        return np.column_stack([qq, np.zeros(len(qq))])
+    before = _min_angles(flat(q), t0).min()  # quality where the triangles are laid out (straight direction squeezed)
+    if before >= _SLIVER_DEG:
+        return None
+    lo, hi = segments.reshape(-1, 2).min(axis=0), segments.reshape(-1, 2).max(axis=0)
+    rows = np.arange(lo[1], hi[1] + h, h * np.sqrt(3) / 2)
+    cols = np.arange(lo[0], hi[0] + h, h)
+    if len(rows) * len(cols) > 4 * _MAX_INTERIOR:
+        return None
+    grid = np.array([(x + (h / 2 if k % 2 else 0.0), y) for k, y in enumerate(rows) for x in cols]).reshape(-1, 2)
+    if len(grid):
+        grid = grid[_inside(grid, segments)]
+    if len(grid):
+        grid = grid[_distance_to(grid, segments) > 0.6 * h]
+    if len(grid) > _MAX_INTERIOR:
+        return None
+    nodes = np.unique(boundary)
+    allq = np.concatenate([q[nodes], grid]) if len(grid) else q[nodes]
+    try:
+        simplices = Delaunay(allq).simplices
+    except Exception:
+        return None
+    simplices = simplices[_inside(allq[simplices].mean(axis=1), segments)]
+    # Laplacian smoothing of the interior nodes (the boundary nodes are fixed): the lattice meets the boundary's
+    # own spacing without thin triangles; re-triangulated after each pass
+    nb = len(nodes)
+    for _ in range(_SMOOTHING if len(grid) else 0):
+        edges = np.concatenate([simplices[:, [0, 1]], simplices[:, [1, 2]], simplices[:, [2, 0]]])
+        edges = np.concatenate([edges, edges[:, ::-1]])
+        total = np.zeros_like(allq)
+        np.add.at(total, edges[:, 0], allq[edges[:, 1]])
+        degree = np.bincount(edges[:, 0], minlength=len(allq))[:, None]
+        moved = np.where(degree > 0, total / np.maximum(degree, 1), allq)
+        ok = _inside(moved[nb:], segments)
+        allq[nb:][ok] = moved[nb:][ok]
+        try:
+            simplices = Delaunay(allq).simplices
+        except Exception:
+            return None
+        simplices = simplices[_inside(allq[simplices].mean(axis=1), segments)]
+    grid = allq[nb:]
+    # every boundary segment must be an edge of the new triangles: else the face would not stay closed
+    index = {int(n): k for k, n in enumerate(nodes)}
+    wanted = {tuple(sorted((index[int(a)], index[int(b)]))) for a, b in boundary}
+    have = {tuple(sorted((int(a), int(b)))) for tr in simplices for a, b in ((tr[0], tr[1]), (tr[1], tr[2]), (tr[2], tr[0]))}
+    if not wanted <= have:
+        return None
+    # the same winding in (u, v) as BRepMesh's triangles
+    def area(tt, pp):
+        a, b, c = pp[tt[:, 0]], pp[tt[:, 1]], pp[tt[:, 2]]
+        return (b[:, 0] - a[:, 0]) * (c[:, 1] - a[:, 1]) - (b[:, 1] - a[:, 1]) * (c[:, 0] - a[:, 0])
+    sign = np.sign(np.median(area(t0, uv)))
+    flip = np.sign(area(simplices, allq)) != sign
+    simplices[flip] = simplices[flip][:, ::-1]
+    grid_uv = grid / scale if len(grid) else np.zeros((0, 2))
+    new_uv = np.concatenate([uv[nodes], grid_uv])
+    interior = np.array([[surf.Value(u, v).X(), surf.Value(u, v).Y(), surf.Value(u, v).Z()] for u, v in grid_uv])
+    new_pts = np.concatenate([pts[nodes], interior.reshape(-1, 3)])
+    if _min_angles(flat(allq), simplices).min() <= before:
+        return None
+    return new_pts, simplices.astype(np.int32), [tuple(x) for x in new_uv]
+
+
 def _structured(rev, tri, pts, lin_defl, ang_defl):
     """Staggered-ring grid of a face of revolution: (points, triangles), triangles oriented like the surface."""
     s = rev.surf
@@ -447,10 +601,16 @@ def tessellate_with_normals(shape, lin_defl=0.1, ang_defl=0.3):
             if rev is not None:
                 pts, t = _structured(rev, tri, pts, lin_defl, ang_defl)
             else:
-                t = np.array([tri.Triangle(i).Get() for i in range(1, tri.NbTriangles() + 1)],
-                             dtype=np.int32).reshape(-1, 3) - 1
+                redone = None if BRepAdaptor_Surface(face).GetType() == GeomAbs_Plane else _remeshed(
+                    face, tri, pts, lin_defl, ang_defl)
+                if redone is not None:
+                    pts, t, uv_all = redone
+                else:
+                    t = np.array([tri.Triangle(i).Get() for i in range(1, tri.NbTriangles() + 1)],
+                                 dtype=np.int32).reshape(-1, 3) - 1
+                    uv_all = [(tri.UVNode(i + 1).X(), tri.UVNode(i + 1).Y()) for i in range(len(pts))]
                 pts, t, kept = _weld(pts, t)
-                uv = [(tri.UVNode(i + 1).X(), tri.UVNode(i + 1).Y()) for i in kept]
+                uv = [uv_all[i] for i in kept]
         if face.Orientation() == TopAbs_REVERSED:
             t = t[:, ::-1]
         normals.append(_oriented(_surface_normals(face, pts, uv), pts, t))
