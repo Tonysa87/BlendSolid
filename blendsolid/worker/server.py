@@ -121,8 +121,8 @@ def main():
                 reply = {"type": "result", "job": header["job"], "key": header["key"], "tag": header["tag"],
                          "ok": r.ok, "error": r.error, "line": r.line, "volume": r.volume, "faces": r.faces,
                          "timing": r.timing}
-                arrays = ({"verts": r.verts, "tris": r.tris, "tri_face": r.tri_face, "planes": r.planes}
-                          if r.ok else None)
+                arrays = ({"verts": r.verts, "tris": r.tris, "tri_face": r.tri_face, "planes": r.planes,
+                           "normals": r.normals} if r.ok else None)
                 protocol.send_message(conn, reply, arrays)
             else:
                 protocol.send_message(conn, {"type": "error", "error": f"unknown request {kind!r}"})

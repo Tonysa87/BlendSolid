@@ -40,13 +40,19 @@ The maintainer asked for a correct triangle topology, with no artifacts (quad me
    angular limit stays 0.3 rad, so small parts stay round. The tolerance is part of every mesh tag (next to the
    unit factor, ADR 0003): changing it recomputes every part.
 
+3. **Exact vertex normals** (added the same day, after MatCap showed bands on a cylinder side trimmed by holes,
+   where BRepMesh's triangles had minimum angles down to 0.09° and averaged normals were off by up to 6.3°):
+   the worker sends each vertex's exact surface normal and Blender shades with it (`custom_normal` point
+   attribute), so shading no longer depends on the triangles' shapes.
+
 ## Consequences
 
 - Measured at 1 mm: a 10 mm sphere has 648 triangles, a 1 m sphere 8,192 (14 ms), a 5 m torus 87,552 (139 ms).
 - Meshes saved by earlier versions carry a tag without the tolerance: they are recomputed once (trusted files) or
   shown as stale until trusted (ADR 0004). The tessellation changed anyway.
-- Trimmed curved faces (a hole side cut by another curved surface) still get BRepMesh's triangulation, welded.
-  A structured grid with a triangulated band along the cut is the next step if those show artifacts.
+- Trimmed curved faces (a hole side cut by another curved surface) still get BRepMesh's triangulation, welded:
+  they shade right (exact normals) but their wireframe shows slivers. A structured grid with a triangulated band
+  along the cut is the next step (after milestone 1.5).
 - The mesh is inscribed: volumes are slightly under the exact ones, bounded by area × tolerance (tested).
 - Tests: `tests/unit/test_tessellate.py` (welding, valence, minimum angle, deviation from the exact surface,
   orientation, conformity with neighbours), `tests/blender/test_tolerance.py`.

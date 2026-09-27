@@ -17,7 +17,9 @@ from OCP.BRep import BRep_Builder, BRep_Tool
 from OCP.BRepAdaptor import BRepAdaptor_Curve2d, BRepAdaptor_Surface
 from OCP.BRepCheck import BRepCheck_Analyzer
 from OCP.BRepGProp import BRepGProp
+from OCP.BRepLProp import BRepLProp_SLProps
 from OCP.BRepMesh import BRepMesh_IncrementalMesh
+from OCP.ElSLib import ElSLib
 from OCP.BRepTools import BRepTools
 from OCP.collections import IndexedMap_TopoDS_Shape_TopTools_ShapeMapHasher as ShapeMap
 from OCP.GeomAbs import GeomAbs_Cone, GeomAbs_Cylinder, GeomAbs_Line, GeomAbs_Plane, GeomAbs_Sphere, GeomAbs_Torus
@@ -304,12 +306,68 @@ def _geodesic(rev, lin_defl, ang_defl):
 
 
 def _weld(pts, t):
-    """Merge coincident nodes (BRepMesh's seam and pole copies); drop the triangles that collapse."""
+    """Merge coincident nodes (BRepMesh's seam and pole copies); drop the triangles that collapse. Returns the
+    kept nodes' indices into `pts` too."""
     _, first, inv = np.unique(np.round(pts, _WELD_DECIMALS), axis=0, return_index=True, return_inverse=True)
     inv = inv.ravel()
     t = inv[t]
     t = t[(t[:, 0] != t[:, 1]) & (t[:, 1] != t[:, 2]) & (t[:, 0] != t[:, 2])]
-    return pts[first], t
+    return pts[first], t, first
+
+
+def _unit(a):
+    length = np.linalg.norm(a, axis=1, keepdims=True)
+    return np.divide(a, length, out=np.full_like(a, np.nan), where=length > 1e-12)
+
+
+def _vec(d):
+    return np.array([d.X(), d.Y(), d.Z()])
+
+
+def _surface_normals(face, pts, uv=None):
+    """Unit normals of face's exact surface at points `pts` (on it), up to sign: closed forms for planes,
+    cylinders, spheres and tori; the surface's derivatives at the (u, v) parameters otherwise (`uv`, or
+    projected for a cone). NaN where the normal is undefined (a pole, an apex)."""
+    surf = BRepAdaptor_Surface(face)
+    kind = surf.GetType()
+    if kind == GeomAbs_Plane:
+        return np.tile(_vec(surf.Plane().Axis().Direction()), (len(pts), 1))
+    if kind in (GeomAbs_Cylinder, GeomAbs_Sphere, GeomAbs_Torus):
+        geom = {GeomAbs_Cylinder: surf.Cylinder, GeomAbs_Sphere: surf.Sphere, GeomAbs_Torus: surf.Torus}[kind]()
+        axis = geom.Position()
+        c, d = _vec(axis.Location()), _vec(axis.Direction())
+        w = pts - c
+        if kind == GeomAbs_Sphere:
+            return _unit(w)
+        radial = w - np.outer(w @ d, d)
+        if kind == GeomAbs_Cylinder:
+            return _unit(radial)
+        return _unit(w - _unit(radial) * geom.MajorRadius())
+    if uv is None and kind == GeomAbs_Cone:
+        cone = surf.Cone()
+        uv = [ElSLib.Parameters_s(cone, gp_Pnt(*p)) for p in pts]
+    out = np.full((len(pts), 3), np.nan)
+    if uv is None:
+        return out
+    for i, (u, v) in enumerate(uv):
+        props = BRepLProp_SLProps(surf, u, v, 1, 1e-9)
+        if props.IsNormalDefined():
+            out[i] = _vec(props.Normal())
+    return out
+
+
+def _oriented(normals, pts, t):
+    """Normals turned to the side the triangles face (they are the face's outside, orientation included);
+    undefined ones (NaN) replaced by the average of their triangles' normals."""
+    tri_n = np.cross(pts[t[:, 1]] - pts[t[:, 0]], pts[t[:, 2]] - pts[t[:, 0]])
+    acc = np.zeros_like(pts)
+    for k in range(3):
+        np.add.at(acc, t[:, k], tri_n)
+    ok = ~np.isnan(normals[:, 0])
+    if ok.any() and np.einsum("ij,ij->", normals[ok], acc[ok]) < 0:
+        normals = -normals
+    normals = np.where(ok[:, None], normals, _unit(acc))
+    return np.nan_to_num(normals)
 
 
 def face_planes(shape):
@@ -338,6 +396,13 @@ def _self_contained(rev):
 
 def tessellate(shape, lin_defl=0.1, ang_defl=0.3):
     """Vertices are not shared between faces: sharp edges between BRep faces, unambiguous face map."""
+    return tessellate_with_normals(shape, lin_defl, ang_defl)[:3]
+
+
+def tessellate_with_normals(shape, lin_defl=0.1, ang_defl=0.3):
+    """tessellate() plus each vertex's exact surface normal (float32, unit, on the side the face's triangles
+    face): Blender shades with these (custom normals) instead of averaging the triangles around a vertex,
+    which goes wrong on long thin triangles such as BRepMesh's on trimmed curved faces."""
     BRepTools.Clean_s(shape)
     faces = face_map(shape)
     revolutions = [_revolution(face) for face in faces]
@@ -349,8 +414,9 @@ def tessellate(shape, lin_defl=0.1, ang_defl=0.3):
         if not _self_contained(rev):
             builder.Add(compound, face)
     BRepMesh_IncrementalMesh(compound, _mesh_parameters([r for r in revolutions if r], lin_defl, ang_defl))
-    verts, tris, tri_face, offset = [], [], [], 0
+    verts, tris, tri_face, normals, offset = [], [], [], [], 0
     for fid, (face, rev) in enumerate(zip(faces, revolutions)):
+        uv = None
         if rev is not None and rev.kind == GeomAbs_Sphere:
             pts, t = _geodesic(rev, lin_defl, ang_defl)
         elif rev is not None and rev.kind == GeomAbs_Torus:
@@ -364,14 +430,17 @@ def tessellate(shape, lin_defl=0.1, ang_defl=0.3):
             else:
                 t = np.array([tri.Triangle(i).Get() for i in range(1, tri.NbTriangles() + 1)],
                              dtype=np.int32).reshape(-1, 3) - 1
-                pts, t = _weld(pts, t)
+                pts, t, kept = _weld(pts, t)
+                uv = [(tri.UVNode(i + 1).X(), tri.UVNode(i + 1).Y()) for i in kept]
         if face.Orientation() == TopAbs_REVERSED:
             t = t[:, ::-1]
+        normals.append(_oriented(_surface_normals(face, pts, uv), pts, t))
         verts.append(pts)
         tris.append(t + offset)
         tri_face.append(np.full(len(t), fid, dtype=np.int32))
         offset += len(pts)
     if not verts:
-        return np.zeros((0, 3), np.float32), np.zeros((0, 3), np.int32), np.zeros(0, np.int32)
+        empty = np.zeros((0, 3), np.float32)
+        return empty, np.zeros((0, 3), np.int32), np.zeros(0, np.int32), empty
     return (np.concatenate(verts).astype(np.float32), np.ascontiguousarray(np.concatenate(tris), dtype=np.int32),
-            np.concatenate(tri_face))
+            np.concatenate(tri_face), np.concatenate(normals).astype(np.float32))
