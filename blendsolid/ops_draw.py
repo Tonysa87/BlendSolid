@@ -291,7 +291,8 @@ def pick(context, origin, direction, near=()):
     target is the object hit if it is a BlendSolid part the tools can edit (local, unscaled, trusted,
     canonical script); any other object is drawn on as a new part, on its face's plane. On a target's flat
     face the plane comes from the face's exact plane (the worker's, not the float32 mesh), so what is drawn
-    there sits exactly on the face."""
+    there sits exactly on the face; on a target's curved face the plane is tangent to the surface itself
+    (plane_on_curved_face), turning smoothly as the mouse moves."""
     depsgraph = context.evaluated_depsgraph_get()
     found = _first_hit(context, depsgraph, origin, direction)
     if found is None:
@@ -308,6 +309,9 @@ def pick(context, origin, direction, near=()):
     if exact is not None:
         local = drawing.plane_on_part_face(exact[0], exact[1])
         return obj.matrix_world @ local.matrix(part.unit_factor(context.scene)), obj, local
+    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+    if smooth is not None:
+        return drawing.plane_on_curved_face(location, smooth, obj.matrix_world), obj, None
     return drawing.plane_on_face(location, normal, obj.matrix_world), (obj if is_part else None), None
 
 

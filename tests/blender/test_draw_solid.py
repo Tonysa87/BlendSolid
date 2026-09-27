@@ -79,6 +79,30 @@ def test_grid_on_a_face_starts_at_the_part_origin():
     assert (plane.translation - obj_matrix @ Vector((0, 0, 0.02))).length < 1e-9
 
 
+def test_plane_on_a_curved_face_follows_the_surface_without_jumps():
+    # Maintainer's GUI check: on a cone's side the grid turned about the snap cross as the mouse moved, because
+    # the plane X was the part's X projected on the tangent plane, switching to its Y past |n.x| = 0.9. On a
+    # curved face X is the horizontal tangent (part Z x normal), Y goes up the surface: continuous all around.
+    obj_matrix = Matrix.Translation((1, 2, 3)) @ Euler((0, 0, math.radians(30))).to_matrix().to_4x4()
+    rot = obj_matrix.to_3x3()
+    previous = None
+    for deg in range(0, 361, 2):
+        a = math.radians(deg)
+        n = rot @ Vector((math.cos(a), math.sin(a), 0.45)).normalized()  # a cone's side
+        hit = obj_matrix @ Vector((0.01 * math.cos(a), 0.01 * math.sin(a), 0.005))
+        plane = drawing.plane_on_curved_face(hit, n, obj_matrix)
+        x, y = plane.col[0].xyz, plane.col[1].xyz
+        assert (plane.col[2].xyz - n).length < 1e-6
+        assert abs(x.dot(rot.col[2])) < 1e-6                   # horizontal in the part's frame
+        assert y.dot(rot.col[2]) > 0                           # up the surface
+        if previous is not None:
+            assert x.angle(previous) < math.radians(3)         # no jumps between neighbouring points
+        previous = x
+    # On a flat-ish spot facing the part's Z (a pole) there is no horizontal tangent: the flat-face rule.
+    top = drawing.plane_on_curved_face(obj_matrix.translation, rot.col[2], obj_matrix)
+    assert (top.col[0].xyz - rot.col[0]).length < 1e-6
+
+
 def test_snapping_puts_box_corners_and_cylinder_centre_on_grid_nodes():
     plane = drawing.plane_at_cursor(Matrix.Identity(4))
     box = drawing.drawn_solid("BOX", plane, (0.0123, 0.0071), (0.0348, 0.0269), 0.0, F, step_mm=10.0)
@@ -318,3 +342,28 @@ def test_labels_while_drawing():
     assert drawing.labels(box, "HEIGHT", 0.0) == ["H 50 mm"]
     cyl = drawing.Drawn("CYLINDER", Matrix.Identity(4), radius=12.3456)
     assert drawing.labels(cyl, "BASE", 0.0) == ["R 12.346 mm"]
+
+
+def test_hovering_around_a_cone_turns_the_grid_smoothly(clean):
+    bpy.ops.blendsolid.add_cone()  # bottom radius 10, top radius 5, height 20 mm
+    obj = bpy.context.view_layer.objects.active
+    wait_for(lambda: up_to_date(obj))
+    bpy.context.view_layer.update()
+    previous = None
+    for tenth in range(0, 3601, 5):  # every half degree around the side, at mid height
+        a = math.radians(tenth / 10)
+        d = Vector((math.cos(a), math.sin(a), 0))
+        plane, target, local = ops_draw.pick(bpy.context, Vector((0, 0, 0.01)) + d * 0.1, -d)
+        assert target == obj and local is None
+        n, x = plane.col[2].xyz, plane.col[0].xyz
+        exact = Vector((20 * math.cos(a), 20 * math.sin(a), 5)).normalized()  # the cone's own normal
+        # The vertex normals interpolated across a triangle: within 1.4 degrees of the surface's (measured at
+        # mid height, the default 1 mm tolerance's triangles); a triangle's own normal was up to 6 degrees off.
+        assert n.angle(exact) < math.radians(2.0)
+        assert abs(x.z) < 1e-5
+        if previous is not None:
+            assert x.angle(previous[0]) < math.radians(1.5) and n.angle(previous[1]) < math.radians(1.5)
+        previous = x, n
+    # The flat top still gets its exact plane.
+    plane, target, local = ops_draw.pick(bpy.context, Vector((0.002, 0.001, 1)), Vector((0, 0, -1)))
+    assert local is not None and local.z == (0.0, 0.0, 1.0)
