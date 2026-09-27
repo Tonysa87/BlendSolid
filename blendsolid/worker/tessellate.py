@@ -2,13 +2,13 @@
 
 Faces are numbered with TopExp.MapShapes (deterministic for a given shape): brep_face_id = 0-based index.
 
-Tessellation: BRepMesh discretizes the edges and triangulates every face, but its Delaunay triangulation in the
-(u, v) parameter space gives irregular triangles (fans, slivers, a distorted band along the seam) on curved faces.
-A full face of revolution (torus, cylinder or cone bounded only by its seam, poles and v-iso circles) is
-re-triangulated here as a structured grid of staggered rings: near-equilateral triangles, valence 6, seam welded,
-its boundary rings taken from BRepMesh's own edge nodes so it stays conforming with the neighbouring faces. A full
-sphere has no real boundary: it becomes a geodesic grid (an octahedron subdivided and projected onto it), which
-has neither the thin pole triangles nor the seam of a latitude-longitude grid.
+Tessellation (ADR 0010): every edge is discretized once and every face meshed from those nodes (meshing.py), so
+neighbouring faces weld exactly: curved faces with four corners as structured grids, other curved faces as grids
+trimmed by their boundary, flat faces from their boundary. A full face of revolution (torus, cylinder or cone
+bounded only by its seam, poles and v-iso circles) is a structured grid of staggered rings (ADR 0005), its
+boundary rings taken from the shared edge nodes. A full sphere has no real boundary: it becomes a geodesic grid
+(an octahedron subdivided and projected onto it), which has neither the thin pole triangles nor the seam of a
+latitude-longitude grid.
 """
 import math
 from dataclasses import dataclass
