@@ -48,6 +48,8 @@ OUT = ARGS[ARGS.index("--out") + 1] if "--out" in ARGS else os.path.join(tempfil
                                                                          "blendsolid-gui-check")
 os.makedirs(OUT, exist_ok=True)
 SIM = bpy.app.use_event_simulate
+# `-- --only 17,18`: run only those steps (the ones that build their own parts)
+ONLY = {int(n) for n in ARGS[ARGS.index("--only") + 1].split(",")} if "--only" in ARGS else None
 T0 = time.monotonic()
 
 bs = SimpleNamespace()  # the add-on's modules, found in the first tick (repository add-on or bl_ext.*)
@@ -1094,8 +1096,52 @@ def step16():
     return f"reopened untrusted: cached meshes, Recompute off, no recompute on move; trusted -> {v:.1f} mm³"
 
 
+def step17():
+    """Milestone 2 (ADR 0008): Draw Solid on a part with a Bevel modifier (Limit Method Weight) starts on the
+    face's exact plane and unites with the part; the modifier then bevels the new edges too."""
+    deselect()
+    cursor((0, 150, 0))
+    op(bpy.ops.blendsolid.add_box, length=40, width=30, height=20)
+    beveled = active()
+    cursor()
+    mod = beveled.modifiers.new("Bevel", "BEVEL")
+    mod.limit_method, mod.width, mod.segments = "WEIGHT", 1 * f(), 3
+    yield from settled(beveled.name)
+    v0, n_feat = mm3(beveled), len(features(beveled))
+    deselect()
+    with override():
+        bpy.ops.wm.tool_set_by_id(name="blendsolid.draw_solid_tool")
+    bpy.context.scene.blendsolid_draw_shape = "BOX"
+    if SIM:
+        yield from set_view((0, 150, 20))
+        yield from warm_up()
+        rec.headers.clear()
+        yield from draw_events((-10, 145, 20), (10, 155, 20), (0, 150, 26), ctrl=True)
+        expect(any(h and f"union with {beveled.name}" in h for h in rec.headers), f"headers {set(rec.headers)}")
+        how = "simulated Ctrl drag"
+    else:
+        op(bpy.ops.blendsolid.draw_solid, shape="BOX", mode="UNION", target=beveled.name, location=(0, 0, 20),
+           rotation=(0, 0, 0), length=20, width=10, height=5)
+        how = "execute path"
+    o = last_op()
+    expect(o.mode == "UNION" and o.target == beveled.name, f"mode {o.mode}, target {o.target!r}")
+    expect(len(features(ob(beveled.name))) == n_feat + 1, "not one more feature")
+    expect(abs(o.location[2] - 20.0) < 1e-9, f"placed at z = {o.location[2]!r} mm, not on the face (20)")
+    yield from settled(beveled.name)
+    added = box_volume(o)
+    expect(close(mm3(ob(beveled.name)), v0 + added), f"volume {mm3(ob(beveled.name)):.1f} != {v0 + added:.1f}")
+    import bmesh
+    bm = bmesh.new()
+    bm.from_mesh(ob(beveled.name).evaluated_get(bpy.context.evaluated_depsgraph_get()).data)
+    holes = sum(1 for e in bm.edges if not e.is_manifold)
+    bm.free()
+    expect(holes == 0, f"{holes} open edges after the Bevel")
+    screenshot("draw-on-beveled")
+    return f"{how}; +{added:.1f} mm³ on {beveled.name} (z = {o.location[2]} mm), Bevel result closed"
+
+
 STEPS = [step1, step2, step3, step4, step5, step6, step7, step8, step9, step10, step11, step12, step13, step14,
-         step15, step16]
+         step15, step16, step17]
 
 
 def scenario():
@@ -1119,6 +1165,8 @@ def scenario():
             yield from set_view((0, 0, 0))
             yield from warm_up()
         for n, fn in enumerate(STEPS, 1):
+            if ONLY is not None and n not in ONLY:
+                continue
             try:
                 detail = yield from fn()
                 for prefix, status in (("SKIP: ", "SKIP"), ("PARTIAL: ", "PARTIAL")):
@@ -1151,7 +1199,8 @@ def scenario():
     if skipped or partial:
         print(f"{len(skipped)} step(s) SKIP, {len(partial)} step(s) PARTIAL "
               f"(no --enable-event-simulate)", flush=True)
-    print("GUI CHECK PASS" if len(results) >= len(STEPS) and not failed else "GUI CHECK FAIL", flush=True)
+    wanted = len(STEPS) if ONLY is None else len(ONLY)
+    print("GUI CHECK PASS" if len(results) >= wanted and not failed else "GUI CHECK FAIL", flush=True)
 
 
 _gen = scenario()
