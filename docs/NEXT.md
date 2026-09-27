@@ -1,6 +1,6 @@
 # Where we are / what's next (bookmark)
 
-Updated: 2026-09-27, session 5 (milestone 1.5 signed off; milestone 2 phase A built). Read this first when resuming.
+Updated: 2026-09-27, end of session 5 (milestone 1.5 signed off; milestone 2 phases A–D built on branch `milestone-2`). Read this first when resuming.
 
 ## State
 - **Milestone 0 (spike):** done — `SPIKE_REPORT.md`.
@@ -48,10 +48,28 @@ Updated: 2026-09-27, session 5 (milestone 1.5 signed off; milestone 2 phase A bu
   immediate overlay preview, a drag handle and Draw Solid's snapping (ticks, labels, Ctrl+Wheel). **The maintainer
   doesn't like the yellow arrow and the preview's look**: to redo in a dedicated UX redesign (not now).
 
-## Next step
-1. Phase E (broken references: warnings for partly lost references, last-good-match signature) and phase F (the
-   20-part corpus test of the milestone criterion), then the milestone report and sign-off.
-2. Later, a UX redesign of the tools' on-screen feedback (handles, previews), with research on Plasticity/Fusion.
+- **Maintainer's bug, 2026-09-27 evening:** fans of slivers on fillet faces (`/mnt/e/bs_debug/fillet.blend`, a corner
+  cut by a big cylinder with every edge filleted). Cause and fix: ADR 0005 addendum (trimmed curved faces
+  re-triangulated in the surface's metric), commit `72a1076`; 217 unit + 210 Blender tests pass. **Not yet
+  installed/checked in the GUI.** Remaining: thin triangles along long boundary edges (edge refinement).
+
+## Next step (session 6)
+1. **Install and check the trimmed-face fix with the maintainer:** close Blender, build the Windows zip, install,
+   smoke test, relaunch `blender.exe >> spike/logs/gui-m2.log 2>&1`; open `E:\bs_debug\fillet.blend`, wireframe
+   overlay: the fillet bands are regular lattices (no fans); only a row of thinner triangles along their long
+   edges remains. Then fix that: refine the discretization of long boundary edges for both adjacent faces
+   (insert the same nodes in both; planar neighbours are rebuilt as polygons anyway), test on
+   `tests/unit/data/maintainer_fillet_part.py` (fraction of thin triangles → 0).
+2. **Fillet edge cases (maintainer's request):** research online the typical failure cases of CAD fillets/chamfers
+   (OCCT `BRepFilletAPI_MakeFillet` known failures and forum threads, FreeCAD/Fusion/Onshape/SolidWorks docs:
+   radius larger than a face, vertex blends where 3+ fillets meet, fillets across tangent chains, fillets on edges
+   between a face and a fillet, mixed convex/concave, fillets touching holes, chamfer asymmetric, variable edges,
+   filleting after booleans with tiny faces, seam edges, self-intersecting results); write
+   `docs/research/…-fillet-edge-cases.md`; turn each case into a test on our system (script + Fillet tool path),
+   and fix what fails following best practices (clear errors on the fillet's line, `max_fillet`, suggestions),
+   otherwise document the limitation.
+3. Then milestone 2 phases E (broken references) and F (20-part corpus criterion test), report, sign-off.
+4. Later: UX redesign of the tools' on-screen feedback (the maintainer dislikes the yellow handle and the preview).
 
 ## Working agreement with the maintainer
 - Repo content in English; chat in Italian.

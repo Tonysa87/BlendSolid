@@ -56,3 +56,18 @@ The maintainer asked for a correct triangle topology, with no artifacts (quad me
 - The mesh is inscribed: volumes are slightly under the exact ones, bounded by area × tolerance (tested).
 - Tests: `tests/unit/test_tessellate.py` (welding, valence, minimum angle, deviation from the exact surface,
   orientation, conformity with neighbours), `tests/blender/test_tolerance.py`.
+
+## Addendum (2026-09-27): trimmed curved faces
+
+The maintainer's `fillet.blend` (now `tests/unit/data/maintainer_fillet_part.py`) showed fans of slivers on fillet
+faces: BRepMesh triangulates in raw (u, v), and on a fillet's torus (radii 250 and 5 mm) one parameter spans 50
+times the length of the other; no BRepMesh parameter (Delabella, surface deflection control, interior deflection)
+helped (minimum angle 0–0.6°). A curved face that isn't a full face of revolution and whose BRepMesh triangles
+are thin (under 15° where they are laid out) is re-triangulated (`tessellate._remeshed`): BRepMesh's boundary
+nodes are kept (neighbours stay conforming), the interior is a lattice in (u, v) scaled per direction by the
+normal curvature (chord sag and angle within the tolerance; at most 4:1 between directions; a straight direction
+such as a cylinder's generatrix gets one row, as on full faces), Delaunay-triangulated (scipy) and smoothed; the
+face keeps BRepMesh's triangles if any boundary segment isn't recovered or the result isn't better. Measured on
+the fillet's torus: 82% of triangles under 10° before, 3% under 5° after, no fans; 0.14 s for the whole part.
+**Open:** thin triangles remain along long boundary edges whose BRepMesh nodes are far apart (30 mm against a
+6 mm lattice): refine the edges' discretization for both adjacent faces.
