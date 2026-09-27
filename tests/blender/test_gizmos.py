@@ -97,3 +97,20 @@ def test_arrows_hide_while_the_draw_solid_tool_is_active(clean):
     finally:
         _set_tool("builtin.select_box")
     assert obj.select_get() and gizmos.BLENDSOLID_GGT_parameters.poll(bpy.context)
+
+
+def test_wedge_top_length_arrow_ends_on_the_top_edge(clean):
+    # Maintainer's GUI check: the wedge had no arrow for its top length. Its tip must sit where the top face
+    # ends, measured on the real mesh, also when the top is longer than the base (a wider bounding box).
+    from conftest import up_to_date
+    f = part.unit_factor()
+    for top in (10.0, 55.0):
+        bpy.ops.blendsolid.add_wedge(length=40, width=30, height=20, top_length=top)
+        obj = bpy.context.view_layer.objects.active
+        wait_for(lambda: up_to_date(obj))
+        got = {p: tip(m, top if p.endswith("top_length") else 0.0, s, f) for p, m, s in gizmos.arrow_matrices(obj)}
+        assert "wedge_1_top_length" in got
+        top_verts = [v.co for v in obj.data.vertices if abs(v.co.z - 20 * f) < 1e-6]
+        end = Vector((max(v.x for v in top_verts), 0.0, 20 * f))
+        assert abs(got["wedge_1_top_length"].x - end.x) < 1e-6 and abs(got["wedge_1_top_length"].z - end.z) < 1e-6
+        bpy.data.objects.remove(obj)

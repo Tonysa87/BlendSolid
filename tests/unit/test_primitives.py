@@ -116,6 +116,15 @@ def test_wedge_arrows_use_part_axes():
     assert a.direction == (0.0, 0.0, 1.0) and a.origin[2] == 0.0
 
 
+def test_wedge_top_length_arrow_runs_along_the_top_edge():
+    for align, lo_x in ((pr.BASE, -20.0), (("MIN", "CENTER", "MIN"), 0.0), (("MAX", "CENTER", "MIN"), -40.0)):
+        a = _arrows("wedge", {"length": 40, "width": 30, "height": 20, "top_length": 10}, align=align)["wedge_1_top_length"]
+        assert a.origin == (lo_x, 0.0, 20.0) and a.direction == (1.0, 0.0, 0.0) and a.scale == 1.0, align
+    # A top longer than the base widens the bounding box the align centres.
+    a = _arrows("wedge", {"length": 40, "width": 30, "height": 20, "top_length": 60})["wedge_1_top_length"]
+    assert a.origin == (-30.0, 0.0, 20.0)
+
+
 def test_no_arrows_for_unknown_or_non_literal_features():
     source = ("size = 10.0\n\nwith BuildPart() as part:\n    Box(size, size, size)  # feature: base\n"
               "    fillet(part.edges(), radius=1)  # feature: round\n\nresult = part.part\n")

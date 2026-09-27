@@ -27,9 +27,11 @@ the SurfacePsycho analysis (below).
   measure exactly what it shows first; installing a build needs the maintainer to close Blender.
 
 ## Open follow-ups (not blocking)
-- **Curved-face grid fix (2026-09-27, branch `fix/curved-face-grid`)**: the tangent plane on a curved face now
-  follows the surface (ADR 0006 point 4); awaiting the maintainer's check on a cone, then merge. A solid drawn
-  on a curved face is still tilted up to ~1.4° from the exact normal (interpolated vertex normals).
+- **Fixes after the 1.5 sign-off (2026-09-27, branch `fix/after-m1.5-check`)**, awaiting the maintainer's GUI
+  check, then merge: the tangent plane on a curved face follows the surface (ADR 0006 point 4; a solid drawn
+  there is still tilted up to ~1.4° from the exact normal); the wedge has a `top_length` arrow along its top edge.
+  Known: when a wedge's top is longer than its base, build123d centres the wider bounding box, and the
+  `length` arrow (drawn from the box's middle) no longer ends on the base's edge.
 - **Live cutters, after milestone 1.5** (maintainer's request, 2026-09-27; research: Fusion 360 timeline
   suppress/remove, HardOps/BoxCutter hidden cutters and Bool Scroll, Onshape/SolidWorks feature suppress):
   a per-boolean on/off toggle (suppress without removing, like a modifier's eye); "Apply" — inline a cutter
