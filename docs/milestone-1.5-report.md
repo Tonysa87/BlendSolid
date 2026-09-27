@@ -147,7 +147,7 @@ SMOKE PASS
 The maintainer was unavailable for the manual test this session (a controller ruling, ledger Task 14); the 16
 steps of the manual test plan were instead driven automatically, unattended, in a real Blender window
 (`tools/gui_check.py`, `--enable-event-simulate`) on both platforms. Full detail, evidence and screenshots:
-`.superpowers/sdd/2026-09-26-milestone-1.5-build-without-selectors/gui-check-report.md`.
+`docs/milestone-1.5/gui-check-report.md`.
 
 | # | Step (plan Task 14, Step 1) | Linux | Windows | Manual (2026-09-27) |
 |---|---|---|---|---|
@@ -243,7 +243,7 @@ Solid's redo-panel placement is always relative to the part it was drawn on; dra
 makes a new part there; wire-display cutters are looked through when picking a face; the success test's fillet
 is a live-cutter boolean (edge selectors are milestone 2); the extension version becomes 0.2.0.
 
-**Controller rulings during execution** (full ledger: `.superpowers/sdd/2026-09-26-milestone-1.5-build-without-selectors/progress.md`):
+**Controller rulings during execution** (full ledger: `docs/milestone-1.5/sdd-ledger.md`):
 
 - Preflight (F1–F13): a duplicated Text keeps a fresh id per later copy (F1); a Boolean with N cutters is one
   script edit appending N features (F2); Task 8's backward-compat test keeps milestone 1's literal tag formula,

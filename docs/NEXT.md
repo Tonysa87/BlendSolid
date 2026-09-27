@@ -9,8 +9,8 @@ Updated: 2026-09-27, session 5 (milestone 1.5 signed off). Read this first when 
   `docs/milestone-1.5-report.md` (manual GUI test 16/16, then the snap guides checked in the Windows viewport:
   empty space, top/side/cylindrical faces, Ctrl+Wheel step, zoom fading, drag labels, cursor rotated 40°; no
   tuning asked). The Windows 0.2.0 zip installed in the portable Blender is `main`'s code.
-- The git-ignored SDD ledger `.superpowers/sdd/2026-09-26-milestone-1.5-build-without-selectors/` is still on
-  disk (deleting it was blocked by the permission classifier): the maintainer may delete it by hand.
+- The SDD ledger's two useful files are archived in `docs/milestone-1.5/` (`sdd-ledger.md`,
+  `gui-check-report.md`); the git-ignored `.superpowers/sdd/` folder is deleted by the maintainer by hand.
 
 ## Next step
 Ask the maintainer which comes first: **milestone 2 (selectors from clicks)**, or the post-1.5 follow-ups
