@@ -52,7 +52,7 @@ def unit_factor(scene=None):
 
 
 DEFAULT_TOLERANCE = 1.0  # millimetres
-MESH_FORMAT = 2  # part of every tag: bumping it recomputes saved meshes (2: exact face planes stored)
+MESH_FORMAT = 3  # part of every tag: bumping it recomputes saved meshes (2: face planes, 3: exact normals)
 
 
 def tolerance(scene=None):
@@ -103,7 +103,7 @@ def new_part(context, source=None, name="Part"):
 def apply_result(obj, event, factor):
     """`factor`: the unit factor event["tag"] was computed with (the caller checked it is still current)."""
     verts = np.asarray(event["verts"], dtype=np.float64) * factor  # millimetres -> Blender units
-    fill_mesh(obj.data, verts, event["tris"], event["tri_face"])
+    fill_mesh(obj.data, verts, event["tris"], event["tri_face"], event.get("normals"))
     planes = event.get("planes")
     if planes is not None:
         obj.data[PLANES_KEY] = np.asarray(planes, dtype=np.float64).ravel().tolist()
@@ -133,7 +133,7 @@ def error_tag(obj):
     return obj.get(ERROR_TAG_KEY)
 
 
-def fill_mesh(mesh, verts, tris, tri_face):
+def fill_mesh(mesh, verts, tris, tri_face, normals=None):
     mesh.clear_geometry()
     nt = len(tris)
     mesh.vertices.add(len(verts))
@@ -145,6 +145,10 @@ def fill_mesh(mesh, verts, tris, tri_face):
     mesh.polygons.foreach_set("use_smooth", np.ones(nt, dtype=bool))  # sharp between faces: verts not shared
     attr = mesh.attributes.get(FACE_ATTR) or mesh.attributes.new(FACE_ATTR, "INT", "FACE")
     attr.data.foreach_set("value", np.ascontiguousarray(tri_face, dtype=np.int32))
+    if normals is not None and len(normals) == len(verts):
+        # The exact surface normals (the worker's): shading doesn't depend on the triangles' shapes.
+        custom = mesh.attributes.get("custom_normal") or mesh.attributes.new("custom_normal", "FLOAT_VECTOR", "POINT")
+        custom.data.foreach_set("vector", np.ascontiguousarray(normals, dtype=np.float32).ravel())
     mesh.update()
 
 

@@ -142,3 +142,35 @@ def test_face_planes_are_exact_and_outward():
     assert (0.0, 0.0, 1.0, 130.0) in rows and (0.0, 0.0, -1.0, 0.0) in rows
     assert (1.0, 0.0, 0.0, 20.0) in rows and (0.0, -1.0, 0.0, 15.0) in rows
     assert np.isnan(planes[:, 0]).sum() == 1  # the hole's cylindrical face has no plane
+
+
+NORMAL_SHAPES = {
+    **SHAPES,
+    "cut_cylinder": lambda: bd.Cylinder(150, 300) - bd.Pos(150, 0, 0) * bd.Rot(0, 90, 0) * bd.Cylinder(60, 200)
+    - bd.Pos(0, 150, 50) * bd.Rot(90, 0, 0) * bd.Cylinder(40, 200),
+    "filleted": lambda: bd.fillet(bd.Box(40, 30, 20).edges().filter_by(bd.Axis.Z), radius=5),
+}
+
+
+@pytest.mark.parametrize("name", sorted(NORMAL_SHAPES))
+def test_vertex_normals_are_the_exact_surface_normals(name):
+    # Shading uses these as custom normals: long thin triangles on a trimmed curved face then shade right.
+    shape = NORMAL_SHAPES[name]().wrapped
+    v, t, f, n = tessellate.tessellate_with_normals(shape, LIN, ANG)
+    v, n = v.astype(np.float64), n.astype(np.float64)
+    assert n.shape == v.shape and np.allclose(np.linalg.norm(n, axis=1), 1.0, atol=1e-5)
+    tri_n = np.cross(v[t[:, 1]] - v[t[:, 0]], v[t[:, 2]] - v[t[:, 0]])
+    for k in range(3):  # every corner normal on the triangle's outer side
+        assert (np.einsum("ij,ij->i", tri_n, n[t[:, k]]) > 0).all()
+    for fid, face in enumerate(tessellate.face_map(shape)):
+        surf = BRep_Tool.Surface_s(face)
+        idx = np.unique(t[f == fid])
+        for i in idx[:: max(1, len(idx) // 40)]:
+            proj = GeomAPI_ProjectPointOnSurf(gp_Pnt(*v[i]), surf)
+            u, w = proj.LowerDistanceParameters()
+            from OCP.GeomLProp import GeomLProp_SLProps
+            props = GeomLProp_SLProps(surf, u, w, 1, 1e-9)
+            if not props.IsNormalDefined():
+                continue  # a pole or an apex
+            e = props.Normal()
+            assert abs(abs(e.X() * n[i, 0] + e.Y() * n[i, 1] + e.Z() * n[i, 2]) - 1.0) < 1e-5

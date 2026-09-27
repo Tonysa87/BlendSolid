@@ -69,6 +69,6 @@ def test_tessellation_failure_is_reported_not_raised(monkeypatch):
     def boom(*args, **kwargs):
         raise RuntimeError("boom")
 
-    monkeypatch.setattr(runner.tessellate, "tessellate", boom)
+    monkeypatch.setattr(runner.tessellate, "tessellate_with_normals", boom)
     r = runner.run_script("with BuildPart() as p:\n    Box(1, 2, 3)\nresult = p\n")
     assert not r.ok and "RuntimeError: boom" in r.error and r.line is None

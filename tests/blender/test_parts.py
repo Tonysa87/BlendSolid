@@ -334,3 +334,27 @@ def test_exit_handler_kills_the_worker(clean):
     assert proc is not None and proc.poll() is None
     runtime._kill_worker_at_exit()  # registered with atexit: Blender never calls unregister() on quit
     assert c.state == "stopped" and proc.poll() is not None
+
+
+def test_mesh_carries_the_exact_surface_normals(clean):
+    # Found in the manual GUI test: MatCap shading showed bands on a cylinder side trimmed by holes (long thin
+    # triangles, averaged normals off by 6 degrees). Corner normals are now the exact surface normals.
+    import numpy as np
+    obj = part.new_part(bpy.context, "result = Cylinder(150, 300) - Pos(150, 0, 0) * Rot(0, 90, 0) * Cylinder(60, 200)\n")
+    wait_for(lambda: up_to_date(obj))
+    me = obj.data
+    v = np.empty(len(me.vertices) * 3); me.vertices.foreach_get("co", v); v = v.reshape(-1, 3)
+    vi = np.empty(len(me.loops), np.int32); me.loops.foreach_get("vertex_index", vi)
+    cn = np.empty(len(me.loops) * 3); me.corner_normals.foreach_get("vector", cn); cn = cn.reshape(-1, 3)
+    p = v[vi]
+    face = np.empty(len(me.polygons), np.int32)
+    me.attributes["brep_face_id"].data.foreach_get("value", face)
+    corner_face = np.repeat(face, 3)  # triangles only
+    on_side = np.abs(np.hypot(p[:, 0], p[:, 1]) - 0.15) < 1e-5
+    side_id = np.bincount(corner_face[on_side]).argmax()  # the outer side (radius 150 mm), trimmed by the hole
+    side = corner_face == side_id
+    radial = np.c_[p[side, :2], np.zeros(side.sum())]
+    radial /= np.linalg.norm(radial, axis=1, keepdims=True)
+    assert side.sum() > 50
+    err = np.degrees(np.arccos(np.clip((cn[side] * radial).sum(1), -1, 1)))
+    assert err.max() < 0.05
