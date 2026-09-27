@@ -56,6 +56,13 @@ Run the manual GUI test, guided step by step, using the plan's 16 steps
   <noreply@anthropic.com>`) + the session's `Claude-Session:` line — see "Open question" above.
 
 ## Open follow-ups (not blocking)
+- **Live cutters, after milestone 1.5** (maintainer's request, 2026-09-27; research: Fusion 360 timeline
+  suppress/remove, HardOps/BoxCutter hidden cutters and Bool Scroll, Onshape/SolidWorks feature suppress):
+  a per-boolean on/off toggle (suppress without removing, like a modifier's eye); "Apply" — inline a cutter
+  into the target's history so the cutter is no longer needed; cycling through a part's cutters
+  (HardOps' Bool Scroll). Deleting a cutter keeps it restorable and "Remove cut" exist since the manual test.
+- **Trimmed curved faces' triangulation** (ADR 0005): shading is right (exact normals) but the wireframe of a
+  curved face cut by booleans still shows BRepMesh's slivers: structured grid + a band along the cut.
 - Windows worker watchdog blocked while a C call holds the GIL → use a Job object with kill-on-close.
 - Windows zip built with the build machine's pip environment markers (no colorama, has pexpect) → fix before any
   public release (milestone 3).

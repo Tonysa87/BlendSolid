@@ -129,3 +129,19 @@ def test_append_to_a_script_without_parameters():
 def test_references_tolerates_broken_scripts():
     assert sm.references("insert(ref('a')\n") == []
     assert sm.references("x = ref('a')\ny = ref('b')\nz = ref('a')\nw = ref(name)\n") == ["a", "b"]
+
+
+def test_remove_feature_drops_its_lines_and_parameters():
+    source, _ = sm.new_script(BOX)
+    source, cut = sm.append_feature(source, CUT)
+    source, boolean = sm.append_feature(source, BOOL)
+    source, last = sm.append_feature(source, BOX)
+    out = sm.remove_feature(source, boolean)
+    assert [f.name for f in sm.features(out)] == ["box_1", cut, last] and "ref(" not in out
+    out = sm.remove_feature(out, cut)
+    assert [f.name for f in sm.features(out)] == ["box_1", last] and f"{cut}_radius" not in out
+    assert sm.is_canonical(out) and f"{last}_length" in out
+    with pytest.raises(ValueError):
+        sm.remove_feature(sm.new_script(BOX)[0], "box_1")  # a part keeps at least one feature
+    with pytest.raises(ValueError):
+        sm.remove_feature(source, "nope")

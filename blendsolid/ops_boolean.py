@@ -6,7 +6,8 @@ not rendered; moving, rotating or editing one recomputes the target (deps.py).
 Shortcuts (Object Mode, Bool Tool's convention): Ctrl+Numpad - / + / *.
 """
 import bpy
-from bpy.props import EnumProperty
+from bpy.props import EnumProperty, StringProperty
+from mathutils import Matrix
 
 from . import deps, part, primitives, script_model
 
@@ -97,6 +98,127 @@ class BLENDSOLID_OT_boolean(bpy.types.Operator):
         return {"FINISHED"}
 
 
+def _local_part(name):
+    obj = bpy.data.objects.get((name, None)) if name else None
+    return obj if part.is_local_part(obj) else None
+
+
+class BLENDSOLID_OT_remove_boolean(bpy.types.Operator):
+    """Remove this boolean from the part's history: the part is rebuilt without it. A cutter no other part uses
+    is shown and rendered again"""
+    bl_idname = "blendsolid.remove_boolean"
+    bl_label = "Remove Boolean"
+    bl_options = {"REGISTER", "UNDO", "INTERNAL"}
+
+    target: StringProperty()
+    feature: StringProperty()
+
+    def execute(self, context):
+        target = _local_part(self.target)
+        if target is None:
+            self.report({"ERROR"}, f"There is no BlendSolid part named '{self.target}'")
+            return {"CANCELLED"}
+        found = [b for b in deps.booleans(target) if b.feature == self.feature]
+        try:
+            source = script_model.remove_feature(part.source_of(target), self.feature)
+        except (ValueError, script_model.NotCanonical) as e:
+            self.report({"ERROR"}, f"Can't remove it: {e}")
+            return {"CANCELLED"}
+        target.blendsolid_script.from_string(source)
+        index = deps.part_index()
+        for b in found:
+            if b.part_id in index and not any(b.part_id in deps.references(part.source_of(objs[0]))
+                                              for objs in index.values()):
+                for obj in index[b.part_id]:
+                    obj.display_type, obj.hide_render = "TEXTURED", False
+        return {"FINISHED"}
+
+
+class BLENDSOLID_OT_restore_cutter(bpy.types.Operator):
+    """Bring back a deleted cutter where it was, editable again"""
+    bl_idname = "blendsolid.restore_cutter"
+    bl_label = "Restore Cutter"
+    bl_options = {"REGISTER", "UNDO", "INTERNAL"}
+
+    target: StringProperty()
+    part_id: StringProperty()
+
+    def execute(self, context):
+        target = _local_part(self.target)
+        text = part.script_of_part(self.part_id)
+        last = part.last_cutter(target, self.part_id) if target is not None else None
+        if target is None or text is None or last is None:
+            self.report({"ERROR"}, "That cutter can't be restored (its script or placement is gone)")
+            return {"CANCELLED"}
+        if self.part_id in deps.part_index():
+            self.report({"ERROR"}, "That cutter is not deleted")
+            return {"CANCELLED"}
+        name, matrices = last
+        factor = part.unit_factor(context.scene)
+        obj = bpy.data.objects.new(name, bpy.data.meshes.new(name))
+        obj.blendsolid_script = text
+        m = Matrix.Identity(4)
+        for i in range(3):
+            for j in range(4):
+                m[i][j] = matrices[0][4 * i + j] * (factor if j == 3 else 1.0)
+        obj.matrix_world = target.matrix_world @ m
+        obj.display_type, obj.hide_render = "WIRE", True
+        (target.users_collection[0] if target.users_collection else context.scene.collection).objects.link(obj)
+        for o in context.view_layer.objects:
+            o.select_set(False)
+        obj.select_set(True)
+        context.view_layer.objects.active = obj
+        part.sync_params(obj)
+        return {"FINISHED"}
+
+
+class BLENDSOLID_OT_select_cutter(bpy.types.Operator):
+    """Select this boolean's cutter (shown if it was hidden)"""
+    bl_idname = "blendsolid.select_cutter"
+    bl_label = "Select Cutter"
+    bl_options = {"REGISTER", "UNDO", "INTERNAL"}
+
+    part_id: StringProperty()
+
+    def execute(self, context):
+        objs = deps.part_index().get(self.part_id)
+        if not objs:
+            self.report({"ERROR"}, "That cutter doesn't exist")
+            return {"CANCELLED"}
+        for o in context.view_layer.objects:
+            o.select_set(False)
+        for obj in objs:
+            obj.hide_set(False)
+            obj.select_set(True)
+        context.view_layer.objects.active = objs[0]
+        return {"FINISHED"}
+
+
+ICONS = {"SUBTRACT": "SELECT_SUBTRACT", "ADD": "SELECT_EXTEND", "INTERSECT": "SELECT_INTERSECT"}
+
+
+def draw_booleans(layout, obj):
+    """The part's booleans with live cutters, each with its actions (the BlendSolid sidebar panel)."""
+    found = deps.booleans(obj)
+    if not found:
+        return
+    box = layout.box()
+    box.label(text="Booleans of this part:")
+    for b in found:
+        row = box.row(align=True)
+        if b.deleted:
+            row.label(text=f"{b.name} (deleted)", icon=ICONS[b.mode])
+            op = row.operator("blendsolid.restore_cutter", text="", icon="LOOP_BACK")
+            op.target, op.part_id = obj.name, b.part_id
+        elif b.missing:
+            row.label(text="Cutter lost", icon="ERROR")
+        else:
+            row.label(text=b.name, icon=ICONS[b.mode])
+            row.operator("blendsolid.select_cutter", text="", icon="RESTRICT_SELECT_OFF").part_id = b.part_id
+        op = row.operator("blendsolid.remove_boolean", text="", icon="X")
+        op.target, op.feature = obj.name, b.feature
+
+
 class VIEW3D_MT_blendsolid_boolean(bpy.types.Menu):
     bl_idname = "VIEW3D_MT_blendsolid_boolean"
     bl_label = "BlendSolid Boolean"
@@ -117,7 +239,8 @@ def _object_menu_entry(self, context):
     self.layout.menu(VIEW3D_MT_blendsolid_boolean.bl_idname, icon="MOD_BOOLEAN")
 
 
-CLASSES = [BLENDSOLID_OT_boolean, VIEW3D_MT_blendsolid_boolean]
+CLASSES = [BLENDSOLID_OT_boolean, VIEW3D_MT_blendsolid_boolean, BLENDSOLID_OT_remove_boolean,
+           BLENDSOLID_OT_restore_cutter, BLENDSOLID_OT_select_cutter]
 
 
 def register():

@@ -15,6 +15,8 @@ from . import params, trust
 
 FACE_ATTR = "brep_face_id"
 HASH_KEY = "bs_source_hash"
+KEPT_KEY = "bs_kept"  # on a part's Text: given a fake user because a part uses it (see keep_used_scripts())
+LAST_KEY = "bs_ref_last"  # on a part's Text: {cutter part id: {"name", "matrices"}} last seen (remember_cutters())
 PLANES_KEY = "bs_face_planes"  # per BRep face: exact plane (nx, ny, nz, d mm, part frame) or NaN, flattened
 ERROR_TAG_KEY = "bs_error_tag"
 PART_ID_KEY = "bs_part_id"  # on the part's Text: identity follows the script (Shift+D copies it, Alt+D and
@@ -368,3 +370,58 @@ def not_canonical_message(obj, error, detail=False):
     message = f"{obj.name} was made by an older BlendSolid version or edited by hand: the tools can't add " \
               f"features to it"
     return f"{message} ({error})" if detail else message
+
+
+def script_of_part(pid):
+    """The local Text of part id `pid` (it may have no object any more: a deleted cutter), or None."""
+    for text in bpy.data.texts:
+        if text.library is None and text.get(PART_ID_KEY) == pid:
+            return text
+    return None
+
+
+def keep_used_scripts(used_ids):
+    """Give the scripts of parts that other parts use (`used_ids`) a fake user, so deleting such a cutter keeps
+    its script in the file (restorable); take it back from those no part uses any more. Only fake users this
+    function set are ever cleared."""
+    for text in bpy.data.texts:
+        pid = text.get(PART_ID_KEY)
+        if text.library is not None or pid is None:
+            continue
+        if pid in used_ids:
+            if not text.use_fake_user:
+                text.use_fake_user = True
+                text[KEPT_KEY] = True
+        elif text.get(KEPT_KEY):
+            text.use_fake_user = False
+            del text[KEPT_KEY]
+
+
+def remember_cutters(obj, resolved_deps):
+    """Store on obj's script the name and placements (in obj's frame) of the cutters it uses, as resolved now:
+    what a deleted cutter is used and restored with. Written only when something changed."""
+    text = obj.blendsolid_script
+    if text is None or text.library is not None:
+        return
+    last = text.get(LAST_KEY)
+    known = {} if last is None else last.to_dict()
+    wanted = {d["id"]: {"name": d["name"], "matrices": [v for m in d["matrices"] for v in m]}
+              for d in resolved_deps if not d.get("deleted")}
+    wanted = {**{k: v for k, v in known.items() if k in _refs_of(text)}, **wanted}
+    if wanted != known:
+        text[LAST_KEY] = wanted
+
+
+def _refs_of(text):
+    from . import script_model
+    return set(script_model.references(text.as_string()))
+
+
+def last_cutter(obj, pid):
+    """(name, [3x4 row-major matrices, translation in mm]) of cutter `pid` as obj last used it, or None."""
+    last = obj.blendsolid_script.get(LAST_KEY) if obj.blendsolid_script is not None else None
+    entry = None if last is None else last.get(pid)
+    if entry is None:
+        return None
+    flat = list(entry["matrices"])
+    return entry["name"], [flat[i:i + 12] for i in range(0, len(flat), 12)]

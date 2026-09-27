@@ -187,6 +187,7 @@ class BLENDSOLID_PT_part(bpy.types.Panel):
             for i, text in enumerate(obj.blendsolid_error.splitlines()[:6]):
                 box.label(text=(text + line) if i == 0 else text, icon="BLANK1")
         from . import ops_boolean
+        ops_boolean.draw_booleans(layout, obj)
         layout.label(text="Booleans (selected parts on this one):")
         ops_boolean.draw_boolean_buttons(layout)
         row = layout.row(align=True)

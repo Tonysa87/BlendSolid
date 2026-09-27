@@ -6,9 +6,11 @@ cuts — recursively) and into the part's tag. The tag covers the
 dependencies' tags and placements, so moving, rotating or editing a cutter makes the parts that use it stale,
 and the reconcile loop recomputes them like any other change.
 
-A reference that can't be used (the cutter was deleted, parts use each other in a loop, the cutter's script
-isn't trusted, the cutter is scaled) raises DepError, whose message is shown on the part; the part is then
-not submitted, and error_tag() gives it a tag that changes as soon as the situation does.
+A deleted cutter keeps its script (part.keep_used_scripts()) and the parts using it remember where it was
+(part.remember_cutters()): it goes on cutting from there, and can be restored or its cut removed (booleans()).
+A reference that can't be used (the cutter's script is lost, parts use each other in a loop, the cutter's
+script isn't trusted, the cutter is scaled) raises DepError, whose message is shown on the part; the part is
+then not submitted, and error_tag() gives it a tag that changes as soon as the situation does.
 """
 from dataclasses import dataclass, field
 
@@ -79,8 +81,13 @@ def resolve(obj, source, factor, index, memo=None, stack=()):
                            "(Ctrl+Z)")
         instances = index.get(pid)
         if instances is None:
-            raise DepError("This part uses a cutter part that no longer exists (deleted?): undo the deletion "
-                           "(Ctrl+Z) or delete this part")
+            kept = _deleted_cutter(obj, pid, factor)
+            if kept is None:
+                raise DepError("This part uses a cutter part that no longer exists: undo its deletion (Ctrl+Z) or "
+                               "Remove its cut (BlendSolid panel, Booleans)")
+            deps.append(kept)
+            keys.append(f"{pid}:{kept['tag']}:" + ";".join(_matrix_key(m) for m in kept["matrices"]))
+            continue
         dep = instances[0]
         if not trust.is_trusted(dep):
             raise DepError(f"This part uses '{dep.name}', whose script is not trusted: press Trust Scripts in "
@@ -100,6 +107,56 @@ def resolve(obj, source, factor, index, memo=None, stack=()):
                      "matrices": matrices, "deps": sub.deps})
         keys.append(f"{pid}:{sub.tag}:" + ";".join(_matrix_key(m) for m in matrices))
     return Resolved(part.tag_for(source, factor, keys), deps)
+
+
+def _deleted_cutter(obj, pid, factor):
+    """The dependency entry of cutter `pid`, deleted but with its script kept and its placement remembered by
+    obj, or None. Raises DepError when it can't be used as it is (untrusted, or itself using other parts)."""
+    text, last = part.script_of_part(pid), part.last_cutter(obj, pid)
+    if text is None or last is None:
+        return None
+    name, matrices = last
+    if not trust.text_trusted(text):
+        raise DepError(f"This part uses '{name}' (deleted), whose script is not trusted: press Trust Scripts in "
+                       f"This File")
+    source = text.as_string()
+    if references(source):
+        raise DepError(f"This part uses '{name}', which was deleted and uses other parts: restore it (BlendSolid "
+                       f"panel, Booleans)")
+    return {"id": pid, "name": name, "tag": part.tag_for(source, factor), "source": source, "matrices": matrices,
+            "deps": [], "deleted": True}
+
+
+@dataclass(frozen=True)
+class Boolean:
+    """A boolean with a live cutter in a part's history (an insert(ref(...)) feature)."""
+    feature: str        # the feature's name in the script
+    part_id: str
+    mode: str           # "ADD", "SUBTRACT" or "INTERSECT"
+    name: str           # the cutter's name (as last seen when deleted)
+    deleted: bool       # the cutter object is gone but its script is kept: restorable
+    missing: bool       # gone with its script: only removing the cut is left
+
+
+def booleans(obj, index=None):
+    """The booleans of obj's history with a live cutter, in order (for the panel). [] if not canonical."""
+    try:
+        feats = script_model.features(part.source_of(obj))
+    except script_model.NotCanonical:
+        return []
+    index = part_index() if index is None else index
+    out = []
+    for f in feats:
+        if f.kind != "insert" or len(f.refs) != 1:
+            continue
+        pid = f.refs[0]
+        if pid in index:
+            out.append(Boolean(f.name, pid, f.mode, index[pid][0].name, False, False))
+            continue
+        last = part.last_cutter(obj, pid)
+        kept = part.script_of_part(pid) is not None and last is not None
+        out.append(Boolean(f.name, pid, f.mode, last[0] if last else "?", kept, not kept))
+    return out
 
 
 def tag_of(obj, factor=None, index=None):

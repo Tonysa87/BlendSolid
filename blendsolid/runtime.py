@@ -144,6 +144,7 @@ def tick():
     part.ensure_unique_part_ids(groups)
     index = deps.part_index(groups)  # again: Shift+D copies just got their own script, hence their own id
     memo = {}  # dependency results shared by every part of this tick
+    used = set()  # ids of the parts other parts use: their scripts are kept even if the object is deleted
     worker_error = None  # once the worker itself fails to start, don't retry it for every other part
     for objs in sorted(groups.values(), key=lambda g: g[0].name):
         obj, siblings = objs[0], objs[1:]
@@ -157,6 +158,10 @@ def tick():
                 dep_error = str(e)
                 resolved = deps.Resolved(deps.error_tag(source, factor, dep_error))
             tag = resolved.tag
+            refs = deps.references(source)
+            used.update(refs)
+            if refs and dep_error is None and not part.is_linked(obj):
+                part.remember_cutters(obj, resolved.deps)
 
             failed_tag = _failed.get(obj.name)
             if failed_tag is not None and failed_tag != tag:
@@ -213,6 +218,7 @@ def tick():
                     _mirror_to_siblings(obj, siblings, source, tag)
                 except Exception:
                     pass  # mirroring must never make the remaining primaries in this tick get skipped
+    part.keep_used_scripts(used)
     global _last_activity
     activity = (frozenset(_inflight), _client.state if _client is not None else "stopped")
     if activity != _last_activity:  # the panel's "Computing…" line only changes here: redraw it then
