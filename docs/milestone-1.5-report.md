@@ -8,8 +8,8 @@ From `docs/spec.md`'s milestone table, milestone 1.5's success criterion, verbat
 > (Shift+A), the Draw Solid tool (on a face or the grid; union/cut by drag direction) and booleans between
 > parts with live cutters; every step is one undo step and one script edit
 
-**Met by automated evidence**, final sign-off pending the manual GUI test with the maintainer (postponed to the
-next session).
+**Met by automated evidence**; the manual GUI test with the maintainer is under way (session of 2026-09-27: steps
+1–11 and 14 done, with the fixes they led to; steps 12, 13, 15, 16 and the sign-off left for the next session).
 
 - `tests/blender/test_success_criterion.py::test_build_the_default_part_and_a_bracket_with_three_holes` builds
   both parts with operators only (no hand-written script): the milestone 1 default part (box + boss, a Draw
@@ -37,7 +37,8 @@ Fresh run, `BL=~/blender/blender-5.2.2-linux-x64/blender tools/test.sh`:
 133 passed in 20.24s     # Blender tests, blender -b --factory-startup
 ```
 
-Total **238 passed**, 0 failed, wall time ~40 s (`time tools/test.sh`: real 0m40.4s).
+Total **238 passed**, 0 failed, wall time ~40 s (`time tools/test.sh`: real 0m40.4s). After the fixes of the manual
+test session (2026-09-27): **160 unit + 167 Blender = 327 passed**, 0 failed.
 
 ## What was built
 
@@ -147,24 +148,27 @@ steps of the manual test plan were instead driven automatically, unattended, in 
 (`tools/gui_check.py`, `--enable-event-simulate`) on both platforms. Full detail, evidence and screenshots:
 `.superpowers/sdd/2026-09-26-milestone-1.5-build-without-selectors/gui-check-report.md`.
 
-| # | Step (plan Task 14, Step 1) | Linux | Windows | Manual |
+| # | Step (plan Task 14, Step 1) | Linux | Windows | Manual (2026-09-27) |
 |---|---|---|---|---|
-| 1 | Shift+A → Box; redo panel; Adjust Last Operation | OK | OK | pending (next session) |
-| 2 | Cursor rotation → cylinder on the tilted plane | OK | OK | pending (next session) |
-| 3 | Other primitives; Shift+A menu and sidebar content | OK | OK | pending (next session) |
-| 4 | Gizmos: 3 arrows, drag the height arrow, undo | OK | OK | pending (next session) |
-| 5 | Scale warning; arrows disappear; undo | OK | OK | pending (next session) |
-| 6 | Draw Solid on the grid → new part | OK | OK | pending (next session) |
-| 7 | Draw Solid on a face, union | OK | OK | pending (next session) |
-| 8 | Draw Solid on a face, cut; redo Mode/Radius | OK | OK | pending (next session) |
-| 9 | Ctrl / Shift+Ctrl snapping | OK | OK | pending (next session) |
-| 10 | Esc / right-click cancel a drag | OK | OK | pending (next session) |
-| 11 | Live cutter: boolean, move, rotate, edit radius | OK | OK | pending (next session) |
-| 12 | Other booleans (Ctrl+Numpad +/*, Object menu) | OK | OK | pending (next session) |
-| 13 | Draw through a wire cutter | OK | OK | pending (next session) |
-| 14 | Deleted cutter → error; undo restores it | OK | OK | pending (next session) |
-| 15 | Undo to the empty scene, then redo everything | OK | OK | pending (next session) |
-| 16 | Save, reopen untrusted, Trust Scripts, recompute | OK | OK | pending (next session) |
+| 1 | Shift+A → Box; redo panel; Adjust Last Operation | OK | OK | OK |
+| 2 | Cursor rotation → cylinder on the tilted plane | OK | OK | OK after fix: display tessellation (ADR 0005) |
+| 3 | Other primitives; Shift+A menu and sidebar content | OK | OK | OK after fix: display tessellation (ADR 0005) |
+| 4 | Gizmos: 3 arrows, drag the height arrow, undo | OK | OK | OK |
+| 5 | Scale warning; arrows disappear; undo | OK | OK | OK |
+| 6 | Draw Solid on the grid → new part | OK | OK | OK (+ snap step ladder, sidebar access, worker warm-up) |
+| 7 | Draw Solid on a face, union | OK | OK | OK after fixes: arrows captured the click; float32 placements |
+| 8 | Draw Solid on a face, cut; redo Mode/Radius | OK | OK | OK after fixes: edge picking, curved-face clearance, normals |
+| 9 | Ctrl / Shift+Ctrl snapping | OK | OK | OK |
+| 10 | Esc / right-click cancel a drag | OK | OK | OK |
+| 11 | Live cutter: boolean, move, rotate, edit radius | OK | OK | OK |
+| 12 | Other booleans (Ctrl+Numpad +/*, Object menu) | OK | OK | booleans used OK; keys/menu/add-on conflicts pending |
+| 13 | Draw through a wire cutter | OK | OK | pending |
+| 14 | Deleted cutter (now restorable, see below) | OK | OK | OK (behaviour changed on request) |
+| 15 | Undo to the empty scene, then redo everything | OK | OK | pending |
+| 16 | Save, reopen untrusted, Trust Scripts, recompute | OK | OK | pending |
+
+The Linux and Windows columns are the re-run of 2026-09-27 on the final code (`GUI CHECK PASS` on both; on
+Windows the worker process was gone once Blender quit).
 
 One bug was found and fixed this way (not by a person): the parameter panel could stay stale after an undo that
 lands on a step pushed before the reconcile tick had mirrored the script into `blendsolid_params` (commit
@@ -172,20 +176,33 @@ lands on a step pushed before the reconcile tick had mirrored the script into `b
 
 ## Manual GUI test
 
-**Pending** — postponed to the next session with the maintainer (portable Windows Blender,
-`E:\blender-5.2.2-windows-x64`, 0.2.0 already installed there). What the automated GUI check cannot cover, and
-so is exactly what the manual session should focus on (from `gui-check-report.md`'s "Needs the manual test"):
+Session of 2026-09-27 with the maintainer, portable Windows Blender (`E:\blender-5.2.2-windows-x64`), real mouse
+and keyboard; results in the table above. Each problem found was reproduced with numbers, fixed test-first,
+installed and re-checked by the maintainer before moving on:
 
-- Step 4: how a gizmo drag feels (latency, following the mouse), arrow colours, the arrows vs. the Move gizmo
-  visually.
-- Steps 6–9: the preview outline's colour and look while drawing, the header text as displayed on screen, Ctrl
-  snapping feel.
-- Steps 1, 6, 8: the *Adjust Last Operation* panel as a widget (F9, typing values into it by hand).
-- Steps 3, 12: opening Shift+A and the Object menu by hand; key conflicts with other installed add-ons (e.g.
-  Bool Tool).
-- Step 11: the wireframe look of the cutter.
-- Step 16: quitting and restarting Blender with the preference off, the *Recompute* tooltip text, Task Manager.
-- Real mouse and keyboard input: every step above was driven by simulated events, never a real mouse.
+- **Curved primitives looked faceted / had irregular triangles (steps 2–3).** BRepMesh's Delaunay in (u, v)
+  space gives fans, slivers and a distorted seam band. Full faces of revolution are now structured grids
+  (geodesic sphere, staggered rings), with a per-scene display tolerance (mm, default 1) replacing the absolute
+  0.1 mm that made metre-sized parts heavy; exact vertex normals as custom normals remove shading bands on
+  trimmed faces (ADR 0005).
+- **Snapping (step 6, maintainer's request).** A step ladder 0.1 mm – 10 m changed with Ctrl+Wheel before or
+  during a drag; Ctrl puts corners (a cylinder's centre) on grid nodes of the cursor plane or of the part's
+  own grid on a face; a cross marks the node (orange over a part, white over the cursor plane). Draw Solid is
+  also reachable from the sidebar; the worker starts when BlendSolid is first shown, so the first part doesn't
+  wait ~2 s.
+- **Selected part's arrows took the click meant to draw (step 7):** hidden while Draw Solid is active.
+- **Skins and slivers in booleans drawn on faces (steps 7–8).** Placements carried float32 noise (mesh hit,
+  `matrix_world`, `mathutils`, operator properties): 3e-05 mm skins, 90.000003° rotations. Flat faces' exact
+  planes now come from the worker and placements are computed in float64 (`drawing.LocalPlane`).
+- **A drag started on a part's corner made a new part (step 8):** rays a few pixels around the mouse are tried.
+- **Cuts on curved faces left slivers (step 8):** the tangent plane touches a curved face along a line; such
+  tools now reach past the face by a clearance.
+- **Deleted cutters (step 14, maintainer's request, after research on Fusion 360 / HardOps / Onshape):** a
+  deleted cutter keeps its script and placement and goes on cutting; the panel lists a part's booleans with
+  Select, Restore and Remove. Suppress, Apply and cutter cycling are follow-ups (`docs/NEXT.md`).
+
+Still for the next session: steps 12 (Ctrl+Numpad keys and the Object menu by hand, conflicts with other
+add-ons), 13, 15, 16 (quit/restart with *Auto Run* off, the *Recompute* tooltip, Task Manager), then sign-off.
 
 ## Deviations from the design notes
 
@@ -283,9 +300,11 @@ From the plan:
   target's own earlier features move it later — research risk 2, not addressed this milestone.
 - Recompute latency while dragging gizmos on complex parts is untested beyond this milestone's simple parts —
   research risk 1.
-- No hover highlight before a Draw Solid click, and no real grid snapping (only Ctrl = 1 mm / 0.1 mm) — both
-  candidates for milestone 2 alongside face picking.
-- "Apply" (inlining a cutter permanently into its target's script) was not built.
+- No hover highlight of the face before a Draw Solid click (the snap cross shows the node and whether it is on a
+  part) — a candidate for milestone 2 alongside face picking.
+- "Apply" (inlining a cutter permanently into its target's script), per-boolean suppress and cutter cycling
+  were not built (`docs/NEXT.md`).
+- Trimmed curved faces are still triangulated by BRepMesh: right shading (exact normals), sliver wireframe.
 
 Parked items from the ledger, worth keeping in view:
 - A `SyntaxError` in a cutter's script still shows the compile filename as `"<ref <id>>"` to a user editing
