@@ -57,7 +57,8 @@ def unit_factor(scene=None):
 
 
 DEFAULT_TOLERANCE = 1.0  # millimetres
-MESH_FORMAT = 4  # part of every tag: bumping it recomputes saved meshes (2: face planes, 3: exact normals, 4: welded)
+MESH_FORMAT = 5  # part of every tag: bumping it recomputes saved meshes (2: face planes, 3: exact normals, 4: welded,
+#                 5: trimmed curved faces re-triangulated, ADR 0005 addendum)
 
 
 def tolerance(scene=None):

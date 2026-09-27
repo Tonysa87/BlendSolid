@@ -9,3 +9,11 @@ Blender quit
 
 Blender quit
 00:33.610  operator         | Deleted 3 object(s)
+26:24.532  blend            | Saved session recovery to "C:\Users\Tony\AppData\Local\Temp\quit.blend"
+26:24.547  blend            | Writing user preferences: "E:\blender-5.2.2-windows-x64\portable\config\userpref.blend" 
+26:24.547  reports          | Preferences saved
+
+Blender quit
+00:01.047  blend            | Read blend: "E:\bs_debug\fillet.blend"
+00:52.437  operator         | Deleted 3 object(s)
+01:46.265  blend            | Read blend: "E:\bs_debug\fillet.blend"
