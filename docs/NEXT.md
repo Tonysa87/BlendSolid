@@ -23,21 +23,18 @@ Updated: 2026-09-27, session 5 (milestone 1.5 signed off; milestone 2 phase A bu
 - **Phase A done** (plan `docs/superpowers/plans/2026-09-27-m2a-modifier-compatible-mesh.md`, ADR 0008): welded
   closed meshes, flat faces as one polygon / convex polygons around holes, CAD edges with `brep_edge_id`,
   `sharp_edge`, `bevel_weight_edge`, exact corner normals, picking on the evaluated mesh. 190 unit + 192 Blender
-  tests pass; `tools/gui_check.py` PASS on Linux (16/16). **Awaiting the maintainer's GUI check** (below).
+  tests pass; `tools/gui_check.py` PASS on Linux (16/16). **Checked by the maintainer on Windows (2026-09-27):**
+  quads/n-gons in the wireframe, Bevel by weight rounds exactly the CAD edges (parameters still draggable),
+  Solidify/Array/Subdivision/Weighted Normal work. Draw Solid on a beveled part (the maintainer couldn't check
+  it) is `gui_check` step 17, PASS on Linux and in the real Windows window. Review findings fixed.
+- **Phase B (worker side) done** (plan `docs/superpowers/plans/2026-09-27-m2b-provenance-and-references.md`,
+  ADR 0009): labels from build123d's history, `face()/edge_between()/edges_of()/nearest_*()` in part scripts,
+  a reference text per face and edge on the mesh. Nothing to see in the GUI yet.
 
 ## Next step
-1. **GUI check of phase A with the maintainer** (Windows; the maintainer closes Blender first, then:
-   `"$PY" tools/build_extension.py --platform windows-x64 --blender "$BL"`, `install-file`, `smoke_installed.py`,
-   relaunch `blender.exe >> spike/logs/gui-m2.log 2>&1`):
-   - Add a default part (sidebar or Shift+A → BlendSolid). Wireframe overlay: box faces are quads, the boss top an
-     n-gon, the top face around the boss a few convex polygons; no islands.
-   - Add a Bevel modifier, Limit Method **Weight**, Amount 1 mm, Segments 3: only the CAD edges are rounded (not
-     the tangent edges of the fillet), with Clamp Overlap on.
-   - Weighted Normal, Solidify, Array, Mirror, Subdivision: the part behaves like any Blender mesh.
-   - Draw Solid on a face of a part with a Bevel modifier: the drawing starts on the face (exact plane); on an
-     Array copy: it starts on the copy's face.
-   - Parts saved before this build recompute once when opened (MESH_FORMAT 4).
-2. Then phase B (provenance and references in the worker): write its plan from the design, execute, and so on.
+1. Ask the maintainer what blocked step 4 of the phase A check (Draw Solid on a part with a Bevel): it works in
+   gui_check (Linux and Windows); maybe the Ctrl drag or the tool wasn't obvious.
+2. Phase C: the Fillet tool on clicked edges (design section C): plan, then build. Then D (Push/Pull), E, F.
 
 ## Working agreement with the maintainer
 - Repo content in English; chat in Italian.

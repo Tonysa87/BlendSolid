@@ -97,7 +97,9 @@ Weighted Normal or Solidify see only open borders.
   | generated from a face the feature brought in (extrude sides) | `(feature, role)` |
   | no record, or none of the above | `(feature, "new")` — counted as unlabelled |
 
-- **Roles** are computed on the brought-in shape in the feature's own frame (the inverse of the feature's
+- **Roles** (as built; ADR 0009 replaces the per-primitive names below with one vocabulary: `+X..-Z`, `slope`,
+  `side`, `surface`, `blend`, and puts `near=` in the part frame) are computed on the brought-in shape in the
+  feature's own frame (the inverse of the feature's
   `Location`, known from the script model): Box `+X -X +Y -Y +Z -Z`; Cylinder and Cone `top bottom side`; Sphere
   `surface`; Torus `surface`; Wedge `bottom top front back left slope` (part axes of the M1.5 wedge); a live cutter's
   `insert(ref(...))` faces take `ref:<cutter feature>:<cutter role>` from the cutter part's own labels; an extrude
