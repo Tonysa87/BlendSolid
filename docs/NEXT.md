@@ -81,6 +81,12 @@ Updated: 2026-09-27, end of session 5 (milestone 1.5 signed off; milestone 2 pha
   measure exactly what it shows first; installing a build needs the maintainer to close Blender.
 
 ## Open follow-ups (not blocking)
+- **Convert to quads (maintainer's idea, 2026-09-28):** the display mesh follows CAD conventions (triangles, as
+  Rhino/Plasticity/MoI show them); later, a button converts a part's triangle mesh into a quad mesh, destructively
+  or on a copy. The same button serves the NURBS surface modeling to come (spec: Surfaces, SubD → NURBS, G2
+  milestones), whose results are converted to quads the same way. It is the spec's "Blender output" row (v2: quad
+  mesh for simple faces; R&D: quads on trimmed faces). Quad-meshing findings from the 2026-09-28 tessellation
+  research are its starting input.
 - **Fixes after the 1.5 sign-off (2026-09-27)**, checked by the maintainer in the Windows GUI and merged: the tangent plane on a curved face follows the surface (ADR 0006 point 4; a solid drawn
   there is still tilted up to ~1.4° from the exact normal); the wedge has a `top_length` arrow along its top edge.
   Known: when a wedge's top is longer than its base, build123d centres the wider bounding box, and the
