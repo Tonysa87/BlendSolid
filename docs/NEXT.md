@@ -43,17 +43,15 @@ Updated: 2026-09-27, session 5 (milestone 1.5 signed off; milestone 2 phase A bu
   `extrude(face("box_1", "+X"), amount=push_1_amount, mode=Mode.ADD)`). `gui_check` 19/19 PASS on Linux;
   215 unit + 206 Blender tests pass. The Windows zip in `dist/` has phases A–D; **not installed yet**.
 
+- **Fillet and Push/Pull checked by the maintainer on Windows (2026-09-27 evening):** they work; after their
+  feedback the drag got faster (edit → mesh 106 → 59 ms: `runtime.kick()` and 10 ms polling while busy), an
+  immediate overlay preview, a drag handle and Draw Solid's snapping (ticks, labels, Ctrl+Wheel). **The maintainer
+  doesn't like the yellow arrow and the preview's look**: to redo in a dedicated UX redesign (not now).
+
 ## Next step
-1. **GUI check of Fillet and Push/Pull with the maintainer** (Windows): close Blender, install the zip, smoke
-   test, relaunch `blender.exe >> spike/logs/gui-m2.log 2>&1`, then:
-   - Toolbar → **Fillet** (under Draw Solid): hover a part: the edge under the mouse turns light blue (inside a
-     face: its outline); click an edge (orange), Shift+click another; press and drag: the fillet grows live, the
-     header shows the radius; C: chamfer; Ctrl: snap; release: one feature, Ctrl+Z removes it.
-   - Toolbar → **Push/Pull**: hover a flat face (outline); press and drag outwards: a block grows; inwards: a
-     pocket; Ctrl snaps; release commits, Ctrl+Z undoes.
-   - Change an upstream parameter (e.g. the box length in the sidebar): the fillet and the push follow their faces.
-   - Ask what blocked step 4 of the phase A check (Draw Solid on a beveled part; gui_check step 17 passes).
-2. Then phase E (broken references: warnings, last good match signature) and F (20-part corpus criterion test).
+1. Phase E (broken references: warnings for partly lost references, last-good-match signature) and phase F (the
+   20-part corpus test of the milestone criterion), then the milestone report and sign-off.
+2. Later, a UX redesign of the tools' on-screen feedback (handles, previews), with research on Plasticity/Fusion.
 
 ## Working agreement with the maintainer
 - Repo content in English; chat in Italian.
