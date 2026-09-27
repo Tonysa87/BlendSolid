@@ -14,6 +14,7 @@ import numpy as np
 from . import params, trust
 
 FACE_ATTR = "brep_face_id"
+EDGE_ATTR = "brep_edge_id"  # per mesh edge: the BRep edge it lies on, -1 inside a face (ADR 0008)
 HASH_KEY = "bs_source_hash"
 KEPT_KEY = "bs_kept"  # on a part's Text: given a fake user because a part uses it (see keep_used_scripts())
 LAST_KEY = "bs_ref_last"  # on a part's Text: {cutter part id: {"name", "matrices"}} last seen (remember_cutters())
@@ -54,7 +55,7 @@ def unit_factor(scene=None):
 
 
 DEFAULT_TOLERANCE = 1.0  # millimetres
-MESH_FORMAT = 3  # part of every tag: bumping it recomputes saved meshes (2: face planes, 3: exact normals)
+MESH_FORMAT = 4  # part of every tag: bumping it recomputes saved meshes (2: face planes, 3: exact normals, 4: welded)
 
 
 def tolerance(scene=None):
@@ -105,7 +106,8 @@ def new_part(context, source=None, name="Part"):
 def apply_result(obj, event, factor):
     """`factor`: the unit factor event["tag"] was computed with (the caller checked it is still current)."""
     verts = np.asarray(event["verts"], dtype=np.float64) * factor  # millimetres -> Blender units
-    fill_mesh(obj.data, verts, event["tris"], event["tri_face"], event.get("normals"))
+    fill_mesh(obj.data, verts, event["tris"], event["tri_face"], event.get("corner_normals"), event.get("edges"),
+              event.get("edge_ids"), event.get("edge_sharp"))
     planes = event.get("planes")
     if planes is not None:
         obj.data[PLANES_KEY] = np.asarray(planes, dtype=np.float64).ravel().tolist()
@@ -135,7 +137,10 @@ def error_tag(obj):
     return obj.get(ERROR_TAG_KEY)
 
 
-def fill_mesh(mesh, verts, tris, tri_face, normals=None):
+def fill_mesh(mesh, verts, tris, tri_face, corner_normals=None, edges=None, edge_ids=None, edge_sharp=None):
+    """The worker's welded display mesh (ADR 0008): closed, so Blender's modifiers see real edges. CAD edges carry
+    their BRep edge id; those where the faces meet at an angle are sharp and bevel-weighted (Bevel's Limit Method
+    Weight rounds exactly them); the exact normals are per face corner."""
     mesh.clear_geometry()
     nt = len(tris)
     mesh.vertices.add(len(verts))
@@ -144,53 +149,99 @@ def fill_mesh(mesh, verts, tris, tri_face, normals=None):
     mesh.loops.foreach_set("vertex_index", np.ascontiguousarray(tris, dtype=np.int32).ravel())
     mesh.polygons.add(nt)
     mesh.polygons.foreach_set("loop_start", np.arange(0, nt * 3, 3, dtype=np.int32))
-    mesh.polygons.foreach_set("use_smooth", np.ones(nt, dtype=bool))  # sharp between faces: verts not shared
-    attr = mesh.attributes.get(FACE_ATTR) or mesh.attributes.new(FACE_ATTR, "INT", "FACE")
+    mesh.polygons.foreach_set("use_smooth", np.ones(nt, dtype=bool))  # sharp edges come from sharp_edge
+    attr = _attribute(mesh, FACE_ATTR, "INT", "FACE")
     attr.data.foreach_set("value", np.ascontiguousarray(tri_face, dtype=np.int32))
-    if normals is not None and len(normals) == len(verts):
+    mesh.update(calc_edges=True)
+    ids = np.full(len(mesh.edges), -1, dtype=np.int32)
+    sharp = np.zeros(len(mesh.edges), dtype=bool)
+    if edges is not None and len(edges):
+        found = _edge_indices(mesh, np.asarray(edges, dtype=np.int64))
+        ok = found >= 0
+        ids[found[ok]] = np.asarray(edge_ids, dtype=np.int32)[ok]
+        sharp[found[ok]] = np.asarray(edge_sharp, dtype=bool)[ok]
+    _attribute(mesh, EDGE_ATTR, "INT", "EDGE").data.foreach_set("value", ids)
+    _attribute(mesh, "sharp_edge", "BOOLEAN", "EDGE").data.foreach_set("value", sharp)
+    _attribute(mesh, "bevel_weight_edge", "FLOAT", "EDGE").data.foreach_set("value", sharp.astype(np.float32))
+    if corner_normals is not None and len(corner_normals) == nt * 3:
         # The exact surface normals (the worker's): shading doesn't depend on the triangles' shapes.
-        custom = mesh.attributes.get("custom_normal") or mesh.attributes.new("custom_normal", "FLOAT_VECTOR", "POINT")
-        custom.data.foreach_set("vector", np.ascontiguousarray(normals, dtype=np.float32).ravel())
+        custom = _attribute(mesh, "custom_normal", "FLOAT_VECTOR", "CORNER")
+        custom.data.foreach_set("vector", np.ascontiguousarray(corner_normals, dtype=np.float32).ravel())
+    elif "custom_normal" in mesh.attributes:
+        mesh.attributes.remove(mesh.attributes["custom_normal"])
     mesh.update()
 
 
-def face_plane(obj, polygon_index):
-    """The exact plane (normal, d in millimetres, in obj's frame) of the BRep face that mesh polygon
-    `polygon_index` belongs to, or None (a curved face, or a mesh computed before planes were stored)."""
-    planes = obj.data.get(PLANES_KEY)
-    attr = obj.data.attributes.get(FACE_ATTR)
-    if planes is None or attr is None or not 0 <= polygon_index < len(attr.data):
+def _attribute(mesh, name, data_type, domain):
+    """mesh's attribute `name`, created or recreated with this type and domain (an older mesh format may have
+    it on another domain)."""
+    attr = mesh.attributes.get(name)
+    if attr is not None and (attr.domain != domain or attr.data_type != data_type):
+        mesh.attributes.remove(attr)
+        attr = None
+    return attr or mesh.attributes.new(name, data_type, domain)
+
+
+def _edge_indices(mesh, pairs):
+    """Index in mesh.edges of each vertex pair (-1 if missing)."""
+    ev = np.empty(len(mesh.edges) * 2, dtype=np.int64)
+    mesh.edges.foreach_get("vertices", ev)
+    ev = np.sort(ev.reshape(-1, 2), axis=1)
+    n = max(int(ev.max(initial=0)), int(pairs.max(initial=0))) + 1
+    keys = ev[:, 0] * n + ev[:, 1]
+    pairs = np.sort(pairs, axis=1)
+    wanted = pairs[:, 0] * n + pairs[:, 1]
+    order = np.argsort(keys)
+    pos = np.searchsorted(keys[order], wanted)
+    pos = np.minimum(pos, len(keys) - 1)
+    hit = keys[order][pos] == wanted
+    return np.where(hit, order[pos], -1)
+
+
+def face_id(mesh, polygon_index):
+    """The BRep face id of `mesh`'s polygon (a part's mesh, or its evaluated mesh after modifiers, which
+    propagate the attribute), or None (no such attribute or polygon, or a negative id)."""
+    attr = mesh.attributes.get(FACE_ATTR)
+    if attr is None or attr.domain != "FACE" or not 0 <= polygon_index < len(attr.data):
         return None
     fid = attr.data[polygon_index].value
-    if not 0 <= 4 * fid < len(planes):
+    return fid if fid >= 0 else None
+
+
+def face_plane(obj, fid):
+    """The exact plane (normal, d in millimetres, in obj's frame) of obj's BRep face `fid`, or None (a curved
+    face, an unknown id, or a mesh computed before planes were stored)."""
+    planes = obj.data.get(PLANES_KEY)
+    if planes is None or fid is None or not 0 <= 4 * fid < len(planes):
         return None
     nx, ny, nz, d = planes[4 * fid:4 * fid + 4]
     return None if math.isnan(nx) else ((nx, ny, nz), d)
 
 
-def curved_face_normal(obj, polygon_index, location):
-    """The surface's world normal at world `location` on mesh polygon `polygon_index`, if that polygon belongs
-    to a curved BRep face: the worker's exact vertex normals interpolated across the triangle (the polygon's
-    own normal jumps from triangle to triangle). None on a flat face or a mesh without exact normals."""
+def is_curved_face(obj, fid):
     planes = obj.data.get(PLANES_KEY)
-    attr = obj.data.attributes.get(FACE_ATTR)
-    custom = obj.data.attributes.get("custom_normal")
-    if planes is None or attr is None or custom is None or not 0 <= polygon_index < len(obj.data.polygons):
+    return planes is not None and fid is not None and 0 <= 4 * fid < len(planes) and math.isnan(planes[4 * fid])
+
+
+def curved_face_normal(obj, mesh, polygon_index, location):
+    """The surface's world normal at world `location` on polygon `polygon_index` of `mesh` (obj's evaluated
+    mesh), if that polygon belongs to a curved BRep face: the corner normals (the worker's exact ones, or what
+    the modifiers made of them) interpolated across the triangle — the polygon's own normal jumps from triangle
+    to triangle. None on a flat face, or on a polygon that isn't a triangle (a modifier's quads)."""
+    if not is_curved_face(obj, face_id(mesh, polygon_index)):
         return None
-    fid = attr.data[polygon_index].value
-    if not 0 <= 4 * fid < len(planes) or not math.isnan(planes[4 * fid]):
-        return None
-    ids = obj.data.polygons[polygon_index].vertices
-    if len(ids) != 3:
+    poly = mesh.polygons[polygon_index]
+    if poly.loop_total != 3:
         return None
     from mathutils import Vector, geometry
-    corners = [obj.data.vertices[i].co for i in ids]
+    loops = range(poly.loop_start, poly.loop_start + 3)
+    corners = [mesh.vertices[mesh.loops[k].vertex_index].co for k in loops]
     p = obj.matrix_world.inverted_safe() @ Vector(location)
     area = geometry.area_tri(*corners)
     if area <= 0.0:
         return None
     weights = [geometry.area_tri(p, corners[(k + 1) % 3], corners[(k + 2) % 3]) / area for k in range(3)]
-    n = sum((Vector(custom.data[i].vector) * w for i, w in zip(ids, weights)), Vector())
+    n = sum((Vector(mesh.corner_normals[k].vector) * w for k, w in zip(loops, weights)), Vector())
     if n.length == 0.0:
         return None
     return (obj.matrix_world.to_3x3().inverted_safe().transposed() @ n).normalized()

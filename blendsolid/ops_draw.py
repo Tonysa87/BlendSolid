@@ -305,14 +305,28 @@ def pick(context, origin, direction, near=()):
     location, normal, index, obj = found
     is_part = (part.is_local_part(obj) and not part.is_scaled(obj) and trust.is_trusted(obj)
                and script_model.is_canonical(part.source_of(obj)))
-    exact = part.face_plane(obj, index) if is_part and not obj.modifiers else None
-    if exact is not None:
+    # The ray hit the evaluated mesh (after modifiers): its polygons carry the BRep face ids they came from.
+    mesh = obj.evaluated_get(depsgraph).data
+    fid = part.face_id(mesh, index) if is_part else None
+    exact = part.face_plane(obj, fid)
+    factor = part.unit_factor(context.scene)
+    if exact is not None and _on_plane(obj, exact, location, factor):
         local = drawing.plane_on_part_face(exact[0], exact[1])
-        return obj.matrix_world @ local.matrix(part.unit_factor(context.scene)), obj, local
-    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+        return obj.matrix_world @ local.matrix(factor), obj, local
+    smooth = part.curved_face_normal(obj, mesh, index, location) if is_part else None
     if smooth is not None:
         return drawing.plane_on_curved_face(location, smooth, obj.matrix_world), obj, None
     return drawing.plane_on_face(location, normal, obj.matrix_world), (obj if is_part else None), None
+
+
+ON_PLANE_MM = 1e-3  # a hit this close to a face's exact plane is on it (float32 mesh); farther: a modifier moved it
+
+
+def _on_plane(obj, plane, location, factor):
+    """Is world `location` on obj's face plane (normal, d mm)? Not when a modifier (Array, Solidify, Mirror...)
+    moved the polygon that was hit away from the face it came from."""
+    p = obj.matrix_world.inverted_safe() @ Vector(location)
+    return abs(Vector(plane[0]).dot(p) / factor - plane[1]) < ON_PLANE_MM
 
 
 def _draw_preview(op):
