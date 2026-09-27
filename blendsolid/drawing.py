@@ -170,6 +170,8 @@ def drawn_solid(shape, plane, p0, p1, height, factor, step_mm=0.0, local=None):
     else:
         cu_mm, cv_mm = a0, b0
         dims = {"radius": snap(math.hypot(p1[0] * to_mm - a0, p1[1] * to_mm - b0), step_mm)}
+    # The mouse is float32: 6 decimals, like the parameters (an exact placement is written with more).
+    cu_mm, cv_mm = round(cu_mm, 6) + 0.0, round(cv_mm, 6) + 0.0
     frame = _moved(plane, cu_mm / to_mm, cv_mm / to_mm)
     return Drawn(shape, frame, height=snap(height * to_mm, step_mm), local=None if local is None
                  else local.moved(cu_mm, cv_mm), **dims)

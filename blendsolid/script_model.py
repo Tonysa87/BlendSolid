@@ -57,17 +57,25 @@ class FeatureSpec:
     """A feature to add. `call` is the build123d statement with `{name}` where the feature's name goes
     (e.g. "Box({name}_length, {name}_width, {name}_height, align=Align.MIN)"); `params` are (suffix, value)
     pairs that become `<name>_<suffix> = value`. With `location`, the call is wrapped in
-    `with Locations(Location(location, rotation)):`."""
+    `with Locations(Location(location, rotation)):`. An `exact` placement (taken from a face's exact plane)
+    is written with PLACEMENT_DECIMALS: a face can sit off the 6-decimal grid (y = -93.652651 + 53.694279 / 2)
+    and rounding the placement would start the feature past OCCT's 1e-07 mm tolerance (skins, gaps)."""
     prefix: str
     params: tuple[tuple[str, float], ...]
     call: str
     location: tuple[float, float, float] | None = None
     rotation: tuple[float, float, float] = (0.0, 0.0, 0.0)
+    exact: bool = False
 
 
-def fmt(value):
-    """A number as the scripts write it: rounded to 6 decimals, never "-0.0"."""
-    return params.format_value(round(float(value), 6) + 0.0, False)
+PLACEMENT_DECIMALS = 10  # an error of at most 5e-11 mm
+
+
+def fmt(value, decimals=6):
+    """A number as the scripts write it: rounded to 6 decimals (float32 noise), never "-0.0"."""
+    value = round(float(value), decimals) + 0.0
+    text = params.format_value(value, False)  # refuses nan/inf
+    return text if decimals <= 6 else repr(value)
 
 
 def _structure(source):
@@ -231,8 +239,9 @@ def _statement_lines(spec, name, indent):
     call = spec.call.replace("{name}", name)
     if spec.location is None:
         return [f"{indent}{call}  # feature: {name}"]
-    loc = ", ".join(fmt(v) for v in spec.location)
-    rot = ", ".join(fmt(v) for v in spec.rotation)
+    decimals = PLACEMENT_DECIMALS if spec.exact else 6
+    loc = ", ".join(fmt(v, decimals) for v in spec.location)
+    rot = ", ".join(fmt(v, decimals) for v in spec.rotation)
     return [f"{indent}with Locations(Location(({loc}), ({rot}))):  # feature: {name}",
             f"{indent}    {call}"]
 

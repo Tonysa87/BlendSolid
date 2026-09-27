@@ -157,3 +157,25 @@ Blender quit
 20:31.266  blend            | Saved session recovery to "C:\Users\Tony\AppData\Local\Temp\quit.blend"
 
 Blender quit
+=== session 4 Sun Sep 27 14:48:29 CEST 2026 ===
+00:19.594  operator         | Deleted 3 object(s)
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+  File "E:\blender-5.2.2-windows-x64\5.2\scripts\startup\bl_ui\space_toolsystem_common.py", line 1206, in item_group_from_id
+    return cls._tool_get_group_by_id(context, idname, coerce=coerce)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\5.2\scripts\startup\bl_ui\space_toolsystem_common.py", line 386, in _tool_get_group_by_id
+    if subitem.idname == idname:
+       ^^^^^^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'idname'
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+  File "E:\blender-5.2.2-windows-x64\5.2\scripts\startup\bl_ui\space_toolsystem_common.py", line 1206, in item_group_from_id
+    return cls._tool_get_group_by_id(context, idname, coerce=coerce)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\blender-5.2.2-windows-x64\5.2\scripts\startup\bl_ui\space_toolsystem_common.py", line 386, in _tool_get_group_by_id
+    if subitem.idname == idname:
+       ^^^^^^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'idname'
+06:06.625  operator         | Deleted 1 object(s)
+08:43.484  operator         | Saved "cut.blend"

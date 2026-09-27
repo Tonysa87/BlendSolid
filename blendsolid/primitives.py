@@ -89,7 +89,7 @@ def wedge_align_inverse(native):
     return (native[0], _FLIP[native[2]], native[1])
 
 
-def feature_spec(kind, values, mode="ADD", align=BASE, location=None, rotation=(0.0, 0.0, 0.0)):
+def feature_spec(kind, values, mode="ADD", align=BASE, location=None, rotation=(0.0, 0.0, 0.0), exact=False):
     """The FeatureSpec a tool appends for primitive `kind` with parameter values `values` (suffix -> mm).
     mode "ADD" features are named after the kind (box_1), "SUBTRACT" ones cut_1, "INTERSECT" ones common_1."""
     prim = PRIMITIVES[kind]
@@ -98,7 +98,7 @@ def feature_spec(kind, values, mode="ADD", align=BASE, location=None, rotation=(
         "{mode}", "" if mode == "ADD" else f", mode=Mode.{mode}")
     prefix = {"ADD": kind, "SUBTRACT": "cut", "INTERSECT": "common"}[mode]
     return FeatureSpec(prefix, tuple((suffix, float(values[suffix])) for suffix, _, _ in prim.params), call,
-                       location, tuple(rotation))
+                       location, tuple(rotation), exact)
 
 
 def insert_spec(part_id, mode):

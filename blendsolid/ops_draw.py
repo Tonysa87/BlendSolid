@@ -104,7 +104,7 @@ class BLENDSOLID_OT_draw_solid(bpy.types.Operator):
             self.report({"ERROR"}, part.scaled_message(reference))
             return {"CANCELLED"}
         kind = KIND[self.shape]
-        location, rotation = self._placement()
+        location, rotation, on_plane = self._placement()
         frame = drawing.frame_matrix(location, rotation, factor)
         if self.mode == "NEW":
             matrix = (reference.matrix_world if reference is not None else Matrix.Identity(4)) @ frame
@@ -113,7 +113,7 @@ class BLENDSOLID_OT_draw_solid(bpy.types.Operator):
         spec = primitives.feature_spec(
             kind, self._values(), mode="ADD" if self.mode == "UNION" else "SUBTRACT",
             align=primitives.BASE if self.mode == "UNION" else primitives.TOP,
-            location=location, rotation=tuple(math.degrees(a) for a in rotation))
+            location=location, rotation=tuple(math.degrees(a) for a in rotation), exact=on_plane)
         try:
             source, _ = script_model.append_feature(part.source_of(reference), spec)
         except script_model.NotCanonical as e:
@@ -123,17 +123,18 @@ class BLENDSOLID_OT_draw_solid(bpy.types.Operator):
         return {"FINISHED"}
 
     def _placement(self):
-        """(location mm, rotation radians): the exact ones while the float32 properties still match them."""
+        """(location mm, rotation radians, on_plane): the exact ones while the float32 properties still match
+        them; on_plane when they come from a face's exact plane (written with more decimals)."""
         location, rotation = tuple(self.location), tuple(self.rotation)
         if self.exact:
             try:
                 e = json.loads(self.exact)
                 if (all(_f32(a) == b for a, b in zip(e["location"], location))
                         and all(_f32(a) == b for a, b in zip(e["rotation"], rotation))):
-                    return tuple(e["location"]), tuple(e["rotation"])
+                    return tuple(e["location"]), tuple(e["rotation"]), bool(e.get("on_plane"))
             except (ValueError, KeyError, TypeError):
                 pass
-        return location, rotation
+        return location, rotation, False
 
     # -- interactive drawing (the Draw Solid tool's left click) ---------------------------------------------------
 
@@ -451,13 +452,14 @@ def drawn_properties(drawn, target, factor, clearance=0.0):
         mode = "NEW"
         if height < 0:  # drawn downwards: the new part's frame looks the other way
             frame = frame @ Matrix.Rotation(math.pi, 4, "X")
-    if target is not None and drawn.local is not None:  # exact: already in the part's frame
+    on_plane = target is not None and drawn.local is not None
+    if on_plane:  # exact: already in the part's frame
         location, rotation = drawing.placement_local(drawn.local)
     else:
         location, rotation = drawing.placement(frame, target.matrix_world if target is not None else None, factor)
     props = {"shape": drawn.shape, "mode": mode, "target": target.name if target is not None else "",
              "location": location, "rotation": rotation, "height": abs(height),
-             "exact": json.dumps({"location": list(location), "rotation": list(rotation)})}
+             "exact": json.dumps({"location": list(location), "rotation": list(rotation), "on_plane": on_plane})}
     if drawn.shape == "BOX":
         props.update(length=drawn.length, width=drawn.width)
     else:

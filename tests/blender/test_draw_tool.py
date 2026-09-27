@@ -383,6 +383,32 @@ def test_cuts_on_faces_of_a_moved_part_are_exact(clean, rays):
         assert angle % 90.0 == 0.0                               # exact right angles
 
 
+def test_a_cut_on_a_face_off_the_six_decimal_grid_starts_exactly_on_it(clean, rays):
+    # Found in the manual GUI test: a cut drawn on the wall of an earlier pocket left a skin. The wall was at
+    # y = -93.652651 + 53.694279 / 2 = -66.8055115 mm (7 decimals) and the placement was written rounded to 6
+    # decimals: the cut started 5e-07 mm inside the material, more than OCCT's 1e-07 tolerance.
+    box = box_part()
+    part.set_param(box, "box_1_width", 30.000003)  # the +Y face is at y = 15.0000015 mm
+    wait_for(lambda: up_to_date(box))
+    bpy.context.view_layer.update()
+    on_y = lambda kind, value, at: SimpleNamespace(type=kind, value=value, ctrl=False, shift=False,
+                                                   ray=(Vector(at) + Vector((0, 1.0, 0)), Vector((0, -1.0, 0))))
+    d = Driver("BOX")
+    d.run([
+        on_y("LEFTMOUSE", "PRESS", (-0.005, 0.015, 0.005)),
+        on_y("MOUSEMOVE", "NOTHING", (0.005, 0.015, 0.015)),
+        on_y("LEFTMOUSE", "RELEASE", (0.005, 0.015, 0.015)),      # a 10 x 10 mm base on the +Y face
+        d.event("MOUSEMOVE", "NOTHING", (0.0, 0.01, 0.01)),
+        d.event("LEFTMOUSE", "PRESS", (0.0, 0.01, 0.01)),          # 5 mm into the part: a cut
+    ])
+    assert d.executed["mode"] == "CUT"
+    (location, _), = _placements(part.source_of(box))
+    assert location == (0.0, 15.0000015, 10.0)                     # exactly on the face; mouse noise rounded
+    wait_for(lambda: up_to_date(box))
+    faces = len({f.value for f in box.data.attributes[part.FACE_ATTR].data})
+    assert faces == 11                                               # 6 + a pocket's 5, no skin over it
+
+
 def test_a_drag_started_on_a_face_edge_still_picks_the_part(clean):
     # Found in the manual GUI test: a Ctrl drag started on a part's corner (where the snap marker sat) missed
     # the part by a hair and made a new part instead of a boolean. Rays a few pixels around the mouse are
