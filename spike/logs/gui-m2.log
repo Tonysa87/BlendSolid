@@ -17,3 +17,16 @@ Blender quit
 00:01.047  blend            | Read blend: "E:\bs_debug\fillet.blend"
 00:52.437  operator         | Deleted 3 object(s)
 01:46.265  blend            | Read blend: "E:\bs_debug\fillet.blend"
+05:19.172  operator         | Deleted 1 object(s)
+23:30.015  operator         | Deleted 1 object(s)
+30:17.328  operator         | Deleted 1 object(s)
+31:02.343  operator         | Saved "fillet.blend"
+31:03.906  blend            | Saved session recovery to "C:\Users\Tony\AppData\Local\Temp\quit.blend"
+
+Blender quit
+00:01.078  blend            | Read blend: "E:\bs_debug\fillet.blend"
+02:59.719  operator         | Deleted 3 object(s)
+03:49.172  operator         | Deleted 3 object(s)
+05:26.344  blend            | Saved session recovery to "C:\Users\Tony\AppData\Local\Temp\quit.blend"
+
+Blender quit
