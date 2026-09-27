@@ -1,47 +1,39 @@
 # Where we are / what's next (bookmark)
 
-Updated: 2026-09-26, end of session 2. Read this first when resuming.
+Updated: 2026-09-27, end of session 3 (manual GUI test, first half). Read this first when resuming.
 
 ## State
 - **Milestone 0 (spike):** done — `SPIKE_REPORT.md`.
 - **Milestone 1 (history as code):** done, merged to `main` and pushed — `docs/milestone-1-report.md`
   (105 automated tests, smoke tests on Windows + Linux, manual GUI test 8/8 OK).
-- **Milestone 1.5 (build without selectors): implemented** on branch `milestone-1.5` — `docs/milestone-1.5-report.md`
-  (238 automated tests, `tools/gui_check.py` PASS on Linux and Windows covering all 16 plan steps, both 0.2.0
-  zips built and smoke-tested). The branch is merged to `main` **locally** by the controller after this session's
-  last commit; **not pushed yet**. The maintainer was unavailable for the manual GUI test this session (a
-  controller ruling): **it is postponed to the next session**, so the milestone is not fully signed off and
-  `main` should not be pushed until it is done.
+- **Milestone 1.5 (build without selectors): manual GUI test half done** — `docs/milestone-1.5-report.md`.
+  On 2026-09-27 the maintainer ran steps 1–11 and 14 by hand; every problem found was fixed test-first and
+  re-checked by them (display tessellation + tolerance + exact normals, ADR 0005; Draw Solid snap ladder,
+  sidebar access, worker warm-up, exact placements, edge picking, curved-face clearance, arrows hidden while
+  drawing; restorable deleted cutters and a per-part booleans list). 327 automated tests pass; `tools/gui_check.py`
+  PASS on Linux and Windows on the final code. All merged to `main` **locally, not pushed** (push only when the
+  milestone is signed off). The Windows 0.2.0 zip with all of it is installed in the portable Blender.
 
 ## Next step (session with the maintainer)
-Run the manual GUI test, guided step by step, using the plan's 16 steps
-(`docs/superpowers/plans/2026-09-26-milestone-1.5-build-without-selectors.md`, Task 14 Step 1):
-- Launch the portable Windows Blender from WSL with the console redirected to a log file:
-  `/mnt/e/blender-5.2.2-windows-x64/blender.exe > spike/logs/gui-m1.5.log 2>&1` (WSL-side path: the redirect is bash's) (0.2.0, with all
-  final-review fixes, is already installed there — no rebuild needed unless `main` changes before the session).
-- Corrections to the plan's step wording, found during the final review and the automated GUI check:
-  - **Before step 11 and after step 13,** switch back to the Select Box tool (`W`) — Draw Solid's own LMB
-    binding captures clicks while it is active.
-  - **Picking the wire cutter** (steps 11, 13, 14): click its wire lines directly, or select it in the Outliner
-    — clicking where a solid part used to be no longer hits the cutter once it's a wireframe.
-  - **Step 4 (gizmo drag), and generally the height stage of any drag:** use an angled view, not one looking
-    straight down the face normal — `height_along_normal` reads 0 in that degenerate case (a known, parked
-    limitation, not a bug to report).
-  - **Step 16 wording:** after *Trust Scripts in This File*, only the **stale** parts (the ones edited while
-    the file was untrusted) recompute — not every part in the file.
-- Focus the session on what `tools/gui_check.py` cannot check by itself (from `docs/milestone-1.5-report.md`'s
-  "Manual GUI test" section): gizmo-drag feel and arrow colours vs. the Move gizmo (step 4); the Draw Solid
-  preview outline's colour/look and the on-screen header text while drawing, and Ctrl-snapping feel (steps
-  6–9); the *Adjust Last Operation* panel as a widget, typing values by hand (steps 1, 6, 8); opening Shift+A
-  and the Object menu by hand, and key conflicts with other installed add-ons such as Bool Tool (steps 3, 12);
-  the wireframe look of a cutter (step 11); quitting/restarting Blender with *Auto Run* off and the *Recompute*
-  tooltip text, checked in Task Manager (step 16); and, throughout, a **real** mouse and keyboard — every
-  automated step used simulated events.
-- The SDD ledger with every ruling (`.superpowers/sdd/2026-09-26-milestone-1.5-build-without-selectors/`, git-ignored)
-  is kept until the manual test is done; delete it after the report is signed off.
-- Then: record the results in `docs/milestone-1.5-report.md` (fill in the "manual" column and the sign-off),
-  set the README status to `✅ **Done**`, and push `main` (the maintainer's rule: push only at the end of a
-  milestone).
+Finish the manual GUI test (plan `docs/superpowers/plans/2026-09-26-milestone-1.5-build-without-selectors.md`,
+Task 14 Step 1), guided one step at a time with exact actions and expected results (the maintainer asked for
+that level of detail):
+- Launch: `/mnt/e/blender-5.2.2-windows-x64/blender.exe >> spike/logs/gui-m1.5.log 2>&1` (run in background).
+  To install a new build, the maintainer must close Blender first (the running worker locks the files):
+  `"$PY" tools/build_extension.py --platform windows-x64 --blender "$BL"`, then `install-file`, then
+  `tools/smoke_installed.py` on Windows.
+- **Step 12:** Ctrl+Numpad + / * and Object menu → BlendSolid Boolean by hand; ask about other add-ons using the
+  same keys (Bool Tool).
+- **Step 13:** Draw Solid through a wire cutter picks the part behind it.
+- **Step 15:** Ctrl+Z back to the empty scene and Ctrl+Shift+Z to the end; each press is one action.
+- **Step 16:** save, quit, restart with *Auto Run Python Scripts* off, open: cached meshes, untrusted panel,
+  *Recompute* greyed with its tooltip; *Trust Scripts in This File* recomputes the stale parts; quit → no
+  worker left in Task Manager.
+- Corrections still valid: switch to Select Box (`W`) before steps that click objects; pick the wire cutter by
+  its lines or in the Outliner; use an angled view for the height stage of a drag.
+- Then: fill in the remaining "Manual" cells and the sign-off in `docs/milestone-1.5-report.md`, set the README
+  status to `✅ **Done**` (and mention the new tolerance/snapping/booleans list in "Try it" if useful), delete the
+  git-ignored SDD ledger (`.superpowers/sdd/2026-09-26-milestone-1.5-build-without-selectors/`), push `main`.
 
 ## Open question for the maintainer
 - **Commit trailer rule:** should every commit keep a fixed `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`
