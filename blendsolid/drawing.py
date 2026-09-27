@@ -207,7 +207,7 @@ def frame_matrix(location_mm, rotation, factor):
 
 GRID_HALF = 8      # the local grid reaches this many steps from the node under the mouse, fading out
 GRID_MAJOR = 5     # every 5th grid line is a major one
-MIN_GRID_PX = 6    # grid cells smaller than this on screen are not drawn
+MIN_GRID_PX = 8    # grid cells smaller than this on screen are not drawn
 
 
 def axis_color(direction, axis_colors):
