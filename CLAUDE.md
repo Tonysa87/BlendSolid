@@ -146,3 +146,7 @@ spike/s08_build_extension.sh                                               # per
 - OCP 8: `Bnd_Box.Get()` can't be called (unregistered return type); use `SquareExtent()`/`CornerMin()`.
 - A scratch script named like a stdlib module (`inspect.py`) next to a script breaks numpy imports in Blender's
   Python ("No module named 'bpy'"): name probes `bl_*.py`.
+- Blender exposes no modifier-key state outside a modal operator (not on `Window`, not in `Gizmo.test_select`):
+  hover feedback that depends on Ctrl can't be done from a tool's gizmo.
+- The worker starts in ~0.16 s (blocking) and loads its libraries in ~2 s more (async); `runtime.warm_up()`
+  starts it on intent (sidebar panel, Shift+A menu, Draw Solid tool) so the first part doesn't wait.

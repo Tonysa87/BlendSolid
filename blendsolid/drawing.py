@@ -11,6 +11,14 @@ from dataclasses import dataclass
 from mathutils import Euler, Matrix, Vector, geometry
 
 AXIS_SNAP = 1e-4  # a face normal this close to one of the part's axes is taken as that axis exactly
+# Snap steps in millimetres, chosen with Ctrl+Wheel; Ctrl snaps to the step, Shift+Ctrl to a tenth of it.
+STEPS = (0.1, 0.5, 1.0, 2.0, 5.0, 10.0, 20.0, 50.0, 100.0, 200.0, 500.0, 1000.0, 2000.0, 5000.0, 10000.0)
+
+
+def next_step(step, direction):
+    """The step `direction` places up (+1) or down (-1) the ladder from `step`, clamped at both ends."""
+    i = min(range(len(STEPS)), key=lambda k: abs(STEPS[k] - step))
+    return STEPS[max(0, min(len(STEPS) - 1, i + direction))]
 
 
 @dataclass(frozen=True)
@@ -44,11 +52,14 @@ def _snap_axis(v):
 def plane_on_face(location, normal, obj_matrix):
     """The drawing plane on the face hit at `location` with world `normal`, of an object with world matrix
     `obj_matrix`: its axes follow the object's (the normal snapped to an object axis when it is one, the plane
-    X from the object's X, or its Y when X is along the normal), so a top face gives a rotation of zero."""
+    X from the object's X, or its Y when X is along the normal), so a top face gives a rotation of zero. Its
+    origin is the object's origin projected onto the face, so the snapping grid is the part's own."""
     rot = obj_matrix.to_3x3().normalized()
-    local_n = _snap_axis((rot.inverted() @ Vector(normal)).normalized())
+    n = rot @ _snap_axis((rot.inverted() @ Vector(normal)).normalized())
+    local_n = rot.inverted() @ n
     local_x = Vector((1, 0, 0)) if abs(local_n.x) < 0.9 else Vector((0, 1, 0))
-    return _frame(Vector(location), rot @ local_x, rot @ local_n)
+    o = obj_matrix.translation
+    return _frame(o + n * (Vector(location) - o).dot(n), rot @ local_x, n)
 
 
 def plane_at_cursor(cursor_matrix):
@@ -83,19 +94,26 @@ def snap(value, step):
     return value if step <= 0 else round(value / step) * step
 
 
+def grid_node(plane, p, factor, step_mm):
+    """Plane coords `p` (Blender units) moved to the nearest node of the plane's grid of `step_mm` millimetres
+    (unchanged when step_mm is 0). The grid starts at the plane's origin: the 3D cursor, or a part's origin."""
+    return tuple(snap(x / factor, step_mm) * factor for x in p)
+
+
 def drawn_solid(shape, plane, p0, p1, height, factor, step_mm=0.0):
     """The solid of a drag: base from plane coords p0 to p1 (Blender units; a box's opposite corners, a
-    cylinder's centre and a point on its rim), `height` in Blender units (signed). Dimensions snap to
-    `step_mm` millimetres when it's > 0 (and so does the base centre, in plane coordinates)."""
+    cylinder's centre and a point on its rim), `height` in Blender units (signed). With `step_mm` > 0 both
+    corners (a cylinder's centre) go to the nearest grid nodes and the radius and height snap to the step."""
     to_mm = 1.0 / factor
-    (u0, v0), (u1, v1) = p0, p1
+    # In millimetres, so snapped dimensions are exact multiples of the step.
+    a0, b0 = (snap(x * to_mm, step_mm) for x in p0)
     if shape == "BOX":
-        cu = snap((u0 + u1) / 2 * to_mm, step_mm / 2) / to_mm
-        cv = snap((v0 + v1) / 2 * to_mm, step_mm / 2) / to_mm
-        dims = {"length": snap(abs(u1 - u0) * to_mm, step_mm), "width": snap(abs(v1 - v0) * to_mm, step_mm)}
+        a1, b1 = (snap(x * to_mm, step_mm) for x in p1)
+        cu, cv = (a0 + a1) / 2 / to_mm, (b0 + b1) / 2 / to_mm
+        dims = {"length": abs(a1 - a0), "width": abs(b1 - b0)}
     else:
-        cu, cv = snap(u0 * to_mm, step_mm) / to_mm, snap(v0 * to_mm, step_mm) / to_mm
-        dims = {"radius": snap(math.hypot(u1 - u0, v1 - v0) * to_mm, step_mm)}
+        cu, cv = a0 / to_mm, b0 / to_mm
+        dims = {"radius": snap(math.hypot(p1[0] * to_mm - a0, p1[1] * to_mm - b0), step_mm)}
     center = plane.translation + plane.col[0].xyz * cu + plane.col[1].xyz * cv
     frame = plane.copy()
     frame.translation = center
