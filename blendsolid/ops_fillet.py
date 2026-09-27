@@ -8,8 +8,11 @@ a chamfer); execute() only reads them: the tool's modal ends by calling it, Blen
 values of the Adjust Last Operation panel, and tests call it directly. OCCT spreads a fillet along the edges
 tangent to the selected ones (it can't be turned off; research §3.1).
 """
+import math
+
 import bpy
 from bpy.props import BoolProperty, FloatProperty, StringProperty
+from mathutils import Matrix
 
 from . import part, script_model
 
@@ -130,12 +133,25 @@ def anchor(obj, reference):
     return mid, w, drawing._frame(mid, (b - a) if (b - a).length > 0 else w.orthogonal(), w)
 
 
-def arrow_lines(mid, w, length, pixel, colour):
-    """The handle: a shaft from the edge along `w` and a head of two strokes (world segments with colours)."""
+def arrow_lines(mid, w, length, pixel, colour, region=None, rv3d=None, min_px=0):
+    """The handle: a shaft from the edge along `w` and a head (world segments with colours). With the view, the
+    shaft is lengthened to at least `min_px` pixels on screen: the handle often points almost at the viewer."""
+    ratio = 1.0
+    if region is not None:
+        from bpy_extras import view3d_utils
+        a = view3d_utils.location_3d_to_region_2d(region, rv3d, mid)
+        b = view3d_utils.location_3d_to_region_2d(region, rv3d, mid + w * pixel)
+        if a is not None and b is not None:
+            ratio = max((b - a).length, 0.15)  # pixels on screen per pixel-size step along w
+        length = max(length, min_px * pixel / ratio)
     tip = mid + w * length
-    side = w.orthogonal().normalized() * (6 * pixel)
-    back = tip - w * (10 * pixel)
-    return [(mid, tip, colour, colour), (tip, back + side, colour, colour), (tip, back - side, colour, colour)]
+    head = 14 * pixel / ratio
+    back = tip - w * head
+    side = w.orthogonal().normalized() * (7 * pixel / ratio ** 0.5)
+    out = [(mid, tip, colour, colour)]
+    for k in range(6):  # a small cone of strokes: visible from any side
+        out.append((tip, back + Matrix.Rotation(k * math.pi / 3, 3, w) @ side, colour, colour))
+    return out
 
 
 def preview_lines(obj, refs, size_mm, chamfer, factor, colour):
@@ -296,11 +312,12 @@ def _draw_drag(op):
     ui = context.preferences.system.ui_scale or 1.0
     _, refs = selection()
     lines = preview_lines(obj, refs, radius, op._chamfer, factor, SELECTED_COLOUR)
-    lines += arrow_lines(mid, w, radius * factor + 12 * ui * pixel, pixel * ui, ARROW_COLOUR)
+    lines += arrow_lines(mid, w, radius * factor + 12 * ui * pixel, pixel * ui, ARROW_COLOUR, region, rv3d,
+                         ARROW_PX * ui)
     if snap and snap * factor / pixel >= drawing.MIN_GRID_PX:
         ticks = drawing.height_ticks(frame, radius * factor, snap * factor, tick=14 * ui * pixel)
         lines += [(a, b, ARROW_COLOUR[:3] + (alpha,), ARROW_COLOUR[:3] + (alpha,)) for a, b, alpha in ticks]
-    ops_draw._draw_segments(region, lines, 2.5 * ui)
+    ops_draw._draw_segments(region, lines, 3.0 * ui)
 
 
 def _draw_drag_label(op):
@@ -366,7 +383,8 @@ class BLENDSOLID_GT_fillet_hover(bpy.types.Gizmo):
             handle = anchor(obj, refs[0])
             pixel = handle and ops_draw._pixel_size(context.region, context.region_data, handle[0])
             if pixel:
-                lines += arrow_lines(handle[0], handle[1], ARROW_PX * ui * pixel, pixel * ui, ARROW_COLOUR)
+                lines += arrow_lines(handle[0], handle[1], ARROW_PX * ui * pixel, pixel * ui, ARROW_COLOUR,
+                                     context.region, context.region_data, ARROW_PX * ui)
         if self.mouse is not None and not _dragging:
             found, _ = _mouse_pick(context, self.mouse)
             if found is not None:
