@@ -49,3 +49,66 @@ def test_nothing_or_no_references(clean):
     other = part.new_part(bpy.context, "result = Box(10, 10, 10)\n")  # no features: nothing to write
     wait_for(lambda: up_to_date(other))
     assert picking.pick(bpy.context, *down(0, 0), PIXEL) is None
+
+
+# -- the fillet operator ------------------------------------------------------------------------------------------
+
+TOP_FRONT = 'edge_between(face("box_1", "+Z"), face("box_1", "-Y"))'
+ROUND = 1 - math.pi / 4  # cross-section area removed by a fillet of radius 1 on a right-angled edge
+CHAIN = 35 + 2.5 * math.pi + 25  # mm: the top-front edge's tangent chain on the default part
+
+
+def fillet(obj, *refs, radius=2.0, chamfer=False):
+    return bpy.ops.blendsolid.fillet(target=obj.name, references="\n".join(refs), radius=radius, chamfer=chamfer)
+
+
+def test_fillet_one_edge_and_it_follows_upstream_changes(default_part):
+    v0 = mm3(default_part)
+    assert fillet(default_part, TOP_FRONT) == {"FINISHED"}
+    feats = script_model.features(part.source_of(default_part))
+    assert feats[-1].name == "fillet_2"  # the template already has fillet_1
+    assert TOP_FRONT in part.source_of(default_part) and "radius=fillet_2_radius" in part.source_of(default_part)
+    wait_for(lambda: up_to_date(default_part))
+    removed = v0 - mm3(default_part)
+    # The edge runs from the template's fillet (x = 5) to x = 40 and is tangent, through that fillet's top arc,
+    # to the -X top edge: OCCT rounds the whole chain (35 + 2.5π + 25 mm).
+    assert removed == pytest.approx(ROUND * 4 * CHAIN, rel=0.03)
+    part.set_param(default_part, "box_1_length", 60.0)  # upstream change: the same edge, now 55 mm long
+    wait_for(lambda: up_to_date(default_part))
+    assert default_part.blendsolid_error == ""
+    assert (v0 + 20 * 30 * 20 - mm3(default_part)) == pytest.approx(ROUND * 4 * (CHAIN + 20), rel=0.03)
+
+
+def test_chamfer_and_a_face_selection(default_part):
+    v0 = mm3(default_part)
+    assert fillet(default_part, TOP_FRONT, radius=2.0, chamfer=True) == {"FINISHED"}
+    assert "chamfer(" in part.source_of(default_part) and "length=chamfer_1_length" in part.source_of(default_part)
+    wait_for(lambda: up_to_date(default_part))
+    assert v0 - mm3(default_part) == pytest.approx(2 * CHAIN, rel=0.03)  # a 2 mm chamfer: 2 mm² per mm of edge
+    assert fillet(default_part, 'edges_of(face("boss_1", "+Z"))', radius=1.0) == {"FINISHED"}
+    wait_for(lambda: up_to_date(default_part))
+    assert default_part.blendsolid_error == ""
+
+
+def test_two_edges_in_one_feature(default_part):
+    other = 'edge_between(face("box_1", "+X"), face("box_1", "+Z"))'
+    assert fillet(default_part, TOP_FRONT, other) == {"FINISHED"}
+    assert f"fillet({TOP_FRONT} + {other}, radius=fillet_2_radius)" in part.source_of(default_part)
+    wait_for(lambda: up_to_date(default_part))
+    assert default_part.blendsolid_error == ""
+
+
+def test_a_radius_too_large_is_an_error_on_its_line(default_part):
+    fillet(default_part, TOP_FRONT, radius=50.0)
+    wait_for(lambda: default_part.blendsolid_error != "")
+    line = next(n for n, text in enumerate(part.source_of(default_part).splitlines(), 1) if "fillet_2" in text
+                and "fillet(" in text)
+    assert default_part.blendsolid_error_line == line
+
+
+def test_refused_without_references_or_on_a_non_canonical_part(default_part):
+    with pytest.raises(RuntimeError):
+        fillet(default_part)  # nothing selected
+    other = part.new_part(bpy.context, "result = Box(10, 10, 10)\n")
+    with pytest.raises(RuntimeError):
+        fillet(other, TOP_FRONT)
