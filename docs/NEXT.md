@@ -15,9 +15,10 @@ Updated: 2026-09-27, end of session 4 (manual GUI test finished, snap guides bui
   planes) with a normal stub and an orange/white ring, a local fading grid of the current step, height ticks,
   and labels (size/height, snap step). 160 unit + 175 Blender = 335 tests pass; `tools/gui_check.py` PASS on
   Linux and Windows; the snap guides were checked in the real Windows viewport (gui_check screenshot) and with an
-  offscreen probe on Linux — **not yet by the maintainer**. Everything is merged to `main` **locally, not
-  pushed**. The Windows 0.2.0 zip installed in the portable Blender is exactly `main`'s code. *Auto Run Python
-  Scripts* in the portable preferences was turned off for step 16 and turned back on (as it was).
+  offscreen probe on Linux — **not yet by the maintainer**. Everything is merged to `main` and **pushed** (at the
+  maintainer's request, before the sign-off). The Windows 0.2.0 zip installed in the portable Blender is exactly
+  `main`'s code. *Auto Run Python Scripts* in the portable preferences was turned off for step 16 and turned
+  back on (as it was).
 
 ## Next step (session with the maintainer)
 1. **Check the snap guides** (the last open item), guided step by step. Launch
@@ -36,7 +37,7 @@ Updated: 2026-09-27, end of session 4 (manual GUI test finished, snap guides bui
    `tools/smoke_installed.py` on Windows.
 2. **Sign off milestone 1.5:** sign-off line in `docs/milestone-1.5-report.md` (and the snap guides' "Manual"
    note), README status `✅ **Done**`, delete the git-ignored SDD ledger
-   (`.superpowers/sdd/2026-09-26-milestone-1.5-build-without-selectors/`), push `main`.
+   (`.superpowers/sdd/2026-09-26-milestone-1.5-build-without-selectors/`), commit and push.
 3. Then the next milestone (2, selectors from clicks) — or first the post-1.5 follow-ups the maintainer picks
    (live cutter suppress/apply/cycling below). Ask which.
 
