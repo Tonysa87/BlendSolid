@@ -181,4 +181,8 @@ spike/s08_build_extension.sh                                               # per
   `TopoDS.Face(...)` before `BRepAdaptor_Surface`.
 - build123d 0.13 keeps a `ShapeHistory` (`_history`, with `before`/`brought` inputs) on the part after every
   BuildPart operation: provenance can be read from it without patching build123d (`spike/m2_s01_provenance.py`).
-- OCCT's fillet always propagates along tangent chains: filleting one edge of a tangent chain rounds the chain.
+- OCCT's fillet always propagates along tangent chains: filleting one edge of a tangent chain rounds the chain
+  (the default part's top-front edge is tangent, through the template fillet's arc, to the -X top edge).
+- `context.preferences.system.ui_scale` is 0.0 in background mode: use `ui_scale or 1.0` for pixel thresholds.
+- `gui_check.py -- --only 17,18` runs single steps; a step that makes parts from Python must push an undo step
+  (`ed.undo_push`) before testing undo, or the undo goes back past the part.

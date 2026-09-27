@@ -31,10 +31,21 @@ Updated: 2026-09-27, session 5 (milestone 1.5 signed off; milestone 2 phase A bu
   ADR 0009): labels from build123d's history, `face()/edge_between()/edges_of()/nearest_*()` in part scripts,
   a reference text per face and edge on the mesh. Nothing to see in the GUI yet.
 
+- **Phase C done** (plan `docs/superpowers/plans/2026-09-27-m2c-fillet-tool.md`): `blendsolid/picking.py` (the CAD
+  edge or face under the mouse, through modifiers), `blendsolid/ops_fillet.py` (the `blendsolid.fillet` operator
+  and the **Fillet** toolbar tool: click edges, Shift+click to add, click a face for all its edges, drag the
+  radius, C chamfer, Ctrl snap, one undo step). `gui_check` 18/18 PASS on Linux (step 18: two edges picked by
+  reference, dragged, undone). The Windows zip with the tool is built (`dist/`) but **not installed**: the
+  maintainer's Blender was open.
+
 ## Next step
-1. Ask the maintainer what blocked step 4 of the phase A check (Draw Solid on a part with a Bevel): it works in
-   gui_check (Linux and Windows); maybe the Ctrl drag or the tool wasn't obvious.
-2. Phase C: the Fillet tool on clicked edges (design section C): plan, then build. Then D (Push/Pull), E, F.
+1. **GUI check of the Fillet tool with the maintainer** (Windows): close Blender, install the zip, smoke test,
+   relaunch `blender.exe >> spike/logs/gui-m2.log 2>&1`. Then: toolbar → Fillet (icon under Draw Solid); hover a
+   part: the edge under the mouse turns light blue (the face's outline inside a face); click an edge (orange),
+   Shift+click another; press and drag: the fillet grows live, the header shows the radius; C switches to a
+   chamfer; release: one feature, one undo step (Ctrl+Z removes it). Check a part with a Bevel modifier too.
+   Also ask what blocked step 4 of the phase A check (Draw Solid on a beveled part: gui_check step 17 passes).
+2. Phase D: Push/Pull tool (design section D), then E (broken references), F (corpus criterion test).
 
 ## Working agreement with the maintainer
 - Repo content in English; chat in Italian.
