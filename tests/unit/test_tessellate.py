@@ -131,3 +131,14 @@ def test_curved_face_boundary_matches_the_neighbouring_faces():
     rim = {tuple(p) for p in np.round(v[np.unique(e[counts == 1])], 6)}
     caps = {tuple(p) for p in np.round(v[np.unique(t[f != side])], 6)}
     assert rim and rim <= caps
+
+
+def test_face_planes_are_exact_and_outward():
+    # Draw Solid places solids on these planes: they must be exact (float64), not the float32 display mesh.
+    shape = (bd.Box(40, 30, 130, align=(bd.Align.CENTER, bd.Align.CENTER, bd.Align.MIN)) - bd.Cylinder(5, 300)).wrapped
+    planes = tessellate.face_planes(shape)
+    assert planes.dtype == np.float64 and planes.shape == (len(tessellate.face_map(shape)), 4)
+    rows = {tuple(p) for p in planes if not np.isnan(p[0])}
+    assert (0.0, 0.0, 1.0, 130.0) in rows and (0.0, 0.0, -1.0, 0.0) in rows
+    assert (1.0, 0.0, 0.0, 20.0) in rows and (0.0, -1.0, 0.0, 15.0) in rows
+    assert np.isnan(planes[:, 0]).sum() == 1  # the hole's cylindrical face has no plane

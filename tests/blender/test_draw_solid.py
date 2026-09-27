@@ -90,6 +90,25 @@ def test_snapping_puts_box_corners_and_cylinder_centre_on_grid_nodes():
     assert drawing.grid_node(plane, (0.0123, -0.0071), F, 10.0) == pytest.approx((0.010, -0.010))
 
 
+def test_euler_zyx_matches_mathutils_in_float64():
+    for angles in [(0.1, 0.2, 0.3), (-1.2, 0.7, 2.9), (math.pi, 0, 0), (0, math.pi / 2, math.pi / 2), (0.3, -1.1, -2.0)]:
+        m = Euler(angles, "ZYX").to_matrix()
+        cols = [tuple(m.col[i]) for i in range(3)]
+        back = Euler(drawing.euler_zyx(*cols), "ZYX").to_matrix()  # the same rotation (angles may differ)
+        assert all((back.col[i] - m.col[i]).length < 1e-6 for i in range(3))
+    # exact axes give exact angles (mathutils' float32 would give 180.000005 degrees)
+    assert drawing.euler_zyx((1, 0, 0), (0, -1, 0), (0, 0, -1)) == (math.pi, 0.0, 0.0)
+
+
+def test_plane_on_a_part_face_is_exact():
+    top = drawing.plane_on_part_face((0.0, 0.0, 1.0), 130.0)
+    assert top.origin == (0.0, 0.0, 130.0) and top.x == (1.0, 0.0, 0.0) and top.z == (0.0, 0.0, 1.0)
+    side = drawing.plane_on_part_face((1.0, 0.0, 0.0), 20.0)
+    location, rotation = drawing.placement_local(side.moved(5.0, -7.5))
+    assert location == (20.0, 5.0, -7.5)
+    assert all(math.degrees(a) % 90.0 == 0.0 for a in rotation)
+
+
 def test_placement_round_trip():
     frame = Matrix.Translation((0.01, 0.02, 0.03)) @ Euler((0.1, 0.2, 0.3), "ZYX").to_matrix().to_4x4()
     location, rotation = drawing.placement(frame, None, F)
@@ -219,3 +238,16 @@ def test_millimetre_scene(clean):
         assert props["location"] == pytest.approx((7, 6, 20), abs=1e-4)  # millimetres, in the part's frame
     finally:
         units.scale_length = saved
+
+
+def test_exact_placement_is_used_until_edited_by_hand(clean):
+    import json
+    box = box_part()
+    exact = json.dumps({"location": [0.0, 0.0, 33.333333], "rotation": [math.pi, 0.0, 0.0]})
+    common = dict(shape="BOX", mode="CUT", target=box.name, length=10, width=10, height=5, exact=exact)
+    bpy.ops.blendsolid.draw_solid(location=(0.0, 0.0, 33.333333), rotation=(math.pi, 0.0, 0.0), **common)
+    line = [ln for ln in part.source_of(box).splitlines() if "cut_1" in ln and "Location" in ln][0]
+    assert "(0.0, 0.0, 33.333333), (180.0, 0.0, 0.0)" in line   # float32 would give 33.333332 and 180.000005
+    bpy.ops.blendsolid.draw_solid(location=(1.0, 0.0, 33.333333), rotation=(math.pi, 0.0, 0.0), **common)
+    line = [ln for ln in part.source_of(box).splitlines() if "cut_2" in ln and "Location" in ln][0]
+    assert "(1.0, 0.0, 33.333332" in line                          # edited by hand: the typed values win

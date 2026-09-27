@@ -160,7 +160,8 @@ def test_tag_of_a_part_without_references_is_script_unit_factor_and_tolerance(cl
     # ADR 0005: the display tolerance joined the tag, so meshes saved before it are recomputed once.
     obj = part.new_part(bpy.context)
     assert part.current_tag(obj) == part.source_hash(
-        f"{part.source_of(obj)}\0unit-factor={part.unit_factor()!r}\0tolerance={part.tolerance()!r}")
+        f"{part.source_of(obj)}\0unit-factor={part.unit_factor()!r}\0tolerance={part.tolerance()!r}"
+        f"\0mesh={part.MESH_FORMAT}")
 
 
 def test_resolve_sends_the_cutter_in_the_target_frame(clean):

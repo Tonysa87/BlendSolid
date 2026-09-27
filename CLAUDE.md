@@ -150,3 +150,10 @@ spike/s08_build_extension.sh                                               # per
   hover feedback that depends on Ctrl can't be done from a tool's gizmo.
 - The worker starts in ~0.16 s (blocking) and loads its libraries in ~2 s more (async); `runtime.warm_up()`
   starts it on intent (sidebar panel, Shift+A menu, Draw Solid tool) so the first part doesn't wait.
+- **float32 everywhere on the Blender side:** mesh coordinates, `matrix_world`, `mathutils` matrices and Eulers
+  (π becomes 180.000005°) and operator Float properties. Anything written into a part script must be computed
+  in Python floats: Draw Solid uses the worker's exact face planes (`part.face_plane`, `drawing.LocalPlane`,
+  `euler_zyx`) and keeps the exact placement in the hidden `exact` property. Off-by-1e-5 placements leave
+  skins and slivers in OCCT booleans.
+- `scene.ray_cast` misses exactly on a face's edge or corner (not watertight): pick with a few-pixel ring of
+  extra rays (`ops_draw.pick(near=...)`).
