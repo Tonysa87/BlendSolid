@@ -142,19 +142,27 @@ class BLENDSOLID_OT_push_pull_drag(bpy.types.Operator):
         x_axis = Vector((1, 0, 0)) if abs(self._normal.x) < 0.9 else Vector((0, 1, 0))
         self._plane, self._start = drawing._frame(hit, x_axis, self._normal), hit
         self._target, self._reference = obj, part.face_reference(obj, fid)
-        self._source, self._amount = part.source_of(obj), 0.0
+        self._source, self._amount, self._snap = part.source_of(obj), 0.0, 0.0
+        self._outline = found.segments
+        self._handles = [bpy.types.SpaceView3D.draw_handler_add(_draw_drag, (self,), "WINDOW", "POST_VIEW"),
+                         bpy.types.SpaceView3D.draw_handler_add(_draw_drag_label, (self,), "WINDOW", "POST_PIXEL")]
         _dragging.add(id(self))
         context.window_manager.modal_handler_add(self)
         return {"RUNNING_MODAL"}
 
     def modal(self, context, event):
         from . import ops_draw
+        if event.type in ops_draw.WHEEL and event.ctrl and event.value == "PRESS":
+            ops_draw.change_step(context.scene, ops_draw.WHEEL[event.type])
+            self._update(context, event)
+            context.area.tag_redraw()
+            return {"RUNNING_MODAL"}
         if event.type in ops_draw.NAV_EVENTS:
             return {"PASS_THROUGH"}
         if event.type in {"ESC", "RIGHTMOUSE"} and event.value == "PRESS":
             self._target.blendsolid_script.from_string(self._source)
             return self._end(context, {"CANCELLED"})
-        if event.type in {"MOUSEMOVE", "LEFT_CTRL", "RIGHT_CTRL"}:
+        if event.type in {"MOUSEMOVE", "LEFT_CTRL", "RIGHT_CTRL", "LEFT_SHIFT", "RIGHT_SHIFT"}:
             self._update(context, event)
         elif event.type == "LEFTMOUSE" and event.value == "RELEASE":
             self._target.blendsolid_script.from_string(self._source)
@@ -165,8 +173,9 @@ class BLENDSOLID_OT_push_pull_drag(bpy.types.Operator):
             return self._end(context, {"FINISHED"})
         step = ops_draw.step_mm(context.scene)
         what = "pull out (add)" if self._amount >= 0 else "push in (cut)"
-        context.area.header_text_set(f"Push/Pull: {abs(self._amount):.3f} mm, {what} | Ctrl: snap {step:g} mm | "
-                                     "release: confirm | Esc/right-click: cancel")
+        context.area.header_text_set(f"Push/Pull: {abs(self._amount):.3f} mm, {what} | Ctrl: snap {step:g} mm "
+                                     f"(Shift+Ctrl: {step / 10:g}) | Ctrl+Wheel: step | release: confirm | "
+                                     "Esc/right-click: cancel")
         context.area.tag_redraw()
         return {"RUNNING_MODAL"}
 
@@ -174,8 +183,10 @@ class BLENDSOLID_OT_push_pull_drag(bpy.types.Operator):
         from . import drawing, ops_draw
         origin, direction = _ray(context, event)
         amount = drawing.height_along_normal(self._plane, self._start, origin, direction) / self._factor
-        if event.ctrl:
-            amount = drawing.snap(amount, ops_draw.step_mm(context.scene))
+        step = ops_draw.step_mm(context.scene)
+        self._snap = (step / 10 if event.shift else step) if event.ctrl else 0.0
+        if self._snap:
+            amount = drawing.snap(amount, self._snap)
         self._amount = amount
         if abs(amount) < 1e-3:
             self._target.blendsolid_script.from_string(self._source)
@@ -185,13 +196,71 @@ class BLENDSOLID_OT_push_pull_drag(bpy.types.Operator):
         except script_model.NotCanonical:
             return
         self._target.blendsolid_script.from_string(source)  # the live preview: the worker recomputes it
+        from . import runtime
+        runtime.kick()  # submit it now, not at the next tick
 
     def _end(self, context, result):
+        for handle in self._handles:
+            bpy.types.SpaceView3D.draw_handler_remove(handle, "WINDOW")
+        self._handles = []
         _dragging.discard(id(self))
         if context.area is not None:
             context.area.header_text_set(None)
             context.area.tag_redraw()
         return result
+
+
+PREVIEW_COLOUR = {True: (0.35, 0.9, 0.45, 1.0), False: (1.0, 0.35, 0.3, 1.0)}  # out (union) green, in (cut) red
+
+
+def _draw_drag(op):
+    """While dragging: the face's outline moved to the current distance (at once; the worker's result follows),
+    lines from the face to it, and snap ticks along the normal."""
+    from . import drawing, ops_draw
+    try:
+        amount, factor, snap, normal, start, outline = (op._amount, op._factor, op._snap, op._normal, op._start,
+                                                        op._outline)
+    except (ReferenceError, AttributeError):
+        return
+    context = bpy.context
+    region = context.region
+    pixel = ops_draw._pixel_size(region, context.region_data, start)
+    if pixel is None:
+        return
+    ui = context.preferences.system.ui_scale or 1.0
+    colour = PREVIEW_COLOUR[amount >= 0]
+    offset = normal * (amount * factor)
+    lines = [(a + offset, b + offset, colour, colour) for a, b in outline]
+    lines += [(a, a + offset, colour, colour) for a, _ in outline[:: max(1, len(outline) // 8)]]
+    if snap and snap * factor / pixel >= drawing.MIN_GRID_PX:
+        ticks = drawing.height_ticks(op._plane, amount * factor, snap * factor, tick=14 * ui * pixel)
+        lines += [(a, b, colour[:3] + (alpha,), colour[:3] + (alpha,)) for a, b, alpha in ticks]
+    ops_draw._draw_segments(region, lines, 2.5 * ui)
+
+
+def _draw_drag_label(op):
+    from bpy_extras import view3d_utils
+    try:
+        amount, factor, snap, normal, start = op._amount, op._factor, op._snap, op._normal, op._start
+    except (ReferenceError, AttributeError):
+        return
+    context = bpy.context
+    here = view3d_utils.location_3d_to_region_2d(context.region, context.region_data,
+                                                 start + normal * (amount * factor))
+    if here is None:
+        return
+    import blf
+    from . import drawing
+    size = 14 * (context.preferences.system.ui_scale or 1.0)
+    blf.size(0, size)
+    blf.enable(0, blf.SHADOW)
+    blf.shadow(0, 3, 0.0, 0.0, 0.0, 0.8)
+    blf.color(0, 1.0, 1.0, 1.0, 1.0)
+    lines = [f"{'+' if amount >= 0 else '−'}{drawing._mm(abs(amount))} mm"] + ([f"snap {snap:g} mm"] if snap else [])
+    for i, text in enumerate(lines):
+        blf.position(0, here.x + 16, here.y - 16 - i * size * 1.3, 0)
+        blf.draw(0, text)
+    blf.disable(0, blf.SHADOW)
 
 
 class BLENDSOLID_GT_push_pull_hover(bpy.types.Gizmo):
@@ -240,6 +309,10 @@ class PushPullTool(bpy.types.WorkSpaceTool):
     bl_widget = "BLENDSOLID_GGT_push_pull_hover"
     bl_keymap = (
         ("blendsolid.push_pull_drag", {"type": "LEFTMOUSE", "value": "PRESS", "any": True}, None),
+        ("blendsolid.snap_step", {"type": "WHEELUPMOUSE", "value": "PRESS", "ctrl": True},
+         {"properties": [("direction", 1)]}),
+        ("blendsolid.snap_step", {"type": "WHEELDOWNMOUSE", "value": "PRESS", "ctrl": True},
+         {"properties": [("direction", -1)]}),
     )
 
     def draw_settings(context, layout, tool):

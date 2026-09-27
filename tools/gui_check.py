@@ -1186,10 +1186,11 @@ def step18():
     yield from move(start, start, 1)
     ev("LEFTMOUSE", "PRESS", start)
     yield 0.1
-    yield from move(start, (start[0], start[1] + 40))
+    yield from move(start, (start[0], start[1] + 40), ctrl=True)
     yield 0.3
+    screenshot("fillet-dragging")  # the immediate preview, the handle and the snap ticks (Windows: real window)
     expect(any(h and h.startswith("Fillet: radius") for h in rec.headers), f"headers {set(rec.headers)}")
-    ev("LEFTMOUSE", "RELEASE", (start[0], start[1] + 40))
+    ev("LEFTMOUSE", "RELEASE", (start[0], start[1] + 40), ctrl=True)
     yield 0.3
     feats = features(ob(name))
     expect(len(feats) == n_feat + 1 and feats[-1][0] == "fillet_2", f"features {feats}")
@@ -1236,6 +1237,7 @@ def step19():
         yield 0.1
         yield from move(a, b, ctrl=True)
         yield 0.3
+        screenshot(f"push-pull-dragging-{'out' if sign > 0 else 'in'}")
         ev("LEFTMOUSE", "RELEASE", b, ctrl=True)
         yield 0.3
     feats = [n for n, _ in features(ob(name))]
@@ -1256,8 +1258,33 @@ def step19():
             f"({mm3(ob(name)) - v0:+.1f} mm³ after undoing the push)")
 
 
+def step20():
+    """Latency of the live fillet preview: time from a script edit (as the Fillet drag makes one per mouse move)
+    to the part's mesh showing it, and how many edits per second the tick keeps up with."""
+    deselect()
+    obj = bs.part.new_part(bpy.context)
+    obj.location = (0.0, -0.6, 0.0)
+    name = obj.name
+    yield from settled(name)
+    ref = 'edge_between(face("box_1", "+Z"), face("box_1", "-Y"))'
+    base = bs.part.source_of(ob(name))
+    lat = []
+    for k in range(8):
+        src, _ = bs.script_model.append_feature(base, bs.ops_fillet.feature_spec([ref], 1.0 + 0.25 * k))
+        t = time.monotonic()
+        ob(name).blendsolid_script.from_string(src)
+        bs.runtime.kick()  # as the Fillet drag does
+        while not up_to_date(ob(name)) and time.monotonic() - t < 10:
+            yield 0.005
+        lat.append(time.monotonic() - t)
+    ob(name).blendsolid_script.from_string(base)
+    yield from settled(name)
+    ms = [round(x * 1000) for x in lat]
+    return f"script edit -> mesh: {ms} ms (median {sorted(ms)[len(ms) // 2]} ms)"
+
+
 STEPS = [step1, step2, step3, step4, step5, step6, step7, step8, step9, step10, step11, step12, step13, step14,
-         step15, step16, step17, step18, step19]
+         step15, step16, step17, step18, step19, step20]
 
 
 def scenario():

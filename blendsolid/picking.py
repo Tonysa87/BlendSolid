@@ -32,6 +32,9 @@ class _EdgeData:
     co: np.ndarray            # (n, 3) local vertex positions
     face_edges: dict          # BRep face id -> array of BRep edge ids around it
     edge_pairs: dict          # BRep edge id -> (k, 2) vertex index pairs of its mesh edges
+    edge_polys: dict          # BRep edge id -> (k, 2) the polygons on either side of each of those mesh edges
+    poly_normal: np.ndarray   # (p, 3) local polygon normals
+    poly_centre: np.ndarray   # (p, 3) local polygon centres
 
 
 def _edge_data(obj):
@@ -60,14 +63,25 @@ def _edge_data(obj):
     face_edges = {}
     for fid, eid in pairs:
         face_edges.setdefault(int(fid), []).append(int(eid))
-    edge_pairs = {}
+    # the two polygons of each mesh edge (a closed mesh: two loops per edge; a non-manifold edge has no id)
+    poly_of_loop = np.repeat(np.arange(len(sizes)), sizes)
+    by_edge = np.argsort(loop_edge, kind="stable")
+    first = np.searchsorted(loop_edge[by_edge], np.arange(len(me.edges)))
+    edge_pairs, edge_polys = {}, {}
     cad = np.nonzero(ids >= 0)[0]
     order = np.argsort(ids[cad], kind="stable")
     for eid, group in _groups(ids[cad][order], cad[order]):
         edge_pairs[eid] = ev[group]
+        edge_polys[eid] = np.stack([poly_of_loop[by_edge[first[group]]],
+                                    poly_of_loop[by_edge[np.minimum(first[group] + 1, len(by_edge) - 1)]]], axis=1)
+    normals = np.empty(len(me.polygons) * 3)
+    me.polygons.foreach_get("normal", normals)
+    centres = np.empty(len(me.polygons) * 3)
+    me.polygons.foreach_get("center", centres)
     co = np.empty(len(me.vertices) * 3)
     me.vertices.foreach_get("co", co)
-    data = _EdgeData(co.reshape(-1, 3), {k: np.array(v) for k, v in face_edges.items()}, edge_pairs)
+    data = _EdgeData(co.reshape(-1, 3), {k: np.array(v) for k, v in face_edges.items()}, edge_pairs, edge_polys,
+                     normals.reshape(-1, 3), centres.reshape(-1, 3))
     _cache[me.session_uid] = (tag, data)
     return data
 
@@ -147,6 +161,30 @@ def segments_of(obj, reference):
     if reference.startswith("edges_of(") and reference[len("edges_of("):-1] in faces:
         return face_segments(obj, list(faces).index(reference[len("edges_of("):-1]), data)
     return []
+
+
+def edge_frames(obj, reference):
+    """For each mesh segment of what `reference` names on obj: (a, b, n1, n2, c1, c2) in world space — the
+    segment, its two faces' outward normals and a point of each face (drawing.fillet_preview's inputs)."""
+    data = _edge_data(obj)
+    if data is None:
+        return []
+    eids = []
+    edges = list(obj.data.get(part.EDGE_REFS_KEY) or [])
+    faces = list(obj.data.get(part.FACE_REFS_KEY) or [])
+    if reference in edges:
+        eids = [edges.index(reference)]
+    elif reference.startswith("edges_of(") and reference[len("edges_of("):-1] in faces:
+        eids = [int(e) for e in data.face_edges.get(faces.index(reference[len("edges_of("):-1]), ())]
+    mw = obj.matrix_world
+    rot = mw.to_3x3().inverted_safe().transposed()
+    out = []
+    for eid in eids:
+        for (va, vb), (p1, p2) in zip(data.edge_pairs.get(eid, ()), data.edge_polys.get(eid, ())):
+            out.append((mw @ Vector(data.co[va]), mw @ Vector(data.co[vb]),
+                        (rot @ Vector(data.poly_normal[p1])).normalized(), (rot @ Vector(data.poly_normal[p2])).normalized(),
+                        mw @ Vector(data.poly_centre[p1]), mw @ Vector(data.poly_centre[p2])))
+    return out
 
 
 def clear_cache():

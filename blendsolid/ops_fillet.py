@@ -114,9 +114,44 @@ def _mouse_pick(context, coord):
     return (picking.pick(context, origin, direction, pixel) if pixel else None), pixel
 
 
+ARROW_PX = 40  # the drag handle's length on screen (before the interface scale) when no radius is set yet
+ARROW_COLOUR = (1.0, 0.85, 0.3, 1.0)
+
+
+def anchor(obj, reference):
+    """(midpoint, direction, frame) of the drag handle of `reference`'s middle segment (see drawing.fillet_handle),
+    or None; `frame` is a matrix whose Z is the direction (for drawing.height_along_normal/height_ticks)."""
+    from . import drawing, picking
+    frames = picking.edge_frames(obj, reference)
+    if not frames:
+        return None
+    a, b, n1, n2, _, _ = frames[len(frames) // 2]
+    mid, w = drawing.fillet_handle(a, b, n1, n2)
+    return mid, w, drawing._frame(mid, (b - a) if (b - a).length > 0 else w.orthogonal(), w)
+
+
+def arrow_lines(mid, w, length, pixel, colour):
+    """The handle: a shaft from the edge along `w` and a head of two strokes (world segments with colours)."""
+    tip = mid + w * length
+    side = w.orthogonal().normalized() * (6 * pixel)
+    back = tip - w * (10 * pixel)
+    return [(mid, tip, colour, colour), (tip, back + side, colour, colour), (tip, back - side, colour, colour)]
+
+
+def preview_lines(obj, refs, size_mm, chamfer, factor, colour):
+    """The immediate preview of a fillet/chamfer of `refs` at `size_mm` (drawing.fillet_preview per segment)."""
+    from . import drawing, picking
+    out = []
+    for ref in refs:
+        for a, b, n1, n2, c1, c2 in picking.edge_frames(obj, ref):
+            out += [(p, q, colour, colour) for p, q in drawing.fillet_preview(a, b, n1, n2, c1, c2, size_mm * factor,
+                                                                              chamfer, arc_segments=8)]
+    return out
+
+
 class BLENDSOLID_OT_fillet_click(bpy.types.Operator):
     """Fillet tool: click an edge (Shift: add or remove it), a face for all its edges, or empty space to clear;
-    press and drag to set the radius of the selected edges"""
+    press and drag along the arrow to set the radius of the selected edges"""
     bl_idname = "blendsolid.fillet_click"
     bl_label = "Fillet Edges"
     bl_options = {"INTERNAL"}
@@ -127,15 +162,23 @@ class BLENDSOLID_OT_fillet_click(bpy.types.Operator):
         self._press = (event.mouse_region_x, event.mouse_region_y)
         self._pick, self._pixel = _mouse_pick(context, self._press)
         self._extend = event.shift
-        self._source = self._target = None
-        self._radius, self._chamfer = 0.0, False
+        self._source = self._target = self._anchor = None
+        self._radius, self._chamfer, self._snap, self._start = 0.0, False, 0.0, 0.0
         self._factor = part.unit_factor(context.scene)
+        self._handles = []
         _dragging.add(id(self))
         context.window_manager.modal_handler_add(self)
         return {"RUNNING_MODAL"}
 
     def modal(self, context, event):
         from . import ops_draw
+        if event.type in ops_draw.WHEEL and event.ctrl and event.value == "PRESS":
+            ops_draw.change_step(context.scene, ops_draw.WHEEL[event.type])
+            if self._source is not None:
+                self._preview(context, event)
+            self._header(context)
+            context.area.tag_redraw()
+            return {"RUNNING_MODAL"}
         if event.type in ops_draw.NAV_EVENTS:
             return {"PASS_THROUGH"}
         if event.type in {"ESC", "RIGHTMOUSE"} and event.value == "PRESS":
@@ -144,11 +187,11 @@ class BLENDSOLID_OT_fillet_click(bpy.types.Operator):
         if event.type == "C" and event.value == "PRESS" and self._source is not None:
             self._chamfer = not self._chamfer
             self._preview(context, event)
-        elif event.type in {"MOUSEMOVE", "LEFT_CTRL", "RIGHT_CTRL"}:
-            ui = (context.preferences.system.ui_scale or 1.0)
+        elif event.type in {"MOUSEMOVE", "LEFT_CTRL", "RIGHT_CTRL", "LEFT_SHIFT", "RIGHT_SHIFT"}:
+            ui = context.preferences.system.ui_scale or 1.0
             moved = ((event.mouse_region_x - self._press[0]) ** 2 + (event.mouse_region_y - self._press[1]) ** 2) ** 0.5
             if self._source is None and moved > DRAG_PX * ui:
-                self._start_drag()
+                self._start_drag(context, event)
             if self._source is not None:
                 self._preview(context, event)
         elif event.type == "LEFTMOUSE" and event.value == "RELEASE":
@@ -164,27 +207,39 @@ class BLENDSOLID_OT_fillet_click(bpy.types.Operator):
         context.area.tag_redraw()
         return {"RUNNING_MODAL"}
 
-    def _start_drag(self):
+    def _start_drag(self, context, event):
         """Start a radius drag: from a pick outside the selection, that pick is the selection (Plasticity: drag
-        an edge to fillet it); from empty space, the selection as it is."""
+        an edge to fillet it); from elsewhere, the selection as it is. The radius is measured along the handle
+        of the edge pressed on (else the first selected one)."""
         if self._pick is not None and (self._pick.obj.name != _selection["part"]
                                        or self._pick.reference not in _selection["refs"]):
             select(self._pick, extend=self._extend)
         obj, refs = selection()
-        if obj is None or not refs or self._pixel is None:
-            return False
+        if obj is None or not refs:
+            return
+        ref = self._pick.reference if self._pick is not None and self._pick.reference in refs else refs[0]
+        self._anchor = anchor(obj, ref)
+        if self._anchor is None:
+            return
+        from . import drawing
+        origin, direction = _ray(context, self._press)
+        self._start = drawing.height_along_normal(self._anchor[2], self._anchor[0], origin, direction)
         self._target, self._source = obj, part.source_of(obj)
-        return True
+        self._handles = [bpy.types.SpaceView3D.draw_handler_add(_draw_drag, (self,), "WINDOW", "POST_VIEW"),
+                         bpy.types.SpaceView3D.draw_handler_add(_draw_drag_label, (self,), "WINDOW", "POST_PIXEL")]
 
     def _preview(self, context, event):
-        """Rewrite the part's script with the fillet at the current radius (no undo step: the release replaces
-        it with the operator's own edit); the worker recomputes it like any script change."""
-        from . import ops_draw
-        dx, dy = event.mouse_region_x - self._press[0], event.mouse_region_y - self._press[1]
-        radius = (dx * dx + dy * dy) ** 0.5 * self._pixel / self._factor
-        if event.ctrl:
-            step = ops_draw.step_mm(context.scene)
-            radius = max(ops_draw.drawing.snap(radius, step), step)
+        """The radius along the handle; the immediate overlay redraws with it, and the part's script is rewritten
+        with the fillet at that radius (no undo step: the release replaces it with the operator's own edit) and
+        submitted at once: the worker's real result follows the overlay."""
+        from . import drawing, ops_draw, runtime
+        origin, direction = _ray(context, (event.mouse_region_x, event.mouse_region_y))
+        mid, _, frame = self._anchor
+        radius = (drawing.height_along_normal(frame, mid, origin, direction) - self._start) / self._factor
+        step = ops_draw.step_mm(context.scene)
+        self._snap = (step / 10 if event.shift else step) if event.ctrl else 0.0
+        if self._snap:
+            radius = max(drawing.snap(radius, self._snap), self._snap)
         self._radius = max(radius, 0.001)
         _, refs = selection()
         try:
@@ -192,6 +247,7 @@ class BLENDSOLID_OT_fillet_click(bpy.types.Operator):
         except script_model.NotCanonical:
             return
         self._target.blendsolid_script.from_string(source)
+        runtime.kick()  # submit the preview now, not at the next tick
 
     def _restore(self):
         if self._source is not None and self._target is not None:
@@ -200,21 +256,76 @@ class BLENDSOLID_OT_fillet_click(bpy.types.Operator):
     def _header(self, context):
         if self._source is None:
             return
-        what = "chamfer" if self._chamfer else "radius"
-        context.area.header_text_set(f"Fillet: {what} {self._radius:.3f} mm | C: fillet/chamfer | Ctrl: snap "
-                                     f"{self._step(context):g} mm | release: confirm | Esc/right-click: cancel")
-
-    @staticmethod
-    def _step(context):
         from . import ops_draw
-        return ops_draw.step_mm(context.scene)
+        step = ops_draw.step_mm(context.scene)
+        what = "chamfer" if self._chamfer else "radius"
+        context.area.header_text_set(f"Fillet: {what} {self._radius:.3f} mm | drag along the arrow | C: fillet/chamfer"
+                                     f" | Ctrl: snap {step:g} mm (Shift+Ctrl: {step / 10:g}) | Ctrl+Wheel: step"
+                                     " | release: confirm | Esc/right-click: cancel")
 
     def _end(self, context, result):
+        for handle in self._handles:
+            bpy.types.SpaceView3D.draw_handler_remove(handle, "WINDOW")
+        self._handles = []
         _dragging.discard(id(self))
         if context.area is not None:
             context.area.header_text_set(None)
             context.area.tag_redraw()
         return result
+
+
+def _ray(context, coord):
+    from bpy_extras import view3d_utils
+    return (view3d_utils.region_2d_to_origin_3d(context.region, context.region_data, coord),
+            view3d_utils.region_2d_to_vector_3d(context.region, context.region_data, coord))
+
+
+def _draw_drag(op):
+    """While dragging: the fillet's immediate preview, the handle out to the radius, and snap ticks along it."""
+    from . import drawing, ops_draw
+    try:
+        mid, w, frame = op._anchor
+        radius, factor, snap, obj = op._radius, op._factor, op._snap, op._target
+    except (ReferenceError, AttributeError, TypeError):
+        return
+    context = bpy.context
+    region, rv3d = context.region, context.region_data
+    pixel = ops_draw._pixel_size(region, rv3d, mid)
+    if pixel is None:
+        return
+    ui = context.preferences.system.ui_scale or 1.0
+    _, refs = selection()
+    lines = preview_lines(obj, refs, radius, op._chamfer, factor, SELECTED_COLOUR)
+    lines += arrow_lines(mid, w, radius * factor + 12 * ui * pixel, pixel * ui, ARROW_COLOUR)
+    if snap and snap * factor / pixel >= drawing.MIN_GRID_PX:
+        ticks = drawing.height_ticks(frame, radius * factor, snap * factor, tick=14 * ui * pixel)
+        lines += [(a, b, ARROW_COLOUR[:3] + (alpha,), ARROW_COLOUR[:3] + (alpha,)) for a, b, alpha in ticks]
+    ops_draw._draw_segments(region, lines, 2.5 * ui)
+
+
+def _draw_drag_label(op):
+    from bpy_extras import view3d_utils
+    try:
+        mid, w, _ = op._anchor
+        radius, factor, snap, chamfer = op._radius, op._factor, op._snap, op._chamfer
+    except (ReferenceError, AttributeError, TypeError):
+        return
+    context = bpy.context
+    here = view3d_utils.location_3d_to_region_2d(context.region, context.region_data, mid + w * radius * factor)
+    if here is None:
+        return
+    import blf
+    from . import drawing
+    size = 14 * (context.preferences.system.ui_scale or 1.0)
+    blf.size(0, size)
+    blf.enable(0, blf.SHADOW)
+    blf.shadow(0, 3, 0.0, 0.0, 0.0, 0.8)
+    blf.color(0, 1.0, 1.0, 1.0, 1.0)
+    lines = [f"{'C' if chamfer else 'R'} {drawing._mm(radius)} mm"] + ([f"snap {snap:g} mm"] if snap else [])
+    for i, text in enumerate(lines):
+        blf.position(0, here.x + 16, here.y - 16 - i * size * 1.3, 0)
+        blf.draw(0, text)
+    blf.disable(0, blf.SHADOW)
 
 
 class BLENDSOLID_OT_fillet_clear(bpy.types.Operator):
@@ -251,6 +362,11 @@ class BLENDSOLID_GT_fillet_hover(bpy.types.Gizmo):
         obj, refs = selection()
         for ref in refs:
             lines += [(a, b, SELECTED_COLOUR, SELECTED_COLOUR) for a, b in picking.segments_of(obj, ref)]
+        if refs and not _dragging:  # where to drag: the first selected edge's handle
+            handle = anchor(obj, refs[0])
+            pixel = handle and ops_draw._pixel_size(context.region, context.region_data, handle[0])
+            if pixel:
+                lines += arrow_lines(handle[0], handle[1], ARROW_PX * ui * pixel, pixel * ui, ARROW_COLOUR)
         if self.mouse is not None and not _dragging:
             found, _ = _mouse_pick(context, self.mouse)
             if found is not None:
@@ -283,6 +399,10 @@ class FilletTool(bpy.types.WorkSpaceTool):
     bl_keymap = (
         ("blendsolid.fillet_click", {"type": "LEFTMOUSE", "value": "PRESS", "any": True}, None),
         ("blendsolid.fillet_clear", {"type": "ESC", "value": "PRESS"}, None),
+        ("blendsolid.snap_step", {"type": "WHEELUPMOUSE", "value": "PRESS", "ctrl": True},
+         {"properties": [("direction", 1)]}),
+        ("blendsolid.snap_step", {"type": "WHEELDOWNMOUSE", "value": "PRESS", "ctrl": True},
+         {"properties": [("direction", -1)]}),
     )
 
     def draw_settings(context, layout, tool):

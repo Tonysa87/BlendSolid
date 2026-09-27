@@ -112,3 +112,13 @@ def test_refused_without_references_or_on_a_non_canonical_part(default_part):
     other = part.new_part(bpy.context, "result = Box(10, 10, 10)\n")
     with pytest.raises(RuntimeError):
         fillet(other, TOP_FRONT)
+
+
+def test_edge_frames_give_the_faces_on_either_side(default_part):
+    frames = picking.edge_frames(default_part, TOP_FRONT)
+    assert frames
+    for a, b, n1, n2, c1, c2 in frames:
+        normals = {tuple(round(v, 5) for v in n) for n in (n1, n2)}
+        assert normals == {(0.0, 0.0, 1.0), (0.0, -1.0, 0.0)}  # the top and the front face
+        assert abs(a.y) < 1e-9 and abs(a.z - 20 * F) < 1e-9
+    assert len(picking.edge_frames(default_part, 'edges_of(face("box_1", "+Z"))')) > len(frames)
