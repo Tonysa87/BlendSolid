@@ -3069,3 +3069,7 @@ Traceback (most recent call last):
     s = size if chamfer else size / math.tan(theta / 2)
                              ~~~~~^~~~~~~~~~~~~~~~~~~~~
 ZeroDivisionError: float division by zero
+35:54.063  operator         | Saved "fillet.blend"
+35:54.063  blend            | Saved session recovery to "C:\Users\Tony\AppData\Local\Temp\quit.blend"
+
+Blender quit
