@@ -105,7 +105,11 @@ sign-off** (`docs/milestone-2-report.md`). Read this first when resuming, then "
    empty space → none), cutters hidden after a boolean and brought back (eye in "Booleans of this part", Alt+H),
    the two-bosses scene in wireframe with Bevel + Subdivision, a fillet dragged too far (header message). Then
    milestone 2 sign-off; merge `milestone-2` into `main`.
-2. Only after sign-off: milestone 3 (publishable MVP) — plan it from `docs/spec.md` (one milestone at a time).
+2. Only after sign-off: milestone 3, redefined by the maintainer on 2026-09-28 as "complete hard-surface
+   modeling" in sub-milestones 3a–3e (`docs/spec.md`); publication on extensions.blender.org only at the very end.
+   First, a small completion of the Fillet tool: chamfer with two distances / distance + angle and the choice of
+   side (the kernel already supports `length2`). Then plan 3a (sketch + extrude/revolve) from research on
+   Plasticity/Fusion/Shapr3D/Onshape sketching and recent literature.
 3. Open M2 follow-ups (see the report): highlight failing fillet edges; a geometric radius bound with a reason;
    choosing the continuing piece of a split face; a per-job time budget in the worker; UX redesign of the tools'
    feedback; ADR 0011's open points.

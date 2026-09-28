@@ -76,6 +76,11 @@ Full comparison with Plasticity commands: Plasticity command by command
 
 ## Milestones
 
+Decisions of 2026-09-28 (maintainer): publication on extensions.blender.org only at the end of everything;
+mirror, array and shell are CAD features (Blender's own modifiers keep working on parts for visual-only results,
+ADR 0008, but a fillet across a mirror seam, a boolean on array copies, an exact shell or a STEP export need the
+geometry in the kernel).
+
 We start with a 1–2 day spike; every milestone has a measurable criterion.
 
 | # | Milestone | Success criterion |
@@ -84,10 +89,11 @@ We start with a 1–2 day spike; every milestone has a measurable criterion.
 | 1 | History as code | build123d script saved in the `.blend`; changing a parameter → correct recomputation; worker in a separate process |
 | 1.5 | Build without selectors (added 2026-09-26) | A user builds the milestone 1 default part and a bracket with 3 holes using only parametric primitives (Shift+A), the Draw Solid tool (on a face or the grid; union/cut by drag direction) and booleans between parts with live cutters; every step is one undo step and one script edit |
 | 2 | Selectors from clicks | Starts with face/edge → feature provenance from the worker. 95% of the edges **and faces** clicked on a set of 20 parts produce a unique selector that survives 3 upstream changes |
-| 3 | Publishable MVP | MVP column of the catalog complete; published on extensions.blender.org |
+| 3 | Complete hard-surface modeling (redefined 2026-09-28) | All in the CAD kernel (exact, filletable, STEP-exportable), one sub-milestone at a time: **3a** 2D sketch on a face or plane + extrude/revolve; **3b** chamfer with two distances or distance + angle (side choice) and variable fillet; mirror, linear/polar array, shell/thicken as CAD features with Blender-modifier-like UI; **3c** direct editing: offset face, delete face with healing, draft face; split body/imprint, cut by sketch; **3d** loft, sweep, pipe; **3e** zebra and measurements, STEP/IGES/BREP I/O, convert to quads. Each sub-milestone gets its measurable criterion when planned. Distributed from the GitHub extension repository (ADR 0001) |
 | 4 | SubD → NURBS | Regular faces converted with deviation ≤ tolerance; solid valid for OCCT |
 | 5 | G2 surfaces | G2 blend between untrimmed edges with curvature jump below threshold |
 | 6 | G2 fillets and Y-blend | To be defined after milestone 5 |
+| — | extensions.blender.org | Decided at the very end (2026-09-28): development and distribution from GitHub until then |
 
 ## Test strategy
 
