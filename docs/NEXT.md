@@ -1,7 +1,7 @@
 # Where we are / what's next (bookmark)
 
-Updated: 2026-09-28, end of session 7 (ADR 0010 checked by the maintainer; flat faces with holes in progress on
-branch `flat-collars-wip`). Read this first when resuming, then the "Flat faces with holes" section.
+Updated: 2026-09-28, session 8 (collars fixed and merged; handles/cutters UX, ADR 0011). Read this first when
+resuming, then "Session 8".
 
 ## State
 - **Milestone 0 (spike):** done — `SPIKE_REPORT.md`.
@@ -67,59 +67,38 @@ branch `flat-collars-wip`). Read this first when resuming, then the "Flat faces 
   with holes (ADR 0008's convex pieces, e.g. boolean holes of cylinders): to improve (research
   `docs/research/2026-09-28-planar-faces-with-holes.md`).
 
-## Flat faces with holes (session 7, in progress — branch `flat-collars-wip`)
-- Maintainer's request (2026-09-28): the fans of slivers on flat faces with holes (boolean holes/bosses of
-  cylinders; ADR 0008's convex pieces) should get a better topology. Research:
-  `docs/research/2026-09-28-planar-faces-with-holes.md` (no convex decomposition without interior vertices avoids
-  the fans; CAD tools don't either; recommended: a rectangular collar of radial quads around each curved hole,
-  Hertel–Mehlhorn outside).
-- Built on `flat-collars-wip` (`tessellate._collared`, `_collar`, `_cycles`, `_brep_vertices`; `_merge_convex`
-  keeps an interior edge at BRep vertices that would become straight corners): the fans are gone (min polygon
-  angle 0.13–1.16° → 24–45° on plates, washers, slots, bolt circles, two bosses; mesh closed, areas exact).
-- **Blocked by modifier regressions** (the new tests on `milestone-2` pass with today's mesh and fail with collars):
-  `test_bevel_then_subdivision_folds_nothing` — on the default part's top face, Bevel 2 mm flips a polygon next
-  to the fillet's arc (near (1.7, 3.2) mm), and Subdivision (with or without Bevel) flips a few child polygons
-  near the collar's corner (~(26–28, 24) mm); `test_solidify_array_subdivision`'s new fold check fails the same
-  way. Suspects: Catmull–Clark face points of the outer n-gons, which carry many collinear collar nodes (the
-  face point is the vertex average, pulled onto the collar side), and Bevel sliding along long interior edges
-  from the arc's nodes. Next: reproduce on the bmesh level (flat top face + SubD) to see which polygon folds, then
-  e.g. split the outer n-gons at collar nodes (quads/trapezoids of few vertices), or give the collar sides only
-  their corner nodes plus a transition row; re-measure Bevel clamp on/off (ADR 0008) and write an ADR 0008
-  addendum. Then the maintainer's GUI check on the scene with the two bosses.
+## Session 8 (2026-09-28) — done, waiting for the maintainer's GUI check
+- **Flat faces with holes, fixed and merged into `milestone-2`** (ADR 0008 addendum). The collars folded under
+  Subdivision because a big convex polygon holding a run of collinear collar nodes has its Catmull–Clark face
+  point far along the run. `_thin_children` refuses such merges (20°), and collars take 35% of the clearance (45%
+  left 2° wedges that Bevel + SubD folded). New unit test simulates one Catmull–Clark step
+  (`test_subdivision_folds_nothing_around_holes`); milestone 2's old fans folded too (plate 72 children), now 0
+  on every test part; Bevel is not clamped on the default part (Blender's clamp code read: an interior edge at a
+  mid-arc node "collapses" the arc's short chords). Fuzz 7 seeds clean. `MESH_FORMAT` 7. Limit: a hole within a
+  few mm of a straight edge leaves a thin strip of fans (no vertices may be added on BRep edges).
+- **Handles and cutters (maintainer's request, ADR 0011, research `docs/research/2026-09-28-handles-and-tool-bodies.md`):**
+  arrows of one *focused* feature per part (`Object.blendsolid_focus`, `blendsolid/focus.py`), only while the part
+  is active + selected + visible; clicking a face focuses the feature that made it (Object Mode keymap item after
+  Blender's select click); Draw Solid/Boolean/Fillet/Push-Pull focus what they add; the sidebar has "Arrows of:"
+  buttons. Cutters of live booleans go to a hidden `BlendSolid Cutters` collection (`hide_set`, never
+  `hide_viewport`/exclude: stale `matrix_world`), parented to the target; back with Select Cutter, the eye toggle
+  in "Booleans of this part", or Alt+H; Remove Boolean brings the cutter home. `gui_check` 21/21 PASS on Linux and
+  in the real Windows window; 244 unit + 225 Blender tests. Windows zip built and **installed in the portable
+  Blender** (smoke PASS).
 
-## Next step (session 8) — resume exactly here
-1. `git checkout flat-collars-wip` (one WIP commit on top of `milestone-2`: `tessellate._collared`/`_collar`/
-   `_cycles`/`_brep_vertices`, the `keep` rule in `_merge_convex`, unit tests `test_curved_holes_in_flat_faces_get_collars`).
-   State there: `tools/test.sh` fails exactly `test_bevel_then_subdivision_folds_nothing[0.5|1.0|2.0]` and
-   `test_solidify_array_subdivision` (fold check); everything else passes.
-2. Find which polygons fold and why (bmesh level, headless): the default part (`blendsolid/templates/default_part.py`),
-   top face (z = 20 mm). Folded children: Subdivision alone near (26.2, 24.0) mm (next to the collar's corner at
-   (30.05, 25.05)); Bevel 2 mm alone near (1.7, 3.2) mm (the fillet arc, polygon from the arc's nodes to the collar's
-   bottom side). `spike/m2_flat_faces/arc_polygons.py` lists the polygons at the arc's ends; `metrics.py`,
-   `dump.py` + `plot.py` draw faces (see `collars.png`; before/after numbers in `metrics_*.txt`).
-3. Fix (research first if it needs a new algorithm — see memory "decide from research"): likely candidates are
-   splitting the outer n-gons so none carries a run of collinear collar nodes (Catmull–Clark's face point is the
-   vertex average), a transition row between collar and outer region, or collar sides with fewer nodes; keep
-   every piece convex and the long-edge property Bevel's clamp needs.
-4. Validate: `tools/test.sh` all green; `spike/m2_flat_faces/metrics.py` (min angles stay ≥ ~20°);
-   `fuzz_valid.py` on a few seeds (no fallback, closed, < 1.5 s); re-measure Bevel clamp on vs off on the default
-   part, a box with a hole, a box with a boss (ADR 0008's claim) and write the ADR 0008 addendum (collars, the
-   `keep` rule, new clamp limit ≈ min(c/2)). Then merge into `milestone-2`, build the Windows zip, and ask the
-   maintainer to check the two-bosses scene in the GUI (wireframe) plus a Bevel + Subdivision on it.
-5. If the check shows other slow parts: add a per-job time budget in the worker (tessellation falls back to BRepMesh
-   for the remaining faces past a few seconds) — today only the client's 120 s job timeout exists.
-6. Fillet edge cases (maintainer's request): research online the typical failure cases of CAD fillets/chamfers
+## Next step (session 9) — resume exactly here
+1. The maintainer's GUI check (steps given in chat, session 8): collars on the two-bosses scene (wireframe, Bevel
+   + Subdivision), focus clicks on faces of cuts, cutters hidden after a boolean and brought back.
+2. Fillet edge cases (maintainer's request): research online the typical failure cases of CAD fillets/chamfers
    (OCCT `BRepFilletAPI_MakeFillet` known failures, FreeCAD/Fusion/Onshape/SolidWorks docs: radius larger than a
    face, vertex blends where 3+ fillets meet, tangent chains, fillets next to fillets, mixed convex/concave,
    fillets touching holes, asymmetric chamfers, tiny faces after booleans, seam edges, self-intersecting results);
    write `docs/research/…-fillet-edge-cases.md`; turn each case into a test (script + Fillet tool path); fix what
    fails (clear errors on the fillet's line, `max_fillet`, suggestions), otherwise document the limitation.
-7. Then milestone 2 phases E (broken references) and F (20-part corpus criterion test), report, sign-off.
-8. Later: UX redesign of the tools' on-screen feedback (the maintainer dislikes the yellow handle and the preview).
-
-Done in session 7: the maintainer's GUI check of ADR 0010 (fillet.blend "ottimi"; the scenario that hung is fast
-and correct); the open fuzz case closed (an invalid solid, rejected by the runner; 347 valid fuzzed parts without
-fallback). The installed Windows zip is still session 6's (no collars).
+3. If the check shows slow parts: a per-job time budget in the worker (BRepMesh fallback past a few seconds).
+4. Then milestone 2 phases E (broken references) and F (20-part corpus criterion test), report, sign-off.
+5. Later: UX redesign of the tools' on-screen feedback (the maintainer dislikes the yellow handle and the preview);
+   ADR 0011's open points (a focused boolean's cutter arrows drawn in place; "show all arrows" option).
 
 ## Working agreement with the maintainer
 - Repo content in English; chat in Italian.
