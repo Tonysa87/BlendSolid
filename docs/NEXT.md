@@ -138,6 +138,10 @@ sign-off** (`docs/milestone-2-report.md`). Read this first when resuming, then "
   measure exactly what it shows first; installing a build needs the maintainer to close Blender.
 
 ## Open follow-ups (not blocking)
+- **Subdivision goes after "convert to quads" (maintainer, 2026-09-28):** the display mesh's Catmull–Clark rule
+  (`tessellate._thin_children`, ADR 0008 addendum) adds wedge lines from the collar sides to the face corners; the
+  maintainer finds 4 corner diagonals cleaner but accepts it for now. Once convert-to-quads exists, reconsider
+  dropping the rule (or applying it only when the part has a Subdivision modifier).
 - **Convert to quads (maintainer's idea, 2026-09-28):** the display mesh follows CAD conventions (triangles, as
   Rhino/Plasticity/MoI show them); later, a button converts a part's triangle mesh into a quad mesh, destructively
   or on a copy. The same button serves the NURBS surface modeling to come (spec: Surfaces, SubD → NURBS, G2
