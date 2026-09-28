@@ -9,7 +9,7 @@ calling it, Blender's redo re-runs it, tests call it). Curved faces are refused 
 import bpy
 from bpy.props import FloatProperty, StringProperty
 
-from . import part, script_model
+from . import focus, part, script_model
 
 
 def _local_part(name):
@@ -65,11 +65,12 @@ class BLENDSOLID_OT_push_pull(bpy.types.Operator):
             self.report({"ERROR"}, "Nothing to push or pull (no face, or a zero distance)")
             return {"CANCELLED"}
         try:
-            source, _ = script_model.append_feature(part.source_of(obj), feature_spec(self.reference, self.amount))
+            source, name = script_model.append_feature(part.source_of(obj), feature_spec(self.reference, self.amount))
         except script_model.NotCanonical as e:
             self.report({"ERROR"}, part.not_canonical_message(obj, e, detail=ui.scripts_visible(context)))
             return {"CANCELLED"}
         obj.blendsolid_script.from_string(source)
+        focus.set_focus(obj, name)  # ADR 0011
         return {"FINISHED"}
 
 

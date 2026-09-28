@@ -5,8 +5,9 @@ bpy is imported only inside register()/unregister(), so the bpy-free modules can
 
 
 def register():
-    from . import gizmos, ops_add, ops_boolean, ops_draw, ops_fillet, ops_pushpull, runtime, ui
+    from . import focus, gizmos, ops_add, ops_boolean, ops_draw, ops_fillet, ops_pushpull, runtime, ui
     ui.register()
+    focus.register()
     ops_add.register()
     ops_boolean.register()
     ops_draw.register()
@@ -17,7 +18,7 @@ def register():
 
 
 def unregister():
-    from . import gizmos, ops_add, ops_boolean, ops_draw, ops_fillet, ops_pushpull, runtime, ui
+    from . import focus, gizmos, ops_add, ops_boolean, ops_draw, ops_fillet, ops_pushpull, runtime, ui
     runtime.unregister()
     gizmos.unregister()
     ops_pushpull.unregister()
@@ -25,4 +26,5 @@ def unregister():
     ops_draw.unregister()
     ops_boolean.unregister()
     ops_add.unregister()
+    focus.unregister()
     ui.unregister()

@@ -16,7 +16,7 @@ from bpy.props import EnumProperty, FloatProperty, FloatVectorProperty, IntPrope
 from bpy_extras import view3d_utils
 from mathutils import Matrix, Vector
 
-from . import drawing, ops_add, part, primitives, script_model, trust
+from . import drawing, focus, ops_add, part, primitives, script_model, trust
 
 SHAPES = [("BOX", "Box", "Draw a box", "MESH_CUBE", 0),
           ("CYLINDER", "Cylinder", "Draw a cylinder", "MESH_CYLINDER", 1)]
@@ -115,11 +115,12 @@ class BLENDSOLID_OT_draw_solid(bpy.types.Operator):
             align=primitives.BASE if self.mode == "UNION" else primitives.TOP,
             location=location, rotation=tuple(math.degrees(a) for a in rotation), exact=on_plane)
         try:
-            source, _ = script_model.append_feature(part.source_of(reference), spec)
+            source, name = script_model.append_feature(part.source_of(reference), spec)
         except script_model.NotCanonical as e:
             self.report({"ERROR"}, part.not_canonical_message(reference, e, detail=ui.scripts_visible(context)))
             return {"CANCELLED"}
         reference.blendsolid_script.from_string(source)
+        focus.set_focus(reference, name)  # its arrows, not the base solid's (ADR 0011)
         return {"FINISHED"}
 
     def _placement(self):

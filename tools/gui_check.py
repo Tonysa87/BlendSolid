@@ -845,10 +845,16 @@ def step11():
            f"{how}: last feature {features(ob('Box'))[-1]}, selection {[o.name for o in bpy.context.selected_objects]}")
     c = ob(cutter)
     expect(c.display_type == "WIRE" and c.hide_render, "the cutter is not wire / not render-hidden")
+    expect(not c.visible_get() and c.parent == ob("Box") and
+           [x.name for x in c.users_collection] == [bs.ops_boolean.CUTTERS],
+           "the cutter is not put away (hidden, parented to Box, in the cutters collection; ADR 0011)")
     yield from settled("Box", cutter)
     hole = math.pi * 25 * 20
     expect(close(mm3(ob("Box")), v0 - hole), f"hole: {mm3(ob('Box')):.1f} != {v0 - hole:.1f}")
     screenshot("live-cutter")
+    # the sidebar's Select Cutter brings it back, selected and active
+    op(bpy.ops.blendsolid.select_cutter, part_id=bs.part.part_id(ob(cutter)))
+    expect(ob(cutter).visible_get() and active() == ob(cutter), "Select Cutter did not show and select it")
     # G: move half out of the box's -X side (the box spans x -30..30): half the hole goes
     click(ob(cutter))
     op(bpy.ops.transform.translate, value=Vector((-10, 0, 0)) * f())
@@ -874,7 +880,8 @@ def step11():
     S["v_no_hole"] = v0
     screenshot("cutter-moved")
     return (f"{how}: hole {v0 - mm3(ob('Box')):.1f} mm³ ({hole:.1f} through, then half out, across after R/G), "
-            f"radius 3 in the panel -> {mm3(ob('Box')):.1f} mm³; cutter wire, not rendered")
+            f"radius 3 in the panel -> {mm3(ob('Box')):.1f} mm³; cutter put away (wire, hidden, parented, "
+            f"collection), back with Select Cutter")
 
 
 def step12():
@@ -895,8 +902,9 @@ def step12():
             yield from set_view((0, y, 0))
             yield from key(keyname, px((0, y, 0)), ctrl=True)
             after_sel = {o.name for o in bpy.context.selected_objects}
-            expect(after_sel == before_sel, f"selection changed {before_sel} -> {after_sel}: "
-                                            f"object.select_more/select_less may have run instead")
+            expect(after_sel == before_sel - {cutter}, f"selection changed {before_sel} -> {after_sel}: "
+                                                       f"object.select_more/select_less may have run instead "
+                                                       f"(the cutter alone leaves it: hidden, ADR 0011)")
         else:
             op(bpy.ops.blendsolid.boolean, operation=operation)
         mode = {"UNION": "ADD", "INTERSECT": "INTERSECT"}[operation]
@@ -1283,8 +1291,58 @@ def step20():
     return f"script edit -> mesh: {ms} ms (median {sorted(ms)[len(ms) // 2]} ms)"
 
 
+def step21():
+    """ADR 0011: a click on a face of the selected part (Blender's own select click, then BlendSolid's focus click)
+    shows the arrows of the feature that made the face; a click in empty space deselects and hides them."""
+    if not SIM:
+        return "SKIP: needs --enable-event-simulate"
+    with override():
+        bpy.ops.wm.tool_set_by_id(name="builtin.select_box")
+    cursor((0, 300, 0))
+    op(bpy.ops.blendsolid.add_box, length=40, width=30, height=20)
+    name = active().name
+    cursor()
+    op(bpy.ops.blendsolid.draw_solid, shape="CYLINDER", mode="CUT", target=name, location=(5, 5, 20),
+       rotation=(0, 0, 0), radius=4, height=6)
+    yield from settled(name)
+    expect(ob(name).blendsolid_focus == "cut_1", f"Draw Solid left the focus on {ob(name).blendsolid_focus!r}")
+    click(ob(name))
+    yield from set_view((0, 300, 10), rot_deg=(15, 0, 10), dist=0.2)  # the hole's bottom in sight
+    shown = []
+    for where, want in (((-12, 290, 20), "box_1"), ((5, 305, 14), "cut_1")):
+        at = px(where)
+        ev("MOUSEMOVE", "NOTHING", at)
+        yield 0.1
+        ev("LEFTMOUSE", "PRESS", at)
+        yield 0.05
+        ev("LEFTMOUSE", "RELEASE", at)
+        yield 0.3
+        redraw()
+        yield from frames(2)
+        o = ob(name)
+        expect(o.blendsolid_focus == want and o.select_get() and active() == o,
+               f"click at {where}: focus {o.blendsolid_focus!r}, selected {o.select_get()}, active {active()}")
+        gzs = gizmo_state(name)
+        params = [p for p, _, _ in bs.gizmos.arrow_matrices(o)]
+        expect(gzs is not None and len(gzs) == len(params) and all(p.startswith(want) for p in params),
+               f"arrows after the click on {want}: {params}")
+        shown.append(f"{want}: {params}")
+    screenshot("focus-cut")
+    ev("MOUSEMOVE", "NOTHING", px((80, 300, 20)))
+    yield 0.1
+    at = px((80, 300, 20))  # empty space beside the part
+    ev("LEFTMOUSE", "PRESS", at)
+    yield 0.05
+    ev("LEFTMOUSE", "RELEASE", at)
+    yield 0.3
+    with override():
+        polled = bs.gizmos.BLENDSOLID_GGT_parameters.poll(bpy.context)
+    expect(not ob(name).select_get() and not polled, "a click in empty space left the part selected or its arrows on")
+    return f"clicks focus {'; '.join(shown)}; empty-space click deselects, no arrows"
+
+
 STEPS = [step1, step2, step3, step4, step5, step6, step7, step8, step9, step10, step11, step12, step13, step14,
-         step15, step16, step17, step18, step19, step20]
+         step15, step16, step17, step18, step19, step20, step21]
 
 
 def scenario():
@@ -1299,7 +1357,7 @@ def scenario():
         if name is None:
             raise Fail("the blendsolid add-on is not enabled")
         for sub in ("part", "runtime", "gizmos", "ops_add", "ops_boolean", "ops_draw", "drawing", "primitives",
-                    "script_model", "params", "trust", "ui", "deps", "ops_fillet", "ops_pushpull", "picking"):
+                    "script_model", "params", "trust", "ui", "deps", "ops_fillet", "ops_pushpull", "picking", "focus"):
             setattr(bs, sub, importlib.import_module(f"{name}.{sub}"))
         log(f"add-on {name} from {os.path.dirname(sys.modules[name].__file__)}; event simulation: {SIM}; out {OUT}")
         instrument()
