@@ -1,0 +1,53 @@
+[gui-check     2.0] add-on bl_ext.user_default.blendsolid from E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid; event simulation: True; out E:\bs_debug\gui8
+STEP 1 OK Box 40x30x20 -> 24000 mm³ (first result 1.8 s), redo Length 60 -> 36000.0 mm³
+STEP 2 OK cylinder on the 30° cursor plane: z 0.000..20.000 mm, 6261.9 mm³
+STEP 3 OK sphere 4111, cone 3653, torus 9723, wedge 15000 mm³; sidebar: 6 buttons, 'Cone 1 top radius'; real panel drawn: True
+STEP 4 OK 3 arrows on the +X, +Y, top faces; drag -> height 36.382 mm (65488 mm³, heights while dragging [22.11, 24.2, 26.27, 28.33, 30.37, 32.39, 34.39, 36.38]); one undo -> 20 mm
+STEP 5 OK panel 'This part is scaled', gizmo poll False, no arrows drawn; undo -> scale 1, arrows back
+STEP 6 OK drawn with simulated mouse events; New Part Box.001 19.96 x 10.05 mm, redo Height 15 -> 3010.8 mm³; synthetic preview drew 13 frame(s)
+STEP 7 OK simulated mouse; header 'union with Box', UNION preview mode; Box +1009.3 mm³ -> 37009.3
+STEP 8 OK simulated mouse; header 'cut from Box', CUT preview mode; hole r 3.85 h 5.96; redo Union -> boss; redo Radius 3 -> 37177.2 mm³
+STEP 9 OK Ctrl 19 x 10 x 8; Shift+Ctrl 19 x 9.6 x 7.5 mm
+STEP 10 OK Esc during the base and right-click during the height: nothing added, header cleared
+STEP 11 OK Ctrl+Numpad - (simulated key): hole 845.4 mm³ (1570.8 through, then half out, across after R/G), radius 3 in the panel -> 36331.9 mm³; cutter put away (wire, hidden, parented, collection), back with Select Cutter
+STEP 12 OK union 12281.8, intersect 281.8 mm³ (Ctrl+Numpad keys, boolean ran, selection unchanged); Object menu entry present; other Ctrl+Numpad bindings: ['Object Mode: object.select_more', 'Object Mode: object.select_less']
+STEP 13 OK simulated press: first ray hit is the wire cutter, the tool picked Box's -Y face (y = -15.000 mm)
+STEP 14 OK deleted: Box keeps its cut, no error, listed as deleted; undo -> cutter back, 36331.9 mm³
+STEP 15 OK 37 undos to the empty scene and 37 redos back; every step matched its scripts
+00:34.469  blend            | Read blend: "E:\bs_debug\gui8\gui-check.blend"
+Info: Saved as "gui-check.blend"
+STEP 16 OK reopened untrusted: cached meshes, Recompute off, no recompute on move; trusted -> 37177.2 mm³
+STEP 17 OK simulated Ctrl drag; +1200.0 mm³ on Box.006 (z = 20.0 mm), Bevel result closed
+STEP 18 OK 2 edges picked by reference, dragged radius 6.00 mm -> 729.0 mm³ less; one undo removes it
+STEP 19 OK pull +X 12 mm, push top 6 mm (+7200.0 mm³ after undoing the push)
+STEP 20 OK script edit -> mesh: [82, 79, 79, 80, 79, 80, 80, 79] ms (median 80 ms)
+STEP 21 OK clicks focus box_1: ['box_1_length', 'box_1_width', 'box_1_height']; cut_1: ['cut_1_radius', 'cut_1_height']; empty-space click deselects, no arrows
+WORKER PID 12112
+SCREENSHOT E:\bs_debug\gui8\01-box.png
+SCREENSHOT E:\bs_debug\gui8\02-primitives.png
+SCREENSHOT E:\bs_debug\gui8\03-gizmo-drag.png
+SCREENSHOT E:\bs_debug\gui8\04-scaled.png
+SCREENSHOT E:\bs_debug\gui8\05-preview-synthetic-base.png
+SCREENSHOT E:\bs_debug\gui8\06-preview-synthetic-height.png
+SCREENSHOT E:\bs_debug\gui8\07-draw-grid.png
+SCREENSHOT E:\bs_debug\gui8\08-draw-union.png
+SCREENSHOT E:\bs_debug\gui8\09-draw-cut.png
+SCREENSHOT E:\bs_debug\gui8\10-live-cutter.png
+SCREENSHOT E:\bs_debug\gui8\11-cutter-moved.png
+SCREENSHOT E:\bs_debug\gui8\12-booleans.png
+SCREENSHOT E:\bs_debug\gui8\13-through-cutter.png
+SCREENSHOT E:\bs_debug\gui8\14-deleted-cutter.png
+SCREENSHOT E:\bs_debug\gui8\15-reopened-untrusted.png
+SCREENSHOT E:\bs_debug\gui8\16-trusted.png
+SCREENSHOT E:\bs_debug\gui8\17-draw-on-beveled.png
+SCREENSHOT E:\bs_debug\gui8\18-fillet-selected.png
+SCREENSHOT E:\bs_debug\gui8\19-fillet-dragging.png
+SCREENSHOT E:\bs_debug\gui8\20-fillet-done.png
+SCREENSHOT E:\bs_debug\gui8\21-push-pull-dragging-out.png
+SCREENSHOT E:\bs_debug\gui8\22-push-pull-dragging-in.png
+SCREENSHOT E:\bs_debug\gui8\23-push-pull.png
+SCREENSHOT E:\bs_debug\gui8\24-focus-cut.png
+GUI CHECK PASS
+00:49.859  blend            | Saved session recovery to "C:\Users\Tony\AppData\Local\Temp\quit.blend"
+
+Blender quit

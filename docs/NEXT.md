@@ -1,6 +1,7 @@
 # Where we are / what's next (bookmark)
 
-Updated: 2026-09-27, session 5 (milestone 1.5 signed off). Read this first when resuming.
+Updated: 2026-09-28, session 9: **milestone 2 signed off by the maintainer** (GUI tests 1–5 passed) and merged
+into `main`. Read this first when resuming, then "Next step".
 
 ## State
 - **Milestone 0 (spike):** done — `SPIKE_REPORT.md`.
@@ -12,10 +13,136 @@ Updated: 2026-09-27, session 5 (milestone 1.5 signed off). Read this first when 
 - The SDD ledger's two useful files are archived in `docs/milestone-1.5/` (`sdd-ledger.md`,
   `gui-check-report.md`); the git-ignored `.superpowers/sdd/` folder is deleted by the maintainer by hand.
 
-## Next step
-Ask the maintainer which comes first: **milestone 2 (selectors from clicks)**, or the post-1.5 follow-ups
-(live cutters: per-boolean suppress toggle, "Apply" to inline a cutter, cycling through a part's cutters), or
-the SurfacePsycho analysis (below).
+## Milestone 2 (selectors from clicks) — done, signed off 2026-09-28, merged into `main`
+- Research: `docs/research/2026-09-27-selectors-and-click-operations.md` (Plasticity, Fusion, Onshape, SOLIDWORKS,
+  Shapr3D, MoI, FreeCAD, KCL; persistent naming). Design (decided autonomously from the research, the maintainer
+  asked for no questions): `docs/superpowers/specs/2026-09-27-milestone-2-selectors-design.md` — phases A (mesh
+  compatible with modifiers), B (provenance + readable references `face("box_1", "+Z")`, `edge_between(...)`),
+  C (Fillet tool on clicked edges), D (Push/Pull tool), E (broken references), F (20-part corpus criterion test).
+  Spikes: provenance from build123d's per-operation history works (all faces/edges of the test parts uniquely
+  named, stable across upstream changes; splits need a tie-break); OCCT fillets propagate along tangent chains.
+- **Phase A done** (plan `docs/superpowers/plans/2026-09-27-m2a-modifier-compatible-mesh.md`, ADR 0008): welded
+  closed meshes, flat faces as one polygon / convex polygons around holes, CAD edges with `brep_edge_id`,
+  `sharp_edge`, `bevel_weight_edge`, exact corner normals, picking on the evaluated mesh. 190 unit + 192 Blender
+  tests pass; `tools/gui_check.py` PASS on Linux (16/16). **Checked by the maintainer on Windows (2026-09-27):**
+  quads/n-gons in the wireframe, Bevel by weight rounds exactly the CAD edges (parameters still draggable),
+  Solidify/Array/Subdivision/Weighted Normal work. Draw Solid on a beveled part (the maintainer couldn't check
+  it) is `gui_check` step 17, PASS on Linux and in the real Windows window. Review findings fixed.
+- **Phase B (worker side) done** (plan `docs/superpowers/plans/2026-09-27-m2b-provenance-and-references.md`,
+  ADR 0009): labels from build123d's history, `face()/edge_between()/edges_of()/nearest_*()` in part scripts,
+  a reference text per face and edge on the mesh. Nothing to see in the GUI yet.
+
+- **Phase C done** (plan `docs/superpowers/plans/2026-09-27-m2c-fillet-tool.md`): `blendsolid/picking.py` (the CAD
+  edge or face under the mouse, through modifiers), `blendsolid/ops_fillet.py` (the `blendsolid.fillet` operator
+  and the **Fillet** toolbar tool: click edges, Shift+click to add, click a face for all its edges, drag the
+  radius, C chamfer, Ctrl snap, one undo step). `gui_check` 18/18 PASS on Linux (step 18: two edges picked by
+  reference, dragged, undone). The Windows zip with the tool is built (`dist/`) but **not installed**: the
+  maintainer's Blender was open.
+
+- **Phase D done:** `blendsolid/ops_pushpull.py` (the `blendsolid.push_pull` operator and the **Push/Pull** tool:
+  press on a flat face, drag along its normal, out adds / in cuts, Ctrl snaps; writes
+  `extrude(face("box_1", "+X"), amount=push_1_amount, mode=Mode.ADD)`). `gui_check` 19/19 PASS on Linux;
+  215 unit + 206 Blender tests pass. The Windows zip in `dist/` has phases A–D; **not installed yet**.
+
+- **Fillet and Push/Pull checked by the maintainer on Windows (2026-09-27 evening):** they work; after their
+  feedback the drag got faster (edit → mesh 106 → 59 ms: `runtime.kick()` and 10 ms polling while busy), an
+  immediate overlay preview, a drag handle and Draw Solid's snapping (ticks, labels, Ctrl+Wheel). **The maintainer
+  doesn't like the yellow arrow and the preview's look**: to redo in a dedicated UX redesign (not now).
+
+- **Maintainer's bug, 2026-09-27 evening:** fans of slivers on fillet faces (`/mnt/e/bs_debug/fillet.blend`). A first
+  fix (ADR 0005 addendum, Delaunay lattice) still looked like a mosaic to the maintainer ("topologia pessima").
+
+- **Session 6 (2026-09-28): CAD-style tessellation, ADR 0010.** Researched how Rhino, MoI, ACIS, Parasolid, SALOME
+  and Gmsh mesh trimmed faces (`docs/research/2026-09-28-*.md`); the maintainer set the scope: display meshes
+  follow CAD conventions (triangles), a later "convert to quads" button for CAD parts and NURBS surfaces.
+  `blendsolid/worker/meshing.py`: every edge discretized once and shared; four-sided curved faces as structured
+  grids with matched opposite sides (fillet bands in rows, trimmed cylinders in aligned columns); other curved
+  faces as grids trimmed by their boundary; flat faces from their boundary; BRepMesh only as a loud fallback.
+  `MESH_FORMAT` 6. The maintainer's first GUI test **hung the worker** (1000 mm box, cylinder cut on an edge,
+  Fillet drag): fuzzing found curvature spikes on OCCT's vertex blends, unbounded density and endless side
+  matching, quadratic boundary recovery and broken OCCT fillet results (now a clear part error); fixed (ADR 0010
+  addendum) with regression tests; over 1,000 fuzzed parts all under 1.5 s and closed. 233 unit + 210 Blender tests and `gui_check` (20/20, Linux) pass. Windows zip built and installed. **Checked by the maintainer
+  on Windows (2026-09-28, session 7):** fillet.blend's bands/columns "ottimi"; the scenario that hung (1000 mm box,
+  cylinder cut on an edge, Fillet drag) is fast and correct. They then pointed at the fans of slivers on flat faces
+  with holes (ADR 0008's convex pieces, e.g. boolean holes of cylinders): to improve (research
+  `docs/research/2026-09-28-planar-faces-with-holes.md`).
+
+## Session 8 (2026-09-28) — done, waiting for the maintainer's GUI check
+- **Flat faces with holes, fixed and merged into `milestone-2`** (ADR 0008 addendum). The collars folded under
+  Subdivision because a big convex polygon holding a run of collinear collar nodes has its Catmull–Clark face
+  point far along the run. `_thin_children` refuses such merges (20°), and collars take 35% of the clearance (45%
+  left 2° wedges that Bevel + SubD folded). New unit test simulates one Catmull–Clark step
+  (`test_subdivision_folds_nothing_around_holes`); milestone 2's old fans folded too (plate 72 children), now 0
+  on every test part; Bevel is not clamped on the default part (Blender's clamp code read: an interior edge at a
+  mid-arc node "collapses" the arc's short chords). Fuzz 7 seeds clean. `MESH_FORMAT` 7. Limit: a hole within a
+  few mm of a straight edge leaves a thin strip of fans (no vertices may be added on BRep edges).
+- **Handles and cutters (maintainer's request, ADR 0011, research `docs/research/2026-09-28-handles-and-tool-bodies.md`):**
+  arrows of one *focused* feature per part (`Object.blendsolid_focus`, `blendsolid/focus.py`), only while the part
+  is active + selected + visible; clicking a face focuses the feature that made it (Object Mode keymap item after
+  Blender's select click); Draw Solid/Boolean/Fillet/Push-Pull focus what they add; the sidebar has "Arrows of:"
+  buttons. Cutters of live booleans go to a hidden `BlendSolid Cutters` collection (`hide_set`, never
+  `hide_viewport`/exclude: stale `matrix_world`), parented to the target; back with Select Cutter, the eye toggle
+  in "Booleans of this part", or Alt+H; Remove Boolean brings the cutter home. `gui_check` 21/21 PASS on Linux and
+  in the real Windows window; 244 unit + 225 Blender tests. Windows zip built and **installed in the portable
+  Blender** (smoke PASS).
+
+- **Fillet edge cases** (research `docs/research/2026-09-28-fillet-edge-cases.md`, ~60 measured cases): part
+  scripts use `worker/blends.py`'s fillet()/chamfer(): results must be one valid solid of positive volume; errors
+  give the largest working size (bisection with a 2 s budget and probes around the limit), name seams/tangent/free
+  edges and slivers, and say "another face is in the way" when the working sizes aren't an interval. The Fillet
+  tool refuses clicks on tangent edges and shows the worker's error in the drag header. Tests T1–T23
+  (`tests/unit/test_blends.py`).
+- **Phase E (warnings)**: split faces/edges behind plain references and ambiguous `near=` build with a warning on
+  the feature's line, shown in the sidebar ("Check these references"). ADR 0009 addendum.
+- **Phase F (success criterion)**: `tests/unit/test_criterion.py` — 20 parts, 559 clicked entities, 97.1% survive 3
+  upstream changes, 100% an inserted feature, 0 silent wrong bindings. It found a provenance bug (roles of a cut's
+  untouched faces were reversed: +X/−X swapped), fixed. Milestone report written.
+- 281 unit + 227 Blender tests; `gui_check` 21/21 on Linux and Windows; the Windows zip (all of the above) is
+  installed in the portable Blender.
+
+## Maintainer's GUI check, session 8 evening (Windows portable, zip installed)
+- Test 1 (focused arrows): passed after two fixes — with Blender's default **Tweak** tool a click on a face didn't
+  move the focus (the automatic check used Select Box; the focus now moves on the press, any click tool), and the
+  "Arrows of" buttons now redraw the viewport at once.
+- Test 2 (cutters hidden after a boolean, following the target when moved/rotated, eye toggle, Select Cutter,
+  radius drag, Ctrl+Z): passed.
+- Test 3 (`/mnt/e/bs_debug/test2.blend`, box with bosses, corner notches, side holes): the maintainer found the
+  collar wedges from the face corners ugly and decided Subdivision belongs on convert-to-quads; the face-point
+  rule went from 20° to 10° (the least that keeps Bevel 2 mm fold-free), SubD fold tests removed. Bevel by weight
+  2 mm / 3 segments on the part: clean. Remaining fans: arcs in the outer loop (corner/edge notches) and thin
+  strips (known limit).
+- Test 4 (fillet too large: header and sidebar messages, Ctrl+Z): passed.
+- Test 5 (session 9: Fillet on the top face, then Cut 1 length 100 splits it → "Check these references"; Ctrl+Z
+  clears it): passed. Sign-off given.
+- Seen in test2.blend: a Draw Solid cut placed at z = 1000 mm on a box later made 257 mm tall floats above it
+  (fixed placements don't follow upstream changes: known M1.5 limit, now seen by the maintainer).
+
+## Next step — resume exactly here
+1. ~~Milestone 2 sign-off and merge~~ done (session 9).
+2. **Partial collars for arcs in a face's outer loop** (a boss or hole cutting a corner or an edge: test2.blend's
+   top and side faces fan from the arc to one far point). Research first (products + literature, e.g. template
+   meshing around boundary arcs, medial-axis decomposition), then extend `tessellate._collared`; measure on
+   test2's part (`/mnt/e/bs_debug/test2.blend`, script `.Box.py.001`) with the scratch tools
+   `spike/m2_flat_faces/plot_face.py` / `metrics.py`; Bevel tests must stay green.
+3. **Complete the chamfer** in the Fillet tool: two distances or distance + angle, choice of side.
+4. **Plan 3a** (sketch 2D + extrude with taper/up-to-face + revolve + STEP/IGES/BREP I/O) from research.
+5. Consider: Draw Solid placements that follow the face they were drawn on (the maintainer hit the limit).
+6. Open M2 follow-ups (report).
+
+### GUI check steps (portable Blender, `E:\blender-5.2.2-windows-x64`, zip of session 8 installed)
+1. Shift+A → BlendSolid → Box; Draw Solid tool, draw a cylinder into the top face (a cut). Expected: blue arrows
+   only on the hole. Select tool: click the top face → the box's arrows; click the hole's bottom → the hole's;
+   click empty space → none. Sidebar "Arrows of:" lists box_1 / cut_1.
+2. A cylinder through the box; select the cylinder, then the box (active), Ctrl+Numpad −. Expected: the cylinder
+   disappears (collection "BlendSolid Cutters"), the hole stays; G on the box → the hole follows; the eye in
+   "Booleans of this part" shows/hides the cutter; Select Cutter selects it.
+3. The two-bosses scene (a box with two cylinders near an edge) in wireframe: collars of radial quads around
+   the bosses; add Bevel (Limit Method: Weight) then Subdivision: nothing folds (screenshot).
+4. Fillet tool: select an edge, drag the radius far beyond the part. Expected: the header says "can't: fillet
+   radius … mm is too large …: the largest that works is … mm"; releasing leaves the error in the sidebar, Ctrl+Z
+   undoes it. Click an edge between a fillet and a flat face: "nothing to round" warning, nothing selected.
+5. A face split by a later change (e.g. a wall that stops reaching an edge): the sidebar shows "Check these
+   references".
 
 ## Working agreement with the maintainer
 - Repo content in English; chat in Italian.
@@ -23,10 +150,21 @@ the SurfacePsycho analysis (below).
   spec scope changes, publication/licensing/distribution, or anything touching the maintainer's own Blender install.
 - Commit trailer: keep the fixed `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>` line for this
   project (settled 2026-09-27); the maintainer wants it removed for good in the future.
-- GUI tests: one step at a time, exact actions and expected results; when a screenshot shows a mesh problem,
+- GUI tests: one step at a time, exact actions and expected results; use the UI's own labels and tool names, no
+  new jargon, and skip steps already verified — go straight to what the test is about; when a screenshot shows a mesh problem,
   measure exactly what it shows first; installing a build needs the maintainer to close Blender.
 
 ## Open follow-ups (not blocking)
+- **Subdivision goes after "convert to quads" (maintainer, 2026-09-28):** the display mesh's Catmull–Clark rule
+  (`tessellate._thin_children`, ADR 0008 addendum) adds wedge lines from the collar sides to the face corners; the
+  maintainer finds 4 corner diagonals cleaner but accepts it for now. Once convert-to-quads exists, reconsider
+  dropping the rule (or applying it only when the part has a Subdivision modifier).
+- **Convert to quads (maintainer's idea, 2026-09-28):** the display mesh follows CAD conventions (triangles, as
+  Rhino/Plasticity/MoI show them); later, a button converts a part's triangle mesh into a quad mesh, destructively
+  or on a copy. The same button serves the NURBS surface modeling to come (spec: Surfaces, SubD → NURBS, G2
+  milestones), whose results are converted to quads the same way. It is the spec's "Blender output" row (v2: quad
+  mesh for simple faces; R&D: quads on trimmed faces). Quad-meshing findings from the 2026-09-28 tessellation
+  research are its starting input.
 - **Fixes after the 1.5 sign-off (2026-09-27)**, checked by the maintainer in the Windows GUI and merged: the tangent plane on a curved face follows the surface (ADR 0006 point 4; a solid drawn
   there is still tilted up to ~1.4° from the exact normal); the wedge has a `top_length` arrow along its top edge.
   Known: when a wedge's top is longer than its base, build123d centres the wider bounding box, and the
@@ -36,8 +174,6 @@ the SurfacePsycho analysis (below).
   a per-boolean on/off toggle (suppress without removing, like a modifier's eye); "Apply" — inline a cutter
   into the target's history so the cutter is no longer needed; cycling through a part's cutters
   (HardOps' Bool Scroll). Deleting a cutter keeps it restorable and "Remove cut" exist since the manual test.
-- **Trimmed curved faces' triangulation** (ADR 0005): shading is right (exact normals) but the wireframe of a
-  curved face cut by booleans still shows BRepMesh's slivers: structured grid + a band along the cut.
 - Windows worker watchdog blocked while a C call holds the GIL → use a Job object with kill-on-close.
 - Windows zip built with the build machine's pip environment markers (no colorama, has pexpect) → fix before any
   public release (milestone 3).

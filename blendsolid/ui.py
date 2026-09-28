@@ -180,13 +180,21 @@ class BLENDSOLID_PT_part(bpy.types.Panel):
             box.label(text="Auto Run Python Scripts is off or excludes this file:", icon="BLANK1")
             box.label(text="the part keeps its saved mesh and won't rebuild.", icon="BLANK1")
             box.operator("blendsolid.trust_scripts", icon="CHECKMARK")
+        doubts = part.warnings(obj)
+        if doubts and not obj.blendsolid_error:
+            box = layout.box()
+            box.label(text="Check these references", icon="ERROR")
+            for line, text in doubts[:4]:
+                where = f" (line {line})" if advanced and line else ""
+                box.label(text=text + where, icon="BLANK1")
         if obj.blendsolid_error:
             box = layout.box()
             box.label(text="The part could not be rebuilt", icon="ERROR")
             line = f" (line {obj.blendsolid_error_line})" if advanced and obj.blendsolid_error_line else ""
             for i, text in enumerate(obj.blendsolid_error.splitlines()[:6]):
                 box.label(text=(text + line) if i == 0 else text, icon="BLANK1")
-        from . import ops_boolean
+        from . import focus, ops_boolean
+        focus.draw_features(layout, obj)
         ops_boolean.draw_booleans(layout, obj)
         layout.label(text="Booleans (selected parts on this one):")
         ops_boolean.draw_boolean_buttons(layout)

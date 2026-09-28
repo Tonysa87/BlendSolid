@@ -1,0 +1,25 @@
+bosses: closed True vol 406011.4 brep 406031.9 time 0.02s
+    f1: 93 polys min 8.24 max 180.00 area err 1.4e-04
+holes: closed True vol 387977.2 brep 387936.3 time 0.02s
+    f1: 93 polys min 8.24 max 180.00 area err 1.4e-04
+plate_small_hole: closed True vol 199859.1 brep 199858.6 time 0.02s
+    f2: 48 polys min 45.00 max 180.00 area err 2.4e-06
+    f4: 48 polys min 45.00 max 180.00 area err 2.4e-06
+washer: closed True vol 5260.0 brep 5277.9 time 0.02s
+    f1: 48 polys min 45.00 max 180.00 area err 3.4e-03
+    f2: 48 polys min 45.00 max 180.00 area err 3.4e-03
+box_with_hole: closed True vol 21745.7 brep 21738.1 time 0.02s
+    f2: 48 polys min 26.45 max 180.00 area err 3.5e-04
+    f4: 48 polys min 26.45 max 180.00 area err 3.5e-04
+slot: closed True vol 15739.2 brep 15737.3 time 0.02s
+    f2: 48 polys min 24.27 max 180.00 area err 1.2e-04
+    f4: 48 polys min 24.27 max 180.00 area err 1.2e-04
+bolt_circle: closed True vol 37633.7 brep 37761.9 time 0.07s
+    f1: 281 polys min 35.83 max 180.00 area err 3.4e-03
+    f2: 281 polys min 35.83 max 180.00 area err 3.4e-03
+rect_pocket: closed True vol 32000.0 brep 32000.0 time 0.01s
+    f2: 4 polys min 45.00 max 135.00 area err 0.0e+00
+    f4: 4 polys min 45.00 max 135.00 area err 0.0e+00
+near_edge: closed True vol 34238.9 brep 34232.9 time 0.02s
+    f2: 48 polys min 0.71 max 180.00 area err 1.8e-04
+    f4: 48 polys min 0.71 max 180.00 area err 1.8e-04

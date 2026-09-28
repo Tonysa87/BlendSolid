@@ -1,4 +1,5 @@
-"""Arrow gizmos on the dimensions of the active part's primitive features (tool 1).
+"""Arrow gizmos on the dimensions of the active part's focused feature (tool 1; ADR 0011: one feature at a
+time, only while the part is active, selected and visible).
 
 Each arrow writes its parameter through the panel's own path (the parameter's mirror property, whose update
 rewrites the script: ui._write_param), so the reconcile loop, error handling and undo stay exactly as for a
@@ -13,7 +14,7 @@ import math
 import bpy
 from mathutils import Euler, Matrix, Vector
 
-from . import params, part, primitives, script_model
+from . import focus, params, part, primitives, script_model
 
 MIN_VALUE = 0.01  # mm: a primitive dimension can't reach 0 by dragging (top_length may, see _minimum)
 _layout_cache = {}  # object name -> (source, [(Feature, Arrow)]): scripts are parsed once per change
@@ -27,18 +28,21 @@ def feature_matrix(feature, factor):
 
 
 def arrow_layout(obj):
-    """[(Feature, Arrow)] of every primitive feature of obj's script ([] if it isn't canonical)."""
+    """[(Feature, Arrow)] of obj's focused feature ([] if the script isn't canonical, or the feature has no
+    arrows: a fillet, a boolean)."""
     source = part.source_of(obj)
+    key = (source, obj.blendsolid_focus)
     cached = _layout_cache.get(obj.name)
-    if cached is not None and cached[0] == source:
+    if cached is not None and cached[0] == key:
         return cached[1]
     try:
         feats = script_model.features(source)
         values = {p.name: p.value for p in params.parse_params(source)}
     except (script_model.NotCanonical, params.ParamError, SyntaxError):
         feats, values = [], {}
-    arrows = [(f, a) for f in feats for a in primitives.arrows(f, values)]
-    _layout_cache[obj.name] = (source, arrows)
+    name = focus.focused(obj, feats)
+    arrows = [(f, a) for f in feats if f.name == name for a in primitives.arrows(f, values)]
+    _layout_cache[obj.name] = (key, arrows)
     return arrows
 
 
@@ -96,6 +100,7 @@ class BLENDSOLID_GGT_parameters(bpy.types.GizmoGroup):
     def poll(cls, context):
         obj = context.object
         return (context.mode == "OBJECT" and obj is not None and part.is_local_part(obj)
+                and obj.select_get() and obj.visible_get()  # as Geometry Nodes gizmos: active and selected
                 and not part.is_scaled(obj) and not _drawing_tool_active(context))
 
     def setup(self, context):

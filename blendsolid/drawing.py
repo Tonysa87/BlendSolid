@@ -320,3 +320,40 @@ def preview_lines(drawn, factor, segments=32):
         step = 1 if drawn.shape == "BOX" else segments // 4
         lines += [(ring[i], top[i]) for i in range(0, len(ring), step)]
     return [(drawn.frame @ p, drawn.frame @ q) for p, q in lines]
+
+
+# -- the Fillet tool's immediate preview: drawn at the mouse's pace, the worker's result follows -----------------
+
+def fillet_handle(a, b, n1, n2):
+    """(midpoint, direction) of the drag handle of an edge from `a` to `b` between faces with outward normals
+    `n1`, `n2`: out of the solid, halfway between the faces. The radius is the distance dragged along it."""
+    w = Vector(n1) + Vector(n2)
+    return (Vector(a) + Vector(b)) / 2, (w if w.length > 1e-9 else Vector(n1)).normalized()
+
+
+def _in_face(t, n, centre, point):
+    """The direction in the face (normal `n`) perpendicular to the edge direction `t`, towards `centre`."""
+    u = Vector(n).cross(t).normalized()
+    return -u if u.dot(Vector(centre) - Vector(point)) < 0 else u
+
+
+def fillet_preview(a, b, n1, n2, c1, c2, size, chamfer=False, arc_segments=12):
+    """Line segments showing a fillet (radius `size`) or chamfer (length `size` along each face) of the edge
+    segment a-b between two faces (outward normals n1, n2; c1, c2 points of each face, to tell on which side of
+    the edge it lies): the two lines where it meets the faces, then its cross-section at the middle (an arc, or
+    the chamfer's flat cut). Exact for flat faces, an approximation on curved ones."""
+    a, b = Vector(a), Vector(b)
+    t = (b - a).normalized()
+    u1, u2 = _in_face(t, n1, c1, a), _in_face(t, n2, c2, a)
+    theta = u1.angle(u2)  # the angle between the faces inside the material
+    s = size if chamfer else size / math.tan(theta / 2)
+    lines = [(a + u1 * s, b + u1 * s), (a + u2 * s, b + u2 * s)]
+    mid = (a + b) / 2
+    p1, p2 = mid + u1 * s, mid + u2 * s
+    if chamfer:
+        return lines + [(p1, p2)]
+    centre = mid + (u1 + u2).normalized() * (size / math.sin(theta / 2))
+    v1, v2 = p1 - centre, p2 - centre
+    radius = v1.length  # slerp() returns unit vectors
+    arc = [centre + v1.slerp(v2, k / arc_segments) * radius for k in range(arc_segments + 1)]
+    return lines + list(zip(arc, arc[1:]))

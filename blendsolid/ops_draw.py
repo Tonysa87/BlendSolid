@@ -16,7 +16,7 @@ from bpy.props import EnumProperty, FloatProperty, FloatVectorProperty, IntPrope
 from bpy_extras import view3d_utils
 from mathutils import Matrix, Vector
 
-from . import drawing, ops_add, part, primitives, script_model, trust
+from . import drawing, focus, ops_add, part, primitives, script_model, trust
 
 SHAPES = [("BOX", "Box", "Draw a box", "MESH_CUBE", 0),
           ("CYLINDER", "Cylinder", "Draw a cylinder", "MESH_CYLINDER", 1)]
@@ -115,11 +115,12 @@ class BLENDSOLID_OT_draw_solid(bpy.types.Operator):
             align=primitives.BASE if self.mode == "UNION" else primitives.TOP,
             location=location, rotation=tuple(math.degrees(a) for a in rotation), exact=on_plane)
         try:
-            source, _ = script_model.append_feature(part.source_of(reference), spec)
+            source, name = script_model.append_feature(part.source_of(reference), spec)
         except script_model.NotCanonical as e:
             self.report({"ERROR"}, part.not_canonical_message(reference, e, detail=ui.scripts_visible(context)))
             return {"CANCELLED"}
         reference.blendsolid_script.from_string(source)
+        focus.set_focus(reference, name)  # its arrows, not the base solid's (ADR 0011)
         return {"FINISHED"}
 
     def _placement(self):
@@ -305,14 +306,32 @@ def pick(context, origin, direction, near=()):
     location, normal, index, obj = found
     is_part = (part.is_local_part(obj) and not part.is_scaled(obj) and trust.is_trusted(obj)
                and script_model.is_canonical(part.source_of(obj)))
-    exact = part.face_plane(obj, index) if is_part and not obj.modifiers else None
-    if exact is not None:
+    # The ray hit the evaluated mesh (after modifiers): its polygons carry the BRep face ids they came from.
+    mesh = obj.evaluated_get(depsgraph).data
+    fid = part.face_id(mesh, index) if is_part else None
+    exact = part.face_plane(obj, fid)
+    factor = part.unit_factor(context.scene)
+    if exact is not None and _on_plane(obj, exact, location, factor):
         local = drawing.plane_on_part_face(exact[0], exact[1])
-        return obj.matrix_world @ local.matrix(part.unit_factor(context.scene)), obj, local
-    smooth = part.curved_face_normal(obj, index, location) if is_part and not obj.modifiers else None
+        return obj.matrix_world @ local.matrix(factor), obj, local
+    smooth = part.curved_face_normal(obj, mesh, index, location) if is_part else None
     if smooth is not None:
         return drawing.plane_on_curved_face(location, smooth, obj.matrix_world), obj, None
     return drawing.plane_on_face(location, normal, obj.matrix_world), (obj if is_part else None), None
+
+
+ON_PLANE_MM = 1e-3  # a hit this close to a face's exact plane is on it; farther: a modifier moved the polygon
+ON_PLANE_REL = 1e-6  # plus this much of the hit's distance from the origin (float32 hits and matrices: 4e-3 mm at 50 m)
+
+
+def _on_plane(obj, plane, location, factor):
+    """Is world `location` on obj's face plane (normal, d mm)? Always without modifiers; with modifiers, not when
+    one (Array, Solidify, Mirror...) moved the polygon that was hit away from the face it came from."""
+    if not obj.modifiers:
+        return True
+    p = obj.matrix_world.inverted_safe() @ Vector(location)
+    tolerance = ON_PLANE_MM + ON_PLANE_REL * max(Vector(location).length, p.length) / factor
+    return abs(Vector(plane[0]).dot(p) / factor - plane[1]) < tolerance
 
 
 def _draw_preview(op):

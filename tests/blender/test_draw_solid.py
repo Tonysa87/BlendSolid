@@ -367,3 +367,33 @@ def test_hovering_around_a_cone_turns_the_grid_smoothly(clean):
     # The flat top still gets its exact plane.
     plane, target, local = ops_draw.pick(bpy.context, Vector((0.002, 0.001, 1)), Vector((0, 0, -1)))
     assert local is not None and local.z == (0.0, 0.0, 1.0)
+
+
+# -- the Fillet tool's immediate preview (milestone 2: the worker's result follows) ----------------------------------
+
+def test_fillet_preview_of_a_right_angled_edge():
+    # the top-front edge of a box: top face normal +Z, front face normal -Y; the faces' centres say which way
+    # each face lies from the edge
+    a, b = Vector((0, 0, 0)), Vector((10, 0, 0))
+    n1, n2 = Vector((0, 0, 1)), Vector((0, -1, 0))
+    c1, c2 = Vector((5, 5, 0)), Vector((5, 0, -5))
+    mid, w = drawing.fillet_handle(a, b, n1, n2)
+    assert mid == Vector((5, 0, 0)) and (w - Vector((0, -1, 1)).normalized()).length < 1e-6  # out of the solid
+    lines = drawing.fillet_preview(a, b, n1, n2, c1, c2, 2.0, chamfer=False)
+    ends = {tuple(round(v, 5) for v in p) for seg in lines[:2] for p in seg}
+    assert ends == {(0, 2, 0), (10, 2, 0), (0, 0, -2), (10, 0, -2)}  # where the round meets each face
+    arc = [p for seg in lines[2:] for p in seg]
+    centre = Vector((5, 2, -2))
+    assert all(abs((p - centre).length - 2.0) < 1e-6 for p in arc)  # the cross-section at the middle
+    chamfer = drawing.fillet_preview(a, b, n1, n2, c1, c2, 2.0, chamfer=True)
+    assert {tuple(round(v, 5) for v in p) for p in chamfer[-1]} == {(5, 2, 0), (5, 0, -2)}  # the flat cut
+
+
+def test_fillet_preview_of_an_obtuse_edge():
+    # faces at 135 degrees inside the material: the round meets them r / tan(67.5 degrees) from the edge
+    a, b = Vector((0, 0, 0)), Vector((0, 10, 0))
+    n1, n2 = Vector((0, 0, 1)), Vector((1, 0, 1)).normalized()
+    c1, c2 = Vector((-5, 5, 0)), Vector((5, 5, -5))
+    lines = drawing.fillet_preview(a, b, n1, n2, c1, c2, 1.0, chamfer=False)
+    s = 1.0 / math.tan(math.radians(67.5))
+    assert abs(lines[0][0].x + s) < 1e-6 and abs(lines[0][0].z) < 1e-6

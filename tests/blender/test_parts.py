@@ -349,7 +349,8 @@ def test_mesh_carries_the_exact_surface_normals(clean):
     p = v[vi]
     face = np.empty(len(me.polygons), np.int32)
     me.attributes["brep_face_id"].data.foreach_get("value", face)
-    corner_face = np.repeat(face, 3)  # triangles only
+    sizes = np.empty(len(me.polygons), np.int32); me.polygons.foreach_get("loop_total", sizes)
+    corner_face = np.repeat(face, sizes)
     on_side = np.abs(np.hypot(p[:, 0], p[:, 1]) - 0.15) < 1e-5
     side_id = np.bincount(corner_face[on_side]).argmax()  # the outer side (radius 150 mm), trimmed by the hole
     side = corner_face == side_id
@@ -358,3 +359,58 @@ def test_mesh_carries_the_exact_surface_normals(clean):
     assert side.sum() > 50
     err = np.degrees(np.arccos(np.clip((cn[side] * radial).sum(1), -1, 1)))
     assert err.max() < 0.05
+
+
+def _edge_attr(me, name, kind):
+    import numpy as np
+    out = np.empty(len(me.edges), kind)
+    me.attributes[name].data.foreach_get("value", out)
+    return out
+
+
+def test_mesh_is_welded_with_cad_edge_attributes(clean):
+    # Milestone 2 / ADR 0008: a closed mesh (Blender modifiers need real edges), CAD edges numbered, sharp and
+    # bevel-weighted except where two faces are tangent (the default part's fillet and its flat neighbours).
+    import numpy as np
+    obj = part.new_part(bpy.context)  # the default part: box, boss, one filleted vertical edge
+    wait_for(lambda: up_to_date(obj))
+    me = obj.data
+    assert len(me.edges) * 2 == sum(len(p.vertices) for p in me.polygons)  # every edge has two faces
+    ids = _edge_attr(me, "brep_edge_id", np.int32)
+    sharp = _edge_attr(me, "sharp_edge", bool)
+    weight = _edge_attr(me, "bevel_weight_edge", np.float32)
+    on_cad = ids >= 0
+    assert on_cad.any() and not (sharp & ~on_cad).any()
+    smooth_ids = set(np.unique(ids[on_cad & ~sharp]).tolist())
+    assert len(smooth_ids) == 2  # the fillet's two tangent edges
+    assert (weight[sharp] == 1.0).all() and (weight[~sharp] == 0.0).all()
+    normal = me.attributes["custom_normal"]
+    assert normal.domain == "CORNER" and normal.data_type == "FLOAT_VECTOR"
+    # box + the boss above it (5 mm of 25) - the fillet's corner; the mesh is within the 1 mm tolerance
+    expected = 40 * 30 * 20 + math.pi * 36 * 5 - (25 - math.pi * 25 / 4) * 20
+    assert abs(part.mesh_volume(me) / part.unit_factor() ** 3 - expected) / expected < 0.01
+
+
+def test_refilling_replaces_a_point_domain_normal(clean):
+    obj = part.new_part(bpy.context)
+    wait_for(lambda: up_to_date(obj))
+    me = obj.data
+    me.attributes.remove(me.attributes["custom_normal"])
+    me.attributes.new("custom_normal", "FLOAT_VECTOR", "POINT")  # a mesh saved with MESH_FORMAT 3
+    me[part.HASH_KEY] = "stale"  # recompute
+    wait_for(lambda: up_to_date(obj))
+    kinds = [(a.domain, a.data_type) for a in me.attributes if a.name == "custom_normal"]
+    assert kinds == [("CORNER", "FLOAT_VECTOR")]
+
+
+def test_mesh_carries_reference_texts(clean):
+    obj = part.new_part(bpy.context)  # the default part (canonical)
+    wait_for(lambda: up_to_date(obj))
+    planes = list(obj.data[part.PLANES_KEY])
+    top = next(i for i in range(len(planes) // 4) if planes[4 * i:4 * i + 4] == [0.0, 0.0, 1.0, 20.0])
+    assert part.face_reference(obj, top) == 'face("box_1", "+Z")'
+    edges = [part.edge_reference(obj, i) for i in range(len(obj.data[part.EDGE_REFS_KEY]))]
+    assert 'edge_between(face("box_1", "+Z"), face("box_1", "-Y"))' in edges
+    other = part.new_part(bpy.context, "result = Box(10, 10, 10)\n")  # no features: no references
+    wait_for(lambda: up_to_date(other))
+    assert part.face_reference(other, 0) is None and part.FACE_REFS_KEY not in other.data

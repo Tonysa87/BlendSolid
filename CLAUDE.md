@@ -165,3 +165,31 @@ spike/s08_build_extension.sh                                               # per
 - The WSLg offscreen screenshot renders the scene only (no draw handlers or gizmos): to see an overlay, draw it
   into the `GPUOffScreen` after `draw_view3d` with the view/window matrices loaded; on Windows `gui_check`'s
   screenshots are of the real window and include overlays.
+
+## Known pitfalls (milestone 2)
+
+- **Bevel's Clamp Overlap** (on by default) clamps the *whole* bevel to its tightest spot: short chords of a
+  triangulated flat cap or of ears along an arc make a 1 mm bevel remove almost nothing. Flat faces are one
+  polygon, or convex polygons around holes (ADR 0008); check any new tessellation with clamp on vs off.
+- **Picking with modifiers:** `scene.ray_cast` returns polygon indices of the *evaluated* mesh; read attributes
+  from `obj.evaluated_get(depsgraph).data`. Modifiers keep `brep_face_id` on new faces (copied from their source
+  face), so an Array copy has the id but not the position: check the hit lies on the face's exact plane.
+- Custom normals of welded meshes live on the CORNER domain; a mesh saved with the old POINT-domain
+  `custom_normal` must have it removed before creating the CORNER one (`part._attribute`).
+- OCP 8 ancestor maps: `OCP.collections.IndexedDataMap_TopoDS_Shape_List_TopoDS_Shape_TopTools_ShapeMapHasher`
+  (not `TopTools_IndexedDataMapOfShapeListOfShape`); `TopExp.MapShapes` returns `TopoDS_Shape`: cast with
+  `TopoDS.Face(...)` before `BRepAdaptor_Surface`.
+- build123d 0.13 keeps a `ShapeHistory` (`_history`, with `before`/`brought` inputs) on the part after every
+  BuildPart operation: provenance can be read from it without patching build123d (`spike/m2_s01_provenance.py`).
+- OCCT's fillet always propagates along tangent chains: filleting one edge of a tangent chain rounds the chain
+  (the default part's top-front edge is tangent, through the template fillet's arc, to the -X top edge).
+- `context.preferences.system.ui_scale` is 0.0 in background mode: use `ui_scale or 1.0` for pixel thresholds.
+- `gui_check.py -- --only 17,18` runs single steps; a step that makes parts from Python must push an undo step
+  (`ed.undo_push`) before testing undo, or the undo goes back past the part.
+- **Display tessellation (ADR 0010):** every face is meshed from one shared edge discretization
+  (`worker/meshing.py`); BRepMesh is only a loud fallback. OCCT's vertex blends (fillet corner patches) have
+  curvature spikes (radius 0.07 mm) and vanishing derivatives: never size a grid from the raw max curvature.
+  Any density rule needs a cap (cells per face, intervals per edge, growth while matching sides): an unbounded
+  one hung the worker in the GUI. Fuzz random cut+fillet parts (`display_mesh` time, closed mesh) after changes.
+- BRepMesh with `Angle = a` turned curves by about a/2 per segment (a 10 mm circle at 0.3 rad: 42 segments):
+  ADR 0010 keeps that density (`seg_angle = ang_defl / 2`); tests on normals and fillet volumes depend on it.

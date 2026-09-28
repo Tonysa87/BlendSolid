@@ -195,3 +195,17 @@ def test_undo_to_a_step_pushed_before_the_mirror_synced_resyncs_it(clean):
     runtime.tick()
     assert [p.name for p in box.blendsolid_params] == [
         "box_1_length", "box_1_width", "box_1_height", "box_2_length", "box_2_width", "box_2_height"]
+
+
+def test_busy_ticks_poll_faster_and_kick_submits_at_once(clean):
+    # Milestone 2 (Fillet drag latency): while a result is awaited the timer polls every TICK_BUSY; a tool that
+    # edits a script calls kick() to submit it now instead of at the next tick.
+    from blendsolid import part, runtime
+    obj = part.new_part(bpy.context)
+    wait_for(lambda: part.applied_hash(obj) == part.current_tag(obj))
+    assert runtime.tick() == runtime.TICK_INTERVAL  # nothing in flight
+    obj.blendsolid_script.from_string(part.source_of(obj).replace("box_1_height = 20.0", "box_1_height = 21.0"))
+    runtime.kick()
+    assert runtime._inflight.get(obj.name) == part.current_tag(obj)
+    assert runtime.tick() == runtime.TICK_BUSY < runtime.TICK_INTERVAL
+    wait_for(lambda: part.applied_hash(obj) == part.current_tag(obj))

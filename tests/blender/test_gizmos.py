@@ -43,7 +43,10 @@ def test_arrows_of_a_placed_cut_feature(clean):
         location=(10.0, 5.0, 20.0), rotation=(0.0, 0.0, 0.0)))
     obj.blendsolid_script.from_string(source)
     f = part.unit_factor()
+    assert {p for p, _, _ in gizmos.arrow_matrices(obj)} == {"box_1_length", "box_1_width", "box_1_height"}
+    obj.blendsolid_focus = "cut_1"  # one feature's arrows at a time (ADR 0011)
     got = {p: (m, s) for p, m, s in gizmos.arrow_matrices(obj)}
+    assert set(got) == {"cut_1_radius", "cut_1_height"}
     m, s = got["cut_1_height"]
     assert (tip(m, 5.0, s, f) - Vector((10, 5, 15)) * f).length < 1e-6  # the bottom of the hole
 

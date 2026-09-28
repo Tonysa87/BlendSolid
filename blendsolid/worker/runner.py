@@ -14,6 +14,8 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
+import blends
+import provenance
 import tessellate
 
 SCRIPT_NAME = "<history>"
@@ -62,10 +64,17 @@ class RunResult:
     volume: float = 0.0
     faces: int = 0
     verts: np.ndarray | None = None
-    tris: np.ndarray | None = None
-    tri_face: np.ndarray | None = None
+    loops: np.ndarray | None = None  # vertex per polygon corner (tessellate.DisplayMesh)
+    poly_sizes: np.ndarray | None = None  # corners per polygon
+    poly_face: np.ndarray | None = None  # BRep face id per polygon
     planes: np.ndarray | None = None  # per face: exact plane (nx, ny, nz, d) or NaN (tessellate.face_planes)
-    normals: np.ndarray | None = None  # per vertex: exact surface normal (tessellate.tessellate_with_normals)
+    corner_normals: np.ndarray | None = None  # per triangle corner: exact surface normal (tessellate.display_mesh)
+    edges: np.ndarray | None = None  # mesh edges lying on BRep edges (vertex pairs)
+    edge_ids: np.ndarray | None = None  # their BRep edge ids
+    edge_sharp: np.ndarray | None = None  # 1 where the faces meet at an angle, 0 where tangent
+    face_refs: list | None = None  # per BRep face: the reference text a click writes (provenance.reference_texts)
+    edge_refs: list | None = None  # per BRep edge: the same
+    warnings: list = field(default_factory=list)  # [(script line or None, message)]: doubtful references
     timing: dict = field(default_factory=dict)
 
 
@@ -141,13 +150,16 @@ def _result_shape(ns):
     return shape
 
 
-def _build(source, filename, deps, cache, depth=0):
-    """Exec `source` (ref() available) and return its `result` shape. Raises whatever the script raises."""
-    ns = {"__name__": "__blendsolid_history__"}
-    code = compile(source, filename, "exec")
-    exec("from build123d import *", ns)
+def _build(source, filename, deps, cache, depth=0, tracker=None):
+    """Exec `source` (ref() and the face/edge references available) and return its `result` shape. A canonical
+    script runs with the provenance hook, which fills `tracker`. Raises whatever the script raises."""
+    tracker = provenance.Tracker() if tracker is None else tracker
+    tracker.filename = filename
+    code = provenance.instrument(source, filename) or compile(source, filename, "exec")
+    ns = provenance.namespace(tracker)
     ns["ref"] = _make_ref(deps, cache, depth)
     exec(code, ns)
+    tracker.flush()
     return _result_shape(ns)
 
 
@@ -157,14 +169,15 @@ def run_script(source, lin_defl=0.1, ang_defl=0.3, deps=(), tag=None, cache=None
     cache = SHAPES if cache is None else cache
     t0 = time.perf_counter()
     try:
-        shape = _build(source, SCRIPT_NAME, list(deps or ()), cache)
+        tracker = provenance.Tracker()
+        shape = _build(source, SCRIPT_NAME, list(deps or ()), cache, tracker=tracker)
     except SyntaxError as e:
         return RunResult(False, f"SyntaxError: {e.msg}", e.lineno)
     except SystemExit:
         return RunResult(False, "the script called sys.exit()", None)
     except ResultError as e:
         return RunResult(False, str(e), None)
-    except RefError as e:
+    except (RefError, blends.BlendError) as e:
         return RunResult(False, str(e), _script_line(e.__traceback__))
     except Exception as e:
         return RunResult(False, f"{type(e).__name__}: {e}", _script_line(e.__traceback__))
@@ -177,13 +190,18 @@ def run_script(source, lin_defl=0.1, ang_defl=0.3, deps=(), tag=None, cache=None
             return RunResult(False, "`result` contains no solid")
         if not info["valid"]:
             return RunResult(False, "`result` is not a valid solid (BRepCheck failed)")
-        verts, tris, tri_face, normals = tessellate.tessellate_with_normals(wrapped, lin_defl, ang_defl)
+        mesh = tessellate.display_mesh(wrapped, lin_defl, ang_defl)
         planes = tessellate.face_planes(wrapped)
+        refs = provenance.reference_texts(tracker, tessellate.face_map(wrapped), tessellate.edge_map(wrapped))
         if tag is not None:
             cache.put(tag, shape)
         t2 = time.perf_counter()
-        return RunResult(True, volume=info["volume"], faces=info["faces"], verts=verts, tris=tris, tri_face=tri_face,
-                         planes=planes, normals=normals, timing={"script": t1 - t0, "tessellate": t2 - t1})
+        return RunResult(True, volume=info["volume"], faces=info["faces"], verts=mesh.verts, loops=mesh.loops,
+                         poly_sizes=mesh.poly_sizes, poly_face=mesh.poly_face, planes=planes, corner_normals=mesh.corner_normals, edges=mesh.edges,
+                         edge_ids=mesh.edge_ids, edge_sharp=mesh.edge_sharp,
+                         face_refs=refs[0] if refs else None, edge_refs=refs[1] if refs else None,
+                         warnings=list(tracker.warnings),
+                         timing={"script": t1 - t0, "tessellate": t2 - t1})
     except Exception as e:
         # tessellate.check/tessellate (and any OCCT call here) must never take down the worker process.
         return RunResult(False, f"{type(e).__name__}: {e}")

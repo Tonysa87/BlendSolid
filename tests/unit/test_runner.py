@@ -1,4 +1,5 @@
 import math
+import os
 
 import numpy as np
 
@@ -16,18 +17,22 @@ result = p.part
 EXPECTED = 40 * 30 * 20 + math.pi * 36 * 5 - (1 - math.pi / 4) * 25 * 20
 
 
-def mesh_volume(v, t):
-    v = v.astype(np.float64)
-    return np.einsum("ij,ij->i", v[t[:, 0]], np.cross(v[t[:, 1]], v[t[:, 2]])).sum() / 6
+def mesh_volume(v, loops, sizes):
+    v, total, start = v.astype(np.float64), 0.0, 0
+    for n in sizes:  # fan-triangulate each polygon
+        p = v[loops[start:start + n]]
+        total += np.einsum("ij,ij->i", np.repeat(p[:1], n - 2, 0), np.cross(p[1:-1], p[2:])).sum()
+        start += n
+    return total / 6
 
 
 def test_spike_model_volume_and_mesh():
     r = runner.run_script(MODEL)
     assert r.ok, r.error
     assert abs(r.volume - EXPECTED) < 1e-6
-    assert r.verts.dtype == np.float32 and r.tris.dtype == np.int32 and r.tri_face.dtype == np.int32
-    assert set(np.unique(r.tri_face)) == set(range(r.faces))
-    assert abs(mesh_volume(r.verts, r.tris) - EXPECTED) / EXPECTED < 0.01
+    assert r.verts.dtype == np.float32 and r.loops.dtype == np.int32 and r.poly_face.dtype == np.int32
+    assert set(np.unique(r.poly_face)) == set(range(r.faces)) and r.poly_sizes.sum() == len(r.loops)
+    assert abs(mesh_volume(r.verts, r.loops, r.poly_sizes) - EXPECTED) / EXPECTED < 0.01
 
 
 def test_builder_is_accepted_as_result():
@@ -72,3 +77,49 @@ def test_tessellation_failure_is_reported_not_raised(monkeypatch):
     monkeypatch.setattr(runner.tessellate, "tessellate_with_normals", boom)
     r = runner.run_script("with BuildPart() as p:\n    Box(1, 2, 3)\nresult = p\n")
     assert not r.ok and "RuntimeError: boom" in r.error and r.line is None
+
+
+def test_a_broken_reference_is_reported_on_its_line():
+    template = open(os.path.join(os.path.dirname(__file__), "..", "..", "blendsolid", "templates",
+                                 "default_part.py")).read()
+    line = '    fillet(edges_of(face("box_1", "+Q")), radius=1)  # feature: fillet_2'
+    broken = template.replace("\nresult = part.part", line + "\n\nresult = part.part")
+    r = runner.run_script(broken)
+    assert not r.ok and "box_1 has no face '+Q'" in r.error
+    assert r.line == broken.splitlines().index(line) + 1
+    assert runner.run_script(MODEL).ok  # a script without feature markers runs as before
+
+
+# -- fillets and chamfers that can't be made: the largest size that works, on the feature's line ----------------
+
+BOX_FILLET = """box_1_radius = {r}
+with BuildPart() as part:
+    Box(40, 30, 20)  # feature: box_1
+    fillet(part.edges().filter_by(Axis.Z), radius=box_1_radius)  # feature: fillet_1
+result = part.part
+"""
+
+
+def test_a_fillet_too_large_names_the_largest_radius():
+    r = runner.run_script(BOX_FILLET.format(r=16.0))
+    assert not r.ok and r.line == 4
+    assert r.error.startswith("fillet radius 16 mm is too large for these 4 edges: the largest that works is ")
+    largest = float(r.error.rsplit("is ", 1)[1].split(" mm")[0])
+    assert 14.9 < largest < 15.0  # half the box's 30 mm width
+    assert runner.run_script(BOX_FILLET.format(r=largest)).ok
+
+
+def test_a_chamfer_too_large_names_the_largest_length():
+    r = runner.run_script(BOX_FILLET.format(r=16.0).replace("fillet(part.edges().filter_by(Axis.Z), radius=",
+                                                             "chamfer(part.edges().filter_by(Axis.Z), length="))
+    assert not r.ok and r.line == 4 and r.error.startswith("chamfer length 16 mm is too large for these 4 edges")
+
+
+def test_fillets_that_work_are_unchanged():
+    r = runner.run_script(BOX_FILLET.format(r=5.0))
+    assert r.ok and abs(r.volume - (40 * 30 * 20 - 4 * 20 * (25 - math.pi * 25 / 4))) < 1
+
+
+def test_other_fillet_errors_pass_through():
+    r = runner.run_script("with BuildPart() as part:\n    Box(4, 3, 2)\n    fillet(None, radius=1)\nresult = part.part\n")
+    assert not r.ok and r.error.startswith("ValueError")

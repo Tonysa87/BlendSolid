@@ -2,14 +2,19 @@
 
 The selected parts (cutters) are applied to the active part (target): one `insert(ref("<cutter id>"),
 mode=...)` feature per cutter in the target's script. The cutters stay parts of their own, shown as wire and
-not rendered; moving, rotating or editing one recomputes the target (deps.py).
+not rendered; moving, rotating or editing one recomputes the target (deps.py). After the boolean they are put
+away (ADR 0011): moved into the CUTTERS collection, parented to the target (moving it carries its cuts) and
+hidden with hide_set(), never hide_viewport or exclude (those freeze matrix_world: nothing in Blender's depsgraph
+depends on a cutter). Select Cutter, Show Cutters and Alt+H bring them back.
 Shortcuts (Object Mode, Bool Tool's convention): Ctrl+Numpad - / + / *.
 """
 import bpy
-from bpy.props import EnumProperty, StringProperty
+from bpy.props import BoolProperty, EnumProperty, StringProperty
 from mathutils import Matrix
 
-from . import deps, part, primitives, script_model
+from . import deps, focus, part, primitives, script_model
+
+CUTTERS = "BlendSolid Cutters"
 
 OPERATIONS = [
     ("DIFFERENCE", "Difference", "Cut the selected parts out of the active part", "SELECT_SUBTRACT", 0),
@@ -88,14 +93,77 @@ class BLENDSOLID_OT_boolean(bpy.types.Operator):
         part.ensure_part_id(target)
         mode = MODES[self.operation]
         for cutter in cutters:
-            source, _ = script_model.append_feature(source, primitives.insert_spec(part.ensure_part_id(cutter),
-                                                                                    mode))
+            source, name = script_model.append_feature(source, primitives.insert_spec(part.ensure_part_id(cutter),
+                                                                                       mode))
         target.blendsolid_script.from_string(source)
+        focus.set_focus(target, name)
         for cutter in cutters:
             for obj in (cutter, *part.mesh_siblings(cutter)):
-                obj.display_type = "WIRE"
-                obj.hide_render = True
+                put_away(context, obj, target)
         return {"FINISHED"}
+
+
+def _collection_of_cutters(context):
+    """The scene's CUTTERS collection (not rendered), made under the scene collection on first use."""
+    scene = context.scene
+    found = next((c for c in scene.collection.children_recursive if c.name == CUTTERS and c.library is None), None)
+    if found is None:
+        found = bpy.data.collections.new(CUTTERS)
+        found.hide_render = True
+        found.color_tag = "COLOR_01"
+        scene.collection.children.link(found)
+    return found
+
+
+def _ancestors(obj):
+    while obj is not None:
+        yield obj
+        obj = obj.parent
+
+
+def put_away(context, obj, target):
+    """A cutter after a boolean: wire, not rendered, in the CUTTERS collection, parented to `target` if it has
+    no parent (world placement kept), hidden."""
+    obj.display_type = "WIRE"
+    obj.hide_render = True
+    coll = _collection_of_cutters(context)
+    if coll not in obj.users_collection:
+        coll.objects.link(obj)
+    for other in list(obj.users_collection):
+        if other != coll:
+            other.objects.unlink(obj)
+    if obj.parent is None and obj not in _ancestors(target):
+        world = obj.matrix_world.copy()
+        obj.parent = target
+        obj.matrix_parent_inverse = target.matrix_world.inverted_safe()
+        obj.matrix_world = world
+    obj.hide_set(True)
+
+
+def bring_back(context, obj, target):
+    """Undo put_away for a part no longer used as a cutter: solid, rendered, in `target`'s collection, unparented
+    from it (world placement kept), shown."""
+    obj.display_type, obj.hide_render = "TEXTURED", False
+    home = target.users_collection[0] if target is not None and target.users_collection else context.scene.collection
+    if home not in obj.users_collection:
+        home.objects.link(obj)
+    for other in list(obj.users_collection):
+        if other != home and other.name == CUTTERS:
+            other.objects.unlink(obj)
+    if target is not None and obj.parent == target:
+        world = obj.matrix_world.copy()
+        obj.parent = None
+        obj.matrix_world = world
+    obj.hide_set(False)
+
+
+def show(context, obj):
+    """Make a hidden cutter visible (its object and, if the user switched it off, the CUTTERS collection)."""
+    obj.hide_set(False)
+    if not obj.visible_get():
+        for layer in _layer_collections(context.view_layer.layer_collection):
+            if layer.collection in obj.users_collection:
+                layer.hide_viewport = False
 
 
 def _local_part(name):
@@ -130,7 +198,7 @@ class BLENDSOLID_OT_remove_boolean(bpy.types.Operator):
             if b.part_id in index and not any(b.part_id in deps.references(part.source_of(objs[0]))
                                               for objs in index.values()):
                 for obj in index[b.part_id]:
-                    obj.display_type, obj.hide_render = "TEXTURED", False
+                    bring_back(context, obj, target)
         return {"FINISHED"}
 
 
@@ -162,8 +230,9 @@ class BLENDSOLID_OT_restore_cutter(bpy.types.Operator):
             for j in range(4):
                 m[i][j] = matrices[0][4 * i + j] * (factor if j == 3 else 1.0)
         obj.matrix_world = target.matrix_world @ m
-        obj.display_type, obj.hide_render = "WIRE", True
         (target.users_collection[0] if target.users_collection else context.scene.collection).objects.link(obj)
+        put_away(context, obj, target)
+        obj.hide_set(False)  # brought back to be edited
         for o in context.view_layer.objects:
             o.select_set(False)
         obj.select_set(True)
@@ -188,9 +257,43 @@ class BLENDSOLID_OT_select_cutter(bpy.types.Operator):
         for o in context.view_layer.objects:
             o.select_set(False)
         for obj in objs:
-            obj.hide_set(False)
+            show(context, obj)
             obj.select_set(True)
         context.view_layer.objects.active = objs[0]
+        return {"FINISHED"}
+
+
+def _layer_collections(layer):
+    yield layer
+    for child in layer.children:
+        yield from _layer_collections(child)
+
+
+def cutter_objects(obj):
+    """The objects of obj's live cutters (deleted or lost cutters left out)."""
+    index = deps.part_index()
+    return [o for b in deps.booleans(obj) if not b.deleted and not b.missing for o in index.get(b.part_id, ())]
+
+
+class BLENDSOLID_OT_show_cutters(bpy.types.Operator):
+    """Show or hide the cutters of the active part's booleans"""
+    bl_idname = "blendsolid.show_cutters"
+    bl_label = "Show Cutters"
+    bl_options = {"REGISTER", "UNDO", "INTERNAL"}
+
+    show: BoolProperty(default=True)
+
+    @classmethod
+    def poll(cls, context):
+        return context.mode == "OBJECT" and part.is_local_part(context.object)
+
+    def execute(self, context):
+        for obj in cutter_objects(context.object):
+            if self.show:
+                show(context, obj)
+            else:
+                obj.select_set(False)
+                obj.hide_set(True)
         return {"FINISHED"}
 
 
@@ -203,7 +306,13 @@ def draw_booleans(layout, obj):
     if not found:
         return
     box = layout.box()
-    box.label(text="Booleans of this part:")
+    row = box.row()
+    row.label(text="Booleans of this part:")
+    cutters = cutter_objects(obj)
+    if cutters:
+        shown = any(o.visible_get() for o in cutters)
+        row.operator(BLENDSOLID_OT_show_cutters.bl_idname, text="", icon="HIDE_OFF" if shown else "HIDE_ON",
+                     depress=shown).show = not shown
     for b in found:
         row = box.row(align=True)
         if b.deleted:
@@ -240,7 +349,7 @@ def _object_menu_entry(self, context):
 
 
 CLASSES = [BLENDSOLID_OT_boolean, VIEW3D_MT_blendsolid_boolean, BLENDSOLID_OT_remove_boolean,
-           BLENDSOLID_OT_restore_cutter, BLENDSOLID_OT_select_cutter]
+           BLENDSOLID_OT_restore_cutter, BLENDSOLID_OT_select_cutter, BLENDSOLID_OT_show_cutters]
 
 
 def register():

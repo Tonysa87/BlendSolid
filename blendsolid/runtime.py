@@ -13,6 +13,7 @@ from . import deps, part, paths, trust
 from .client import WorkerClient, WorkerStartError
 
 TICK_INTERVAL = 0.05
+TICK_BUSY = 0.01  # while a result is awaited: a tool's live preview shows it as soon as it arrives
 _client = None
 _inflight = {}  # object name -> script hash being computed
 _failed = {}    # object name -> script hash that failed (not resubmitted until the script changes)
@@ -224,7 +225,16 @@ def tick():
     if activity != _last_activity:  # the panel's "Computing…" line only changes here: redraw it then
         _last_activity = activity
         _redraw_panels()
-    return TICK_INTERVAL
+    return TICK_BUSY if _inflight else TICK_INTERVAL
+
+
+def kick():
+    """Reconcile now: a tool that edits a script while dragging (a live preview) submits it at once instead of
+    waiting for the next tick."""
+    try:
+        tick()
+    except Exception as e:
+        print(f"BlendSolid: {type(e).__name__}: {e}")
 
 
 def _timer():

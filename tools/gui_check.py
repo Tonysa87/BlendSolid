@@ -48,6 +48,8 @@ OUT = ARGS[ARGS.index("--out") + 1] if "--out" in ARGS else os.path.join(tempfil
                                                                          "blendsolid-gui-check")
 os.makedirs(OUT, exist_ok=True)
 SIM = bpy.app.use_event_simulate
+# `-- --only 17,18`: run only those steps (the ones that build their own parts)
+ONLY = {int(n) for n in ARGS[ARGS.index("--only") + 1].split(",")} if "--only" in ARGS else None
 T0 = time.monotonic()
 
 bs = SimpleNamespace()  # the add-on's modules, found in the first tick (repository add-on or bl_ext.*)
@@ -843,10 +845,16 @@ def step11():
            f"{how}: last feature {features(ob('Box'))[-1]}, selection {[o.name for o in bpy.context.selected_objects]}")
     c = ob(cutter)
     expect(c.display_type == "WIRE" and c.hide_render, "the cutter is not wire / not render-hidden")
+    expect(not c.visible_get() and c.parent == ob("Box") and
+           [x.name for x in c.users_collection] == [bs.ops_boolean.CUTTERS],
+           "the cutter is not put away (hidden, parented to Box, in the cutters collection; ADR 0011)")
     yield from settled("Box", cutter)
     hole = math.pi * 25 * 20
     expect(close(mm3(ob("Box")), v0 - hole), f"hole: {mm3(ob('Box')):.1f} != {v0 - hole:.1f}")
     screenshot("live-cutter")
+    # the sidebar's Select Cutter brings it back, selected and active
+    op(bpy.ops.blendsolid.select_cutter, part_id=bs.part.part_id(ob(cutter)))
+    expect(ob(cutter).visible_get() and active() == ob(cutter), "Select Cutter did not show and select it")
     # G: move half out of the box's -X side (the box spans x -30..30): half the hole goes
     click(ob(cutter))
     op(bpy.ops.transform.translate, value=Vector((-10, 0, 0)) * f())
@@ -872,7 +880,8 @@ def step11():
     S["v_no_hole"] = v0
     screenshot("cutter-moved")
     return (f"{how}: hole {v0 - mm3(ob('Box')):.1f} mm³ ({hole:.1f} through, then half out, across after R/G), "
-            f"radius 3 in the panel -> {mm3(ob('Box')):.1f} mm³; cutter wire, not rendered")
+            f"radius 3 in the panel -> {mm3(ob('Box')):.1f} mm³; cutter put away (wire, hidden, parented, "
+            f"collection), back with Select Cutter")
 
 
 def step12():
@@ -893,8 +902,9 @@ def step12():
             yield from set_view((0, y, 0))
             yield from key(keyname, px((0, y, 0)), ctrl=True)
             after_sel = {o.name for o in bpy.context.selected_objects}
-            expect(after_sel == before_sel, f"selection changed {before_sel} -> {after_sel}: "
-                                            f"object.select_more/select_less may have run instead")
+            expect(after_sel == before_sel - {cutter}, f"selection changed {before_sel} -> {after_sel}: "
+                                                       f"object.select_more/select_less may have run instead "
+                                                       f"(the cutter alone leaves it: hidden, ADR 0011)")
         else:
             op(bpy.ops.blendsolid.boolean, operation=operation)
         mode = {"UNION": "ADD", "INTERSECT": "INTERSECT"}[operation]
@@ -1094,8 +1104,259 @@ def step16():
     return f"reopened untrusted: cached meshes, Recompute off, no recompute on move; trusted -> {v:.1f} mm³"
 
 
+def step17():
+    """Milestone 2 (ADR 0008): Draw Solid on a part with a Bevel modifier (Limit Method Weight) starts on the
+    face's exact plane and unites with the part; the modifier then bevels the new edges too."""
+    deselect()
+    cursor((0, 150, 0))
+    op(bpy.ops.blendsolid.add_box, length=40, width=30, height=20)
+    beveled = active()
+    cursor()
+    mod = beveled.modifiers.new("Bevel", "BEVEL")
+    mod.limit_method, mod.width, mod.segments = "WEIGHT", 1 * f(), 3
+    yield from settled(beveled.name)
+    v0, n_feat = mm3(beveled), len(features(beveled))
+    deselect()
+    with override():
+        bpy.ops.wm.tool_set_by_id(name="blendsolid.draw_solid_tool")
+    bpy.context.scene.blendsolid_draw_shape = "BOX"
+    if SIM:
+        yield from set_view((0, 150, 20))
+        yield from warm_up()
+        rec.headers.clear()
+        yield from draw_events((-10, 145, 20), (10, 155, 20), (0, 150, 26), ctrl=True)
+        expect(any(h and f"union with {beveled.name}" in h for h in rec.headers), f"headers {set(rec.headers)}")
+        how = "simulated Ctrl drag"
+    else:
+        op(bpy.ops.blendsolid.draw_solid, shape="BOX", mode="UNION", target=beveled.name, location=(0, 0, 20),
+           rotation=(0, 0, 0), length=20, width=10, height=5)
+        how = "execute path"
+    o = last_op()
+    expect(o.mode == "UNION" and o.target == beveled.name, f"mode {o.mode}, target {o.target!r}")
+    expect(len(features(ob(beveled.name))) == n_feat + 1, "not one more feature")
+    expect(abs(o.location[2] - 20.0) < 1e-9, f"placed at z = {o.location[2]!r} mm, not on the face (20)")
+    yield from settled(beveled.name)
+    added = box_volume(o)
+    expect(close(mm3(ob(beveled.name)), v0 + added), f"volume {mm3(ob(beveled.name)):.1f} != {v0 + added:.1f}")
+    import bmesh
+    bm = bmesh.new()
+    bm.from_mesh(ob(beveled.name).evaluated_get(bpy.context.evaluated_depsgraph_get()).data)
+    holes = sum(1 for e in bm.edges if not e.is_manifold)
+    bm.free()
+    expect(holes == 0, f"{holes} open edges after the Bevel")
+    screenshot("draw-on-beveled")
+    return f"{how}; +{added:.1f} mm³ on {beveled.name} (z = {o.location[2]} mm), Bevel result closed"
+
+
+def step18():
+    """Milestone 2 phase C: the Fillet tool. Click an edge, Shift+click another (the selection holds both), then
+    drag: one fillet feature naming both edges by reference, the part recomputed without error."""
+    CLICK = bs.ops_fillet.BLENDSOLID_OT_fillet_click
+    orig_header = CLICK._header
+
+    class AreaRecorder:
+        def __init__(self, area):
+            self.area = area
+
+        def header_text_set(self, text):
+            rec.headers.append(text)
+            self.area.header_text_set(text)
+    CLICK._header = lambda self, context: orig_header(self, SimpleNamespace(area=AreaRecorder(context.area),
+                                                                           scene=context.scene))
+    deselect()
+    obj = bs.part.new_part(bpy.context)  # the default part: box 40 x 30 x 20 from the origin, boss, fillet
+    obj.location = (0.0, -0.2, 0.0)
+    name = obj.name
+    yield from settled(name)
+    op(bpy.ops.ed.undo_push, message="Part for step 18")  # made from Python: not an undo step by itself
+    v0, n_feat = mm3(ob(name)), len(features(ob(name)))
+    with override():
+        bpy.ops.wm.tool_set_by_id(name="blendsolid.fillet_tool")
+    bs.ops_fillet.select(None)
+    if not SIM:
+        return "SKIP: needs --enable-event-simulate"
+    yield from set_view((20, -200, 20), rot_deg=(60, 0, 20), dist=0.15)
+    yield from warm_up()
+    front, right = px((30, -199.7, 20)), px((39.7, -185, 20))  # near the top front edge; near the top right edge
+    for xy, shift in ((front, False), (right, True)):
+        yield from move(xy, xy, 1, shift=shift)
+        ev("LEFTMOUSE", "PRESS", xy, shift=shift)
+        yield 0.1
+        ev("LEFTMOUSE", "RELEASE", xy, shift=shift)
+        yield 0.3
+    sel_obj, refs = bs.ops_fillet.selection()
+    expect(sel_obj is not None and sel_obj.name == name and len(refs) == 2, f"selection {refs}")
+    expect(refs[0] == 'edge_between(face("box_1", "+Z"), face("box_1", "-Y"))', f"first pick {refs[0]}")
+    expect(refs[1] == 'edge_between(face("box_1", "+X"), face("box_1", "+Z"))', f"second pick {refs[1]}")
+    screenshot("fillet-selected")
+    rec.headers.clear()
+    start = px((20, -200, 20))
+    yield from move(start, start, 1)
+    ev("LEFTMOUSE", "PRESS", start)
+    yield 0.1
+    yield from move(start, (start[0], start[1] + 40), ctrl=True)
+    yield 0.3
+    screenshot("fillet-dragging")  # the immediate preview, the handle and the snap ticks (Windows: real window)
+    expect(any(h and h.startswith("Fillet: radius") for h in rec.headers), f"headers {set(rec.headers)}")
+    ev("LEFTMOUSE", "RELEASE", (start[0], start[1] + 40), ctrl=True)
+    yield 0.3
+    feats = features(ob(name))
+    expect(len(feats) == n_feat + 1 and feats[-1][0] == "fillet_2", f"features {feats}")
+    source = bs.part.source_of(ob(name))
+    expect(f"fillet({refs[0]} + {refs[1]}, radius=fillet_2_radius)" in source, "the feature doesn't name both edges")
+    for _ in range(40):
+        yield 0.5
+        if ob(name).blendsolid_error or up_to_date(ob(name)):
+            break
+    expect(ob(name).blendsolid_error == "", f"error {ob(name).blendsolid_error!r} (line {ob(name).blendsolid_error_line})")
+    yield from settled(name)
+    radius = next(p.value for p in ob(name).blendsolid_params if p.name == "fillet_2_radius")
+    expect(ob(name).blendsolid_error == "" and mm3(ob(name)) < v0, f"error {ob(name).blendsolid_error!r}")
+    screenshot("fillet-done")
+    removed = v0 - mm3(ob(name))
+    op(bpy.ops.ed.undo)
+    yield from settled(name)
+    expect(len(features(ob(name))) == n_feat and close(mm3(ob(name)), v0), "one undo doesn't remove the fillet")
+    return f"2 edges picked by reference, dragged radius {radius:.2f} mm -> {removed:.1f} mm³ less; one undo removes it"
+
+
+def step19():
+    """Milestone 2 phase D: the Push/Pull tool. Press on the default part's +X face and drag outwards along its
+    normal (a block is added), then on the top face and drag inwards (a pocket is cut); one feature and one undo
+    step each."""
+    deselect()
+    obj = bs.part.new_part(bpy.context)  # box 40 x 30 x 20 from the origin, boss, fillet
+    obj.location = (0.0, -0.4, 0.0)
+    name = obj.name
+    yield from settled(name)
+    op(bpy.ops.ed.undo_push, message="Part for step 19")  # made from Python: not an undo step by itself
+    v0, n_feat = mm3(ob(name)), len(features(ob(name)))
+    with override():
+        bpy.ops.wm.tool_set_by_id(name="blendsolid.push_pull_tool")
+    if not SIM:
+        return "SKIP: needs --enable-event-simulate"
+    yield from set_view((45, -385, 10), rot_deg=(70, 0, 50), dist=0.18)
+    yield from warm_up()
+    for start_mm, end_mm, sign in (((40, -392, 10), (52, -392, 10), 1), ((30, -396, 20), (30, -396, 14), -1)):
+        yield from settled(name)
+        a, b = px(start_mm), px(end_mm)
+        yield from move(a, a, 1)
+        ev("LEFTMOUSE", "PRESS", a, ctrl=True)
+        yield 0.1
+        yield from move(a, b, ctrl=True)
+        yield 0.3
+        screenshot(f"push-pull-dragging-{'out' if sign > 0 else 'in'}")
+        ev("LEFTMOUSE", "RELEASE", b, ctrl=True)
+        yield 0.3
+    feats = [n for n, _ in features(ob(name))]
+    expect(feats[n_feat:] == ["push_1", "push_2"], f"features {feats}")
+    source = bs.part.source_of(ob(name))
+    expect('extrude(face("box_1", "+X"), amount=push_1_amount, mode=Mode.ADD)' in source, "no pull on box_1 +X")
+    expect('extrude(face("box_1", "+Z"), amount=-push_2_amount, mode=Mode.SUBTRACT)' in source, "no push on box_1 +Z")
+    yield from settled(name)
+    values = {p.name: p.value for p in ob(name).blendsolid_params}
+    expect(ob(name).blendsolid_error == "", f"error {ob(name).blendsolid_error!r}")
+    expect(abs(values["push_1_amount"] - 12) < 1.01 and abs(values["push_2_amount"] - 6) < 1.01,
+           f"amounts {values['push_1_amount']}, {values['push_2_amount']} (Ctrl snapped, about 12 and 6)")
+    screenshot("push-pull")
+    op(bpy.ops.ed.undo)
+    yield from settled(name)
+    expect([n for n, _ in features(ob(name))][n_feat:] == ["push_1"], "one undo doesn't remove only the push")
+    return (f"pull +X {values['push_1_amount']:g} mm, push top {values['push_2_amount']:g} mm "
+            f"({mm3(ob(name)) - v0:+.1f} mm³ after undoing the push)")
+
+
+def step20():
+    """Latency of the live fillet preview: time from a script edit (as the Fillet drag makes one per mouse move)
+    to the part's mesh showing it, and how many edits per second the tick keeps up with."""
+    deselect()
+    obj = bs.part.new_part(bpy.context)
+    obj.location = (0.0, -0.6, 0.0)
+    name = obj.name
+    yield from settled(name)
+    ref = 'edge_between(face("box_1", "+Z"), face("box_1", "-Y"))'
+    base = bs.part.source_of(ob(name))
+    lat = []
+    for k in range(8):
+        src, _ = bs.script_model.append_feature(base, bs.ops_fillet.feature_spec([ref], 1.0 + 0.25 * k))
+        t = time.monotonic()
+        ob(name).blendsolid_script.from_string(src)
+        bs.runtime.kick()  # as the Fillet drag does
+        while not up_to_date(ob(name)) and time.monotonic() - t < 10:
+            yield 0.005
+        lat.append(time.monotonic() - t)
+    ob(name).blendsolid_script.from_string(base)
+    yield from settled(name)
+    ms = [round(x * 1000) for x in lat]
+    return f"script edit -> mesh: {ms} ms (median {sorted(ms)[len(ms) // 2]} ms)"
+
+
+def step21():
+    """ADR 0011: a click on a face of the selected part (Blender's own select click, then BlendSolid's focus click)
+    shows the arrows of the feature that made the face; a click in empty space deselects and hides them."""
+    if not SIM:
+        return "SKIP: needs --enable-event-simulate"
+    # the click tools (Tweak, the default, and Select Box); Circle and Lasso take the press for their own modal
+    tools = ["builtin.select", "builtin.select_box"]
+    report = []
+    for tool in tools:
+        report.append(tool + ": " + (yield from _focus_clicks(tool)))
+    return "; ".join(report)
+
+
+def _focus_clicks(tool):
+    with override():
+        bpy.ops.wm.tool_set_by_id(name=tool)
+    for o in list(bpy.data.objects):
+        if o.name.startswith("Focus") or o.name == "Cube":  # the factory cube would swallow the part (--only 21)
+            bpy.data.objects.remove(o)
+    cursor((0, 300, 0))
+    op(bpy.ops.blendsolid.add_box, length=40, width=30, height=20)
+    active().name = "Focus"
+    name = active().name
+    cursor()
+    op(bpy.ops.blendsolid.draw_solid, shape="CYLINDER", mode="CUT", target=name, location=(5, 5, 20),
+       rotation=(0, 0, 0), radius=4, height=6)
+    yield from settled(name)
+    expect(ob(name).blendsolid_focus == "cut_1", f"Draw Solid left the focus on {ob(name).blendsolid_focus!r}")
+    click(ob(name))
+    yield from set_view((0, 300, 10), rot_deg=(15, 0, 10), dist=0.2)  # the hole's bottom in sight
+    shown = []
+    yield from key("ESC", px((80, 300, 20)))  # the first simulated event after a pause only focuses the window
+    for where, want in (((-12, 290, 20), "box_1"), ((5, 305, 14), "cut_1")):
+        at = px(where)
+        ev("MOUSEMOVE", "NOTHING", at)
+        yield 0.1
+        ev("LEFTMOUSE", "PRESS", at)
+        yield 0.05
+        ev("LEFTMOUSE", "RELEASE", at)
+        yield 0.3
+        redraw()
+        yield from frames(2)
+        o = ob(name)
+        expect(o.blendsolid_focus == want and o.select_get() and active() == o,
+               f"click at {where}: focus {o.blendsolid_focus!r}, selected {o.select_get()}, active {active()}")
+        gzs = gizmo_state(name)
+        params = [p for p, _, _ in bs.gizmos.arrow_matrices(o)]
+        expect(gzs is not None and len(gzs) == len(params) and all(p.startswith(want) for p in params),
+               f"arrows after the click on {want}: {params}")
+        shown.append(f"{want}: {params}")
+    screenshot("focus-cut")
+    ev("MOUSEMOVE", "NOTHING", px((80, 300, 20)))
+    yield 0.1
+    at = px((80, 300, 20))  # empty space beside the part
+    ev("LEFTMOUSE", "PRESS", at)
+    yield 0.05
+    ev("LEFTMOUSE", "RELEASE", at)
+    yield 0.3
+    with override():
+        polled = bs.gizmos.BLENDSOLID_GGT_parameters.poll(bpy.context)
+    expect(not ob(name).select_get() and not polled, "a click in empty space left the part selected or its arrows on")
+    return f"clicks focus {'; '.join(shown)}; empty-space click deselects, no arrows"
+
+
 STEPS = [step1, step2, step3, step4, step5, step6, step7, step8, step9, step10, step11, step12, step13, step14,
-         step15, step16]
+         step15, step16, step17, step18, step19, step20, step21]
 
 
 def scenario():
@@ -1110,7 +1371,7 @@ def scenario():
         if name is None:
             raise Fail("the blendsolid add-on is not enabled")
         for sub in ("part", "runtime", "gizmos", "ops_add", "ops_boolean", "ops_draw", "drawing", "primitives",
-                    "script_model", "params", "trust", "ui", "deps"):
+                    "script_model", "params", "trust", "ui", "deps", "ops_fillet", "ops_pushpull", "picking", "focus"):
             setattr(bs, sub, importlib.import_module(f"{name}.{sub}"))
         log(f"add-on {name} from {os.path.dirname(sys.modules[name].__file__)}; event simulation: {SIM}; out {OUT}")
         instrument()
@@ -1119,6 +1380,8 @@ def scenario():
             yield from set_view((0, 0, 0))
             yield from warm_up()
         for n, fn in enumerate(STEPS, 1):
+            if ONLY is not None and n not in ONLY:
+                continue
             try:
                 detail = yield from fn()
                 for prefix, status in (("SKIP: ", "SKIP"), ("PARTIAL: ", "PARTIAL")):
@@ -1151,7 +1414,8 @@ def scenario():
     if skipped or partial:
         print(f"{len(skipped)} step(s) SKIP, {len(partial)} step(s) PARTIAL "
               f"(no --enable-event-simulate)", flush=True)
-    print("GUI CHECK PASS" if len(results) >= len(STEPS) and not failed else "GUI CHECK FAIL", flush=True)
+    wanted = len(STEPS) if ONLY is None else len(ONLY)
+    print("GUI CHECK PASS" if len(results) >= wanted and not failed else "GUI CHECK FAIL", flush=True)
 
 
 _gen = scenario()
