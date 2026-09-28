@@ -1,7 +1,7 @@
 # Where we are / what's next (bookmark)
 
-Updated: 2026-09-28, end of session 8: **milestone 2 complete, waiting for the maintainer's GUI check and
-sign-off** (`docs/milestone-2-report.md`). Read this first when resuming, then "Session 8".
+Updated: 2026-09-28, end of session 8 (evening): **milestone 2 complete; the maintainer's GUI check passed tests
+1–4** (below); sign-off still to be asked. Read this first when resuming, then "Session 8".
 
 ## State
 - **Milestone 0 (spike):** done — `SPIKE_REPORT.md`.
@@ -100,18 +100,33 @@ sign-off** (`docs/milestone-2-report.md`). Read this first when resuming, then "
 - 281 unit + 227 Blender tests; `gui_check` 21/21 on Linux and Windows; the Windows zip (all of the above) is
   installed in the portable Blender.
 
-## Next step (session 9) — resume exactly here
-1. **The maintainer's GUI check of milestone 2** (they are about to run it; steps below). Compare their reports with
-   the numbers; fix what they find; then sign-off and merge `milestone-2` into `main`.
-2. **Complete the chamfer** in the Fillet tool: two distances or distance + angle, choice of side (the kernel
-   already supports `length2`; `worker/blends.py`), in the Adjust Last Operation panel and a key while dragging.
-3. **Plan 3a** (sketch 2D on a face/plane, extrude with taper and up-to-face, revolve, STEP/IGES/BREP I/O): research
-   Plasticity/Fusion/Shapr3D/Onshape/FORGE sketching and recent literature first (sketch solvers, region detection
-   from curves), then design + plan + ADRs. After 3a: the usage checkpoint (the maintainer models 2–3 real objects;
-   friction orders what follows; backlog in `docs/spec.md` "Candidate features").
-4. Open M2 follow-ups (report): highlight failing fillet edges; a geometric radius bound with a reason; the
-   continuing piece of a split face; a per-job time budget in the worker; UX redesign of the tools' feedback;
-   ADR 0011's open points.
+## Maintainer's GUI check, session 8 evening (Windows portable, zip installed)
+- Test 1 (focused arrows): passed after two fixes — with Blender's default **Tweak** tool a click on a face didn't
+  move the focus (the automatic check used Select Box; the focus now moves on the press, any click tool), and the
+  "Arrows of" buttons now redraw the viewport at once.
+- Test 2 (cutters hidden after a boolean, following the target when moved/rotated, eye toggle, Select Cutter,
+  radius drag, Ctrl+Z): passed.
+- Test 3 (`/mnt/e/bs_debug/test2.blend`, box with bosses, corner notches, side holes): the maintainer found the
+  collar wedges from the face corners ugly and decided Subdivision belongs on convert-to-quads; the face-point
+  rule went from 20° to 10° (the least that keeps Bevel 2 mm fold-free), SubD fold tests removed. Bevel by weight
+  2 mm / 3 segments on the part: clean. Remaining fans: arcs in the outer loop (corner/edge notches) and thin
+  strips (known limit).
+- Test 4 (fillet too large: header and sidebar messages, Ctrl+Z): passed. Test 5 (reference warnings) not run.
+- Seen in test2.blend: a Draw Solid cut placed at z = 1000 mm on a box later made 257 mm tall floats above it
+  (fixed placements don't follow upstream changes: known M1.5 limit, now seen by the maintainer).
+
+## Next step (session 9, 2026-09-29) — resume exactly here
+1. Ask the maintainer for **milestone 2 sign-off** (optionally run test 5 first); then merge `milestone-2` into
+   `main` (fast-forward) and tag.
+2. **Partial collars for arcs in a face's outer loop** (a boss or hole cutting a corner or an edge: test2.blend's
+   top and side faces fan from the arc to one far point). Research first (products + literature, e.g. template
+   meshing around boundary arcs, medial-axis decomposition), then extend `tessellate._collared`; measure on
+   test2's part (`/mnt/e/bs_debug/test2.blend`, script `.Box.py.001`) with the scratch tools
+   `spike/m2_flat_faces/plot_face.py` / `metrics.py`; Bevel tests must stay green.
+3. **Complete the chamfer** in the Fillet tool: two distances or distance + angle, choice of side.
+4. **Plan 3a** (sketch 2D + extrude with taper/up-to-face + revolve + STEP/IGES/BREP I/O) from research.
+5. Consider: Draw Solid placements that follow the face they were drawn on (the maintainer hit the limit).
+6. Open M2 follow-ups (report).
 
 ### GUI check steps (portable Blender, `E:\blender-5.2.2-windows-x64`, zip of session 8 installed)
 1. Shift+A → BlendSolid → Box; Draw Solid tool, draw a cylinder into the top face (a cut). Expected: blue arrows

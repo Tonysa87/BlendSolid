@@ -67,9 +67,12 @@ wrong bindings. Roles now always use the face as it is in the feature's own soli
 - `tools/gui_check.py`: 21 steps in a real window, PASS on Linux (WSLg) and on the Windows portable Blender.
 - Fuzz of the tessellation (`spike/m2_flat_faces/fuzz_valid.py`): 7 seeds, no BRepMesh fallback, closed, < 0.35 s.
 
-## Waiting for the maintainer
+## Maintainer's GUI check (2026-09-28 evening)
 
-- GUI check of session 8's work (collars, focused arrows, hidden cutters, fillet messages), then sign-off.
+Tests 1–4 passed on the Windows portable Blender (focused arrows, hidden cutters, collars + Bevel, fillet
+messages), after fixing the focus click with the Tweak tool and the sidebar redraw; the collar wedges were
+reduced (face-point rule 20° → 10°; Subdivision goes on convert-to-quads). Test 5 (reference warnings) not run.
+Sign-off: to be asked in session 9.
 
 ## Known limits / follow-ups
 
