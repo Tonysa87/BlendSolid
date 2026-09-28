@@ -595,7 +595,8 @@ def _straight_at(pts, loop, v, limit=_STRAIGHT):
 
 
 _COLLINEAR = math.radians(1)  # a run of collar nodes, not an arc's nodes (an arc keeps its face point near it)
-_FACE_POINT_ANGLE = math.radians(20)  # at a straight corner, least angle from its sides to the face point
+_FACE_POINT_ANGLE = math.radians(10)  # at a straight corner, least angle from its sides to the face point
+# (20 until the maintainer's review of test2.blend: wedges from the corners; 10 keeps Bevel 2 mm fold-free, 6 doesn't)
 
 
 def _thin_children(pts, loop):

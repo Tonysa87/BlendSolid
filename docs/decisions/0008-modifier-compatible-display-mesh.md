@@ -95,3 +95,12 @@ and that edge; with no vertex allowed on a BRep edge, the strip can only be fans
 corner 0.3° on the two-bosses face, 0.02° for a hole 0.3 mm from an edge). They don't fold under Subdivision.
 Collars are aligned with the outer loop's longest segment, so on round faces (washer, bolt circle) they are
 tilted; cosmetic.
+
+Revised the same day after the maintainer's GUI review (`/mnt/e/bs_debug/test2.blend`): the wedges the rule adds
+from the face's corners to the collars' sides look worse than the 4 diagonals of plain trapezoids, and
+Subdivision belongs on "convert to quads", not on the display mesh (maintainer). Subdivision fold tests are gone.
+The rule itself stays, weaker (10°): without it, or below ~10°, one polygon holding the default part's whole
+fillet arc and a collar side folds under Bevel 2 mm (limiting the rule to polygons with arc nodes split the arc
+instead and made it worse). On test2's three holed flat faces, polygons with a corner under 10°: 18/21/49 at
+20°, 11/7/38 at 10°. What remains is fans from arc notches in the outer loop (a boss or hole cutting a corner or
+an edge) and thin strips next to edges: next step, partial collars for arcs of the outer loop.

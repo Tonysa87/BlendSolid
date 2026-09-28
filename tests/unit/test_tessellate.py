@@ -332,47 +332,6 @@ def test_curved_holes_in_flat_faces_get_collars(name):
         assert area == pytest.approx(expected, rel=1e-6)  # the pieces tile the face's boundary polygon
 
 
-def _catmull_clark_folds(m):
-    """Child polygons of one Catmull-Clark step (Subdivision Surface on a closed mesh) facing against their
-    parent polygon."""
-    v = m.verts.astype(np.float64)
-    polys = [m.loops[s:s + n].tolist() for s, n in zip(poly_starts(m), m.poly_sizes)]
-    fp = np.array([v[p].mean(0) for p in polys])
-    edge_faces, vert_faces, vert_edges = {}, {}, {}
-    for i, p in enumerate(polys):
-        for k in range(len(p)):
-            a, b = p[k], p[(k + 1) % len(p)]
-            edge_faces.setdefault((min(a, b), max(a, b)), []).append(i)
-            vert_faces.setdefault(a, []).append(i)
-    for e in edge_faces:
-        for x in e:
-            vert_edges.setdefault(x, []).append(e)
-    ep = {e: (v[e[0]] + v[e[1]] + fp[f].sum(0)) / (2 + len(f)) for e, f in edge_faces.items()}
-    vp = {}
-    for x, fs in vert_faces.items():
-        n = len(fs)
-        mid = np.mean([(v[a] + v[b]) / 2 for a, b in vert_edges[x]], axis=0)
-        vp[x] = (fp[fs].mean(0) + 2 * mid + (n - 3) * v[x]) / n
-    folds = 0
-    for i, p in enumerate(polys):
-        parent = sum(np.cross(v[p[k]] - fp[i], v[p[(k + 1) % len(p)]] - fp[i]) for k in range(len(p)))
-        for k in range(len(p)):
-            a, b, c = p[k - 1], p[k], p[(k + 1) % len(p)]
-            q = [vp[b], ep[(min(b, c), max(b, c))], fp[i], ep[(min(a, b), max(a, b))]]
-            child = np.cross(q[1] - q[0], q[3] - q[0]) + np.cross(q[3] - q[2], q[1] - q[2])
-            folds += np.dot(child, parent) <= 0
-    return folds
-
-
-@pytest.mark.parametrize("name", sorted(COLLARED))
-def test_subdivision_folds_nothing_around_holes(name):
-    # A convex polygon holding a long straight run of nodes (a collar's side) has its Catmull-Clark face point far
-    # along the run: the children at the run's nodes are slivers that fold. Milestone 2's fans of slivers folded
-    # too (plate 72, bolt circle 36, two bosses 17 children); plain collars as well (slot 32, two bosses 38).
-    folds = _catmull_clark_folds(tessellate.display_mesh(COLLARED[name][0]().wrapped, 1.0, ANG))
-    assert folds == 0
-
-
 @pytest.mark.parametrize("name", sorted(DISPLAY_SHAPES))
 def test_edges_carry_brep_edge_ids(name):
     from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeVertex

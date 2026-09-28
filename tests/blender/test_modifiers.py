@@ -131,14 +131,9 @@ def test_solidify_array_subdivision(default_part):
     default_part.modifiers.remove(array)
     add(default_part, "SUBSURF", levels=1)
     holes, smoothed = stats(default_part)
-    # a box without support loops shrinks a lot (measured 52 % of the volume left; 53 % before the collars)
+    # a box without support loops shrinks a lot; the display mesh isn't made for Subdivision (it goes on the
+    # quads of "convert to quads", maintainer 2026-09-28): only closed and picked here, folds are not checked
     assert holes == 0 and 0.4 * before < smoothed < before
-    mesh = evaluated(default_part)
-    normals = np.empty(3 * len(mesh.polygons))
-    mesh.polygons.foreach_get("normal", normals)
-    top = face_ids(mesh) == top_face_id(default_part)  # the top face has the boss: collar pieces, all convex
-    assert top.any() and (normals.reshape(-1, 3)[top, 2] > 0).all()  # no child polygon folded over
-    # the corners shrink most: pick nearer the middle than the other tests
     assert part.face_id(evaluated(default_part), hit_polygon(default_part, 8, 22)) == top_face_id(default_part)
 
 
@@ -199,16 +194,11 @@ def test_far_from_the_origin_the_exact_plane_is_kept(default_part):
 
 
 @pytest.mark.parametrize("width", [0.5, 1.0, 2.0])
-def test_bevel_then_subdivision_folds_nothing(default_part, width):
-    # the hard-surface workflow: Bevel by weight, then Subdivision; the top face (collar around the boss, the
-    # fillet's arc) keeps every child polygon facing up
-    for subdivide in (False, True):
-        if subdivide:
-            add(default_part, "SUBSURF", levels=2)
-        else:
-            add(default_part, "BEVEL", limit_method="WEIGHT", width=width * F, segments=2)
-        mesh = evaluated(default_part)
-        normals = np.empty(3 * len(mesh.polygons))
-        mesh.polygons.foreach_get("normal", normals)
-        top = face_ids(mesh) == top_face_id(default_part)
-        assert (normals.reshape(-1, 3)[top, 2] > 0).all(), subdivide
+def test_bevel_folds_nothing(default_part, width):
+    # Bevel by weight: the top face (collar around the boss, the fillet's arc) keeps every polygon facing up
+    add(default_part, "BEVEL", limit_method="WEIGHT", width=width * F, segments=2)
+    mesh = evaluated(default_part)
+    normals = np.empty(3 * len(mesh.polygons))
+    mesh.polygons.foreach_get("normal", normals)
+    top = face_ids(mesh) == top_face_id(default_part)
+    assert (normals.reshape(-1, 3)[top, 2] > 0).all()
