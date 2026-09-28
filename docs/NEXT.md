@@ -1,6 +1,7 @@
 # Where we are / what's next (bookmark)
 
-Updated: 2026-09-28, end of session 6 (milestone 2 phases A–D built on branch `milestone-2`; CAD-style tessellation, ADR 0010). Read this first when resuming.
+Updated: 2026-09-28, end of session 7 (ADR 0010 checked by the maintainer; flat faces with holes in progress on
+branch `flat-collars-wip`). Read this first when resuming, then the "Flat faces with holes" section.
 
 ## State
 - **Milestone 0 (spike):** done — `SPIKE_REPORT.md`.
@@ -86,26 +87,39 @@ Updated: 2026-09-28, end of session 6 (milestone 2 phases A–D built on branch 
   their corner nodes plus a transition row; re-measure Bevel clamp on/off (ADR 0008) and write an ADR 0008
   addendum. Then the maintainer's GUI check on the scene with the two bosses.
 
-## Next step (session 7)
-1. **GUI check of ADR 0010 with the maintainer (Windows):** relaunch `blender.exe >> spike/logs/gui-m2.log 2>&1`.
-   (a) open `E:\bs_debug\fillet.blend`, Trust, wireframe overlay: fillet bands in regular rows, the big quarter
-   cylinder in vertical columns aligned with the band, vertical fillets as tidy strips; (b) the scenario that hung:
-   new scene, Box 1000 mm, Draw Solid a cylinder cut on a vertical edge, Fillet tool on the cut face's edges, drag
-   the radius up and down: results keep coming (no endless "computing"), mesh closed. Ask for screenshots of both;
-   if the big cylinder's ~3 mm columns look too dense, tune `_ASPECT`/`_ASPECT_SPLIT` (meshing.py).
-2. ~~Known open case~~ **resolved (session 7):** `fallback_open.brep` is an invalid OCCT result (a torus fillet face
-   overlapping itself in (u, v), BRepCheck fails), which the runner rejects before meshing; 347 valid fuzzed parts
-   had no fallback and closed meshes (max 0.34 s). The xfail became `test_invalid_part_is_rejected_before_tessellation`.
-3. If the check shows other slow parts: add a per-job time budget in the worker (tessellation falls back to BRepMesh
+## Next step (session 8) — resume exactly here
+1. `git checkout flat-collars-wip` (one WIP commit on top of `milestone-2`: `tessellate._collared`/`_collar`/
+   `_cycles`/`_brep_vertices`, the `keep` rule in `_merge_convex`, unit tests `test_curved_holes_in_flat_faces_get_collars`).
+   State there: `tools/test.sh` fails exactly `test_bevel_then_subdivision_folds_nothing[0.5|1.0|2.0]` and
+   `test_solidify_array_subdivision` (fold check); everything else passes.
+2. Find which polygons fold and why (bmesh level, headless): the default part (`blendsolid/templates/default_part.py`),
+   top face (z = 20 mm). Folded children: Subdivision alone near (26.2, 24.0) mm (next to the collar's corner at
+   (30.05, 25.05)); Bevel 2 mm alone near (1.7, 3.2) mm (the fillet arc, polygon from the arc's nodes to the collar's
+   bottom side). `spike/m2_flat_faces/arc_polygons.py` lists the polygons at the arc's ends; `metrics.py`,
+   `dump.py` + `plot.py` draw faces (see `collars.png`; before/after numbers in `metrics_*.txt`).
+3. Fix (research first if it needs a new algorithm — see memory "decide from research"): likely candidates are
+   splitting the outer n-gons so none carries a run of collinear collar nodes (Catmull–Clark's face point is the
+   vertex average), a transition row between collar and outer region, or collar sides with fewer nodes; keep
+   every piece convex and the long-edge property Bevel's clamp needs.
+4. Validate: `tools/test.sh` all green; `spike/m2_flat_faces/metrics.py` (min angles stay ≥ ~20°);
+   `fuzz_valid.py` on a few seeds (no fallback, closed, < 1.5 s); re-measure Bevel clamp on vs off on the default
+   part, a box with a hole, a box with a boss (ADR 0008's claim) and write the ADR 0008 addendum (collars, the
+   `keep` rule, new clamp limit ≈ min(c/2)). Then merge into `milestone-2`, build the Windows zip, and ask the
+   maintainer to check the two-bosses scene in the GUI (wireframe) plus a Bevel + Subdivision on it.
+5. If the check shows other slow parts: add a per-job time budget in the worker (tessellation falls back to BRepMesh
    for the remaining faces past a few seconds) — today only the client's 120 s job timeout exists.
-4. Fillet edge cases (maintainer's request): research online the typical failure cases of CAD fillets/chamfers
+6. Fillet edge cases (maintainer's request): research online the typical failure cases of CAD fillets/chamfers
    (OCCT `BRepFilletAPI_MakeFillet` known failures, FreeCAD/Fusion/Onshape/SolidWorks docs: radius larger than a
    face, vertex blends where 3+ fillets meet, tangent chains, fillets next to fillets, mixed convex/concave,
    fillets touching holes, asymmetric chamfers, tiny faces after booleans, seam edges, self-intersecting results);
    write `docs/research/…-fillet-edge-cases.md`; turn each case into a test (script + Fillet tool path); fix what
    fails (clear errors on the fillet's line, `max_fillet`, suggestions), otherwise document the limitation.
-5. Then milestone 2 phases E (broken references) and F (20-part corpus criterion test), report, sign-off.
-6. Later: UX redesign of the tools' on-screen feedback (the maintainer dislikes the yellow handle and the preview).
+7. Then milestone 2 phases E (broken references) and F (20-part corpus criterion test), report, sign-off.
+8. Later: UX redesign of the tools' on-screen feedback (the maintainer dislikes the yellow handle and the preview).
+
+Done in session 7: the maintainer's GUI check of ADR 0010 (fillet.blend "ottimi"; the scenario that hung is fast
+and correct); the open fuzz case closed (an invalid solid, rejected by the runner; 347 valid fuzzed parts without
+fallback). The installed Windows zip is still session 6's (no collars).
 
 ## Working agreement with the maintainer
 - Repo content in English; chat in Italian.
