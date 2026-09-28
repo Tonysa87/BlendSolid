@@ -10,8 +10,7 @@ Updated: 2026-09-28, session 9. Read this first when resuming, then "Next step".
 - **Milestone 2 (selectors from clicks):** done, signed off 2026-09-28 (GUI tests 1–5), merged into `main`
   (tag `m2`) — `docs/milestone-2-report.md` (what was built, criterion, history, known limits).
 - 276 unit + 227 Blender tests; `tools/gui_check.py` 21/21 on Linux and Windows. The Windows portable Blender has
-  the sign-off build (`MESH_FORMAT` 7); the session 9 consolidation (branch `consolidate-m2`: README, docs, shared
-  operator helpers, `MESH_FORMAT` 8) isn't installed yet.
+  `main` as of the session 9 consolidation installed (`MESH_FORMAT` 8, smoke PASS).
 
 ## Next step — resume exactly here
 1. **Partial collars for arcs in a face's outer loop** (a boss or hole cutting a corner or an edge: test2.blend's
