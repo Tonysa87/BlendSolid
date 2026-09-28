@@ -88,3 +88,38 @@ def test_a_broken_reference_is_reported_on_its_line():
     assert not r.ok and "box_1 has no face '+Q'" in r.error
     assert r.line == broken.splitlines().index(line) + 1
     assert runner.run_script(MODEL).ok  # a script without feature markers runs as before
+
+
+# -- fillets and chamfers that can't be made: the largest size that works, on the feature's line ----------------
+
+BOX_FILLET = """box_1_radius = {r}
+with BuildPart() as part:
+    Box(40, 30, 20)  # feature: box_1
+    fillet(part.edges().filter_by(Axis.Z), radius=box_1_radius)  # feature: fillet_1
+result = part.part
+"""
+
+
+def test_a_fillet_too_large_names_the_largest_radius():
+    r = runner.run_script(BOX_FILLET.format(r=16.0))
+    assert not r.ok and r.line == 4
+    assert r.error.startswith("fillet radius 16 mm is too large for these 4 edges: the largest that works is ")
+    largest = float(r.error.rsplit("is ", 1)[1].split(" mm")[0])
+    assert 14.9 < largest < 15.0  # half the box's 30 mm width
+    assert runner.run_script(BOX_FILLET.format(r=largest)).ok
+
+
+def test_a_chamfer_too_large_names_the_largest_length():
+    r = runner.run_script(BOX_FILLET.format(r=16.0).replace("fillet(part.edges().filter_by(Axis.Z), radius=",
+                                                             "chamfer(part.edges().filter_by(Axis.Z), length="))
+    assert not r.ok and r.line == 4 and r.error.startswith("chamfer length 16 mm is too large for these 4 edges")
+
+
+def test_fillets_that_work_are_unchanged():
+    r = runner.run_script(BOX_FILLET.format(r=5.0))
+    assert r.ok and abs(r.volume - (40 * 30 * 20 - 4 * 20 * (25 - math.pi * 25 / 4))) < 1
+
+
+def test_other_fillet_errors_pass_through():
+    r = runner.run_script("with BuildPart() as part:\n    Box(4, 3, 2)\n    fillet(None, radius=1)\nresult = part.part\n")
+    assert not r.ok and r.error.startswith("ValueError")

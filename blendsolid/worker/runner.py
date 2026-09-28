@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
+import blends
 import provenance
 import tessellate
 
@@ -173,7 +174,7 @@ def run_script(source, lin_defl=0.1, ang_defl=0.3, deps=(), tag=None, cache=None
         return RunResult(False, "the script called sys.exit()", None)
     except ResultError as e:
         return RunResult(False, str(e), None)
-    except RefError as e:
+    except (RefError, blends.BlendError) as e:
         return RunResult(False, str(e), _script_line(e.__traceback__))
     except Exception as e:
         return RunResult(False, f"{type(e).__name__}: {e}", _script_line(e.__traceback__))

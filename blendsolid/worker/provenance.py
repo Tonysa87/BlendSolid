@@ -300,6 +300,8 @@ def namespace(tracker):
     """A part script's globals: build123d, the feature hook and the reference helpers."""
     ns = {"__name__": "__blendsolid_history__"}
     exec("from build123d import *", ns)
+    import blends
+    ns["fillet"], ns["chamfer"] = blends.fillet, blends.chamfer  # errors that give the largest working size
     ns[HOOK] = tracker.step
     ns.update(_helpers(tracker))
     return ns
