@@ -122,3 +122,20 @@ def test_edge_frames_give_the_faces_on_either_side(default_part):
         assert normals == {(0.0, 0.0, 1.0), (0.0, -1.0, 0.0)}  # the top and the front face
         assert abs(a.y) < 1e-9 and abs(a.z - 20 * F) < 1e-9
     assert len(picking.edge_frames(default_part, 'edges_of(face("box_1", "+Z"))')) > len(frames)
+
+
+def test_edges_between_tangent_faces_are_not_sharp(clean):
+    # the Fillet tool refuses a click on them (nothing to round: research on fillet edge cases, T10)
+    import numpy as np
+    from blendsolid import picking
+    obj = part.new_part(bpy.context)  # the fillet_1 band meets the box's sides tangentially
+    wait_for(lambda: up_to_date(obj))
+    me = obj.data
+    ids = np.empty(len(me.edges), np.int32)
+    me.attributes[part.EDGE_ATTR].data.foreach_get("value", ids)
+    sharp = np.empty(len(me.edges), bool)
+    me.attributes["sharp_edge"].data.foreach_get("value", sharp)
+    smooth = {int(i) for i in ids[(ids >= 0) & ~sharp]}
+    hard = {int(i) for i in ids[(ids >= 0) & sharp]}
+    assert len(smooth) == 2 and hard  # the two vertical edges of the fillet band
+    assert not any(picking.edge_is_sharp(obj, e) for e in smooth) and all(picking.edge_is_sharp(obj, e) for e in hard)

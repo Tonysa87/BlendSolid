@@ -120,6 +120,18 @@ def _distance(point, segments):
     return best
 
 
+def edge_is_sharp(obj, eid):
+    """Is BRep edge `eid` of obj's mesh a sharp CAD edge (not between tangent faces, which can't be rounded)?"""
+    me = obj.data
+    ids, sharp = me.attributes.get(part.EDGE_ATTR), me.attributes.get("sharp_edge")
+    if ids is None or sharp is None:
+        return True  # unknown: let the worker decide
+    values = np.empty(len(me.edges), np.int32)
+    ids.data.foreach_get("value", values)
+    found = np.nonzero(values == eid)[0]
+    return not len(found) or bool(sharp.data[int(found[0])].value)
+
+
 def pick(context, origin, direction, pixel):
     """The CAD edge (within EDGE_PX × `pixel` world units of the hit) or face of a writable part under the ray,
     or None (no part, or a part without reference texts: no features, or not recomputed yet)."""

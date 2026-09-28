@@ -166,6 +166,13 @@ def preview_lines(obj, refs, size_mm, chamfer, factor, colour):
     return out
 
 
+def header_error(obj):
+    """The part's current error for the drag's header (" | can't: ..."), e.g. the worker's "fillet radius 16 mm
+    is too large for these 4 edges: the largest that works is 14.996 mm"; "" when it builds."""
+    error = obj.blendsolid_error.splitlines()[0] if obj is not None and obj.blendsolid_error else ""
+    return f" | can't: {error}" if error else ""
+
+
 class BLENDSOLID_OT_fillet_click(bpy.types.Operator):
     """Fillet tool: click an edge (Shift: add or remove it), a face for all its edges, or empty space to clear;
     press and drag along the arrow to set the radius of the selected edges"""
@@ -178,12 +185,20 @@ class BLENDSOLID_OT_fillet_click(bpy.types.Operator):
             return {"CANCELLED"}
         self._press = (event.mouse_region_x, event.mouse_region_y)
         self._pick, self._pixel = _mouse_pick(context, self._press)
+        from . import picking
+        if self._pick is not None and self._pick.kind == "EDGE" and not picking.edge_is_sharp(self._pick.obj,
+                                                                                               self._pick.id):
+            # OCCT drops it silently among others, or fails alone (research: fillet edge cases, T10)
+            self.report({"WARNING"}, "This edge is between tangent faces: there is nothing to round")
+            return {"CANCELLED"}
         self._extend = event.shift
         self._source = self._target = self._anchor = None
         self._radius, self._chamfer, self._snap, self._start = 0.0, False, 0.0, 0.0
         self._factor = part.unit_factor(context.scene)
         self._handles = []
         _dragging.add(id(self))
+        # the worker's result (or error) arrives between mouse events: the header follows it
+        self._timer = context.window_manager.event_timer_add(0.1, window=context.window)
         context.window_manager.modal_handler_add(self)
         return {"RUNNING_MODAL"}
 
@@ -276,11 +291,15 @@ class BLENDSOLID_OT_fillet_click(bpy.types.Operator):
         from . import ops_draw
         step = ops_draw.step_mm(context.scene)
         what = "chamfer" if self._chamfer else "radius"
-        context.area.header_text_set(f"Fillet: {what} {self._radius:.3f} mm | drag along the arrow | C: fillet/chamfer"
-                                     f" | Ctrl: snap {step:g} mm (Shift+Ctrl: {step / 10:g}) | Ctrl+Wheel: step"
-                                     " | release: confirm | Esc/right-click: cancel")
+        error = header_error(self._target)
+        context.area.header_text_set(f"Fillet: {what} {self._radius:.3f} mm{error} | drag along the arrow"
+                                     f" | C: fillet/chamfer | Ctrl: snap {step:g} mm (Shift+Ctrl: {step / 10:g})"
+                                     " | Ctrl+Wheel: step | release: confirm | Esc/right-click: cancel")
 
     def _end(self, context, result):
+        if getattr(self, "_timer", None) is not None:
+            context.window_manager.event_timer_remove(self._timer)
+            self._timer = None
         for handle in self._handles:
             bpy.types.SpaceView3D.draw_handler_remove(handle, "WINDOW")
         self._handles = []
