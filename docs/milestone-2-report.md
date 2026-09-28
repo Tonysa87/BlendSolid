@@ -71,8 +71,11 @@ wrong bindings. Roles now always use the face as it is in the feature's own soli
 
 Tests 1–4 passed on the Windows portable Blender (focused arrows, hidden cutters, collars + Bevel, fillet
 messages), after fixing the focus click with the Tweak tool and the sidebar redraw; the collar wedges were
-reduced (face-point rule 20° → 10°; Subdivision goes on convert-to-quads). Test 5 (reference warnings) not run.
-Sign-off: to be asked in session 9.
+reduced (face-point rule 20° → 10°; Subdivision goes on convert-to-quads). Test 5 (reference warnings), session 9:
+a Fillet on a box's top face, then a cut lengthened through the box splits the face — "Check these references"
+appears, both halves stay rounded, Ctrl+Z clears it: passed.
+
+**Signed off by the maintainer on 2026-09-28**; `milestone-2` merged into `main`.
 
 ## Known limits / follow-ups
 

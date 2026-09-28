@@ -1,7 +1,7 @@
 # Where we are / what's next (bookmark)
 
-Updated: 2026-09-28, end of session 8 (evening): **milestone 2 complete; the maintainer's GUI check passed tests
-1–4** (below); sign-off still to be asked. Read this first when resuming, then "Session 8".
+Updated: 2026-09-28, session 9: **milestone 2 signed off by the maintainer** (GUI tests 1–5 passed) and merged
+into `main`. Read this first when resuming, then "Next step".
 
 ## State
 - **Milestone 0 (spike):** done — `SPIKE_REPORT.md`.
@@ -13,7 +13,7 @@ Updated: 2026-09-28, end of session 8 (evening): **milestone 2 complete; the mai
 - The SDD ledger's two useful files are archived in `docs/milestone-1.5/` (`sdd-ledger.md`,
   `gui-check-report.md`); the git-ignored `.superpowers/sdd/` folder is deleted by the maintainer by hand.
 
-## Milestone 2 (selectors from clicks) — in progress, branch `milestone-2`
+## Milestone 2 (selectors from clicks) — done, signed off 2026-09-28, merged into `main`
 - Research: `docs/research/2026-09-27-selectors-and-click-operations.md` (Plasticity, Fusion, Onshape, SOLIDWORKS,
   Shapr3D, MoI, FreeCAD, KCL; persistent naming). Design (decided autonomously from the research, the maintainer
   asked for no questions): `docs/superpowers/specs/2026-09-27-milestone-2-selectors-design.md` — phases A (mesh
@@ -111,13 +111,14 @@ Updated: 2026-09-28, end of session 8 (evening): **milestone 2 complete; the mai
   rule went from 20° to 10° (the least that keeps Bevel 2 mm fold-free), SubD fold tests removed. Bevel by weight
   2 mm / 3 segments on the part: clean. Remaining fans: arcs in the outer loop (corner/edge notches) and thin
   strips (known limit).
-- Test 4 (fillet too large: header and sidebar messages, Ctrl+Z): passed. Test 5 (reference warnings) not run.
+- Test 4 (fillet too large: header and sidebar messages, Ctrl+Z): passed.
+- Test 5 (session 9: Fillet on the top face, then Cut 1 length 100 splits it → "Check these references"; Ctrl+Z
+  clears it): passed. Sign-off given.
 - Seen in test2.blend: a Draw Solid cut placed at z = 1000 mm on a box later made 257 mm tall floats above it
   (fixed placements don't follow upstream changes: known M1.5 limit, now seen by the maintainer).
 
-## Next step (session 9, 2026-09-29) — resume exactly here
-1. Ask the maintainer for **milestone 2 sign-off** (optionally run test 5 first); then merge `milestone-2` into
-   `main` (fast-forward) and tag.
+## Next step — resume exactly here
+1. ~~Milestone 2 sign-off and merge~~ done (session 9).
 2. **Partial collars for arcs in a face's outer loop** (a boss or hole cutting a corner or an edge: test2.blend's
    top and side faces fan from the arc to one far point). Research first (products + literature, e.g. template
    meshing around boundary arcs, medial-axis decomposition), then extend `tessellate._collared`; measure on
@@ -149,7 +150,8 @@ Updated: 2026-09-28, end of session 8 (evening): **milestone 2 complete; the mai
   spec scope changes, publication/licensing/distribution, or anything touching the maintainer's own Blender install.
 - Commit trailer: keep the fixed `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>` line for this
   project (settled 2026-09-27); the maintainer wants it removed for good in the future.
-- GUI tests: one step at a time, exact actions and expected results; when a screenshot shows a mesh problem,
+- GUI tests: one step at a time, exact actions and expected results; use the UI's own labels and tool names, no
+  new jargon, and skip steps already verified — go straight to what the test is about; when a screenshot shows a mesh problem,
   measure exactly what it shows first; installing a build needs the maintainer to close Blender.
 
 ## Open follow-ups (not blocking)
