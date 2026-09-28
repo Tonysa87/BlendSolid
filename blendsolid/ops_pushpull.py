@@ -12,11 +12,6 @@ from bpy.props import FloatProperty, StringProperty
 from . import focus, part, primitives, script_model
 
 
-def _local_part(name):
-    obj = bpy.data.objects.get((name, None)) if name else None
-    return obj if part.is_local_part(obj) else None
-
-
 def feature_spec(reference, amount):
     return primitives.push_spec(reference, amount)
 
@@ -45,7 +40,7 @@ class BLENDSOLID_OT_push_pull(bpy.types.Operator):
 
     def execute(self, context):
         from . import ui
-        obj = _local_part(self.target)
+        obj = part.local_part(self.target)
         if obj is None:
             self.report({"ERROR"}, f"There is no BlendSolid part named '{self.target}'")
             return {"CANCELLED"}
@@ -94,21 +89,11 @@ def _flat_pick(context, coord):
 
 
 def _hit_face(context, coord):
-    from bpy_extras import view3d_utils
     from . import ops_draw
-    region, rv3d = context.region, context.region_data
-    origin = view3d_utils.region_2d_to_origin_3d(region, rv3d, coord)
-    direction = view3d_utils.region_2d_to_vector_3d(region, rv3d, coord)
+    origin, direction = ops_draw.mouse_ray(context, coord)
     depsgraph = context.evaluated_depsgraph_get()
     hit = ops_draw._first_hit(context, depsgraph, origin, direction)
     return None if hit is None else part.face_id(hit[3].evaluated_get(depsgraph).data, hit[2])
-
-
-def _ray(context, event):
-    from bpy_extras import view3d_utils
-    coord = (event.mouse_region_x, event.mouse_region_y)
-    return (view3d_utils.region_2d_to_origin_3d(context.region, context.region_data, coord),
-            view3d_utils.region_2d_to_vector_3d(context.region, context.region_data, coord))
 
 
 class BLENDSOLID_OT_push_pull_drag(bpy.types.Operator):
@@ -128,7 +113,8 @@ class BLENDSOLID_OT_push_pull_drag(bpy.types.Operator):
         obj, fid = found.obj, found.id
         (nx, ny, nz), d = part.face_plane(obj, fid)
         self._factor = part.unit_factor(context.scene)
-        origin, direction = _ray(context, event)
+        from . import ops_draw
+        origin, direction = ops_draw._mouse_ray(context, event)
         self._normal = (obj.matrix_world.to_3x3() @ Vector((nx, ny, nz))).normalized()
         # where the ray meets the face's exact plane: the drag measures along the normal from there
         hit = geometry.intersect_line_plane(origin, origin + direction,
@@ -177,7 +163,7 @@ class BLENDSOLID_OT_push_pull_drag(bpy.types.Operator):
 
     def _update(self, context, event):
         from . import drawing, ops_draw
-        origin, direction = _ray(context, event)
+        origin, direction = ops_draw._mouse_ray(context, event)
         amount = drawing.height_along_normal(self._plane, self._start, origin, direction) / self._factor
         step = ops_draw.step_mm(context.scene)
         self._snap = (step / 10 if event.shift else step) if event.ctrl else 0.0
@@ -235,28 +221,13 @@ def _draw_drag(op):
 
 
 def _draw_drag_label(op):
-    from bpy_extras import view3d_utils
     try:
         amount, factor, snap, normal, start = op._amount, op._factor, op._snap, op._normal, op._start
     except (ReferenceError, AttributeError):
         return
-    context = bpy.context
-    here = view3d_utils.location_3d_to_region_2d(context.region, context.region_data,
-                                                 start + normal * (amount * factor))
-    if here is None:
-        return
-    import blf
-    from . import drawing
-    size = 14 * (context.preferences.system.ui_scale or 1.0)
-    blf.size(0, size)
-    blf.enable(0, blf.SHADOW)
-    blf.shadow(0, 3, 0.0, 0.0, 0.0, 0.8)
-    blf.color(0, 1.0, 1.0, 1.0, 1.0)
-    lines = [f"{'+' if amount >= 0 else '−'}{drawing._mm(abs(amount))} mm"] + ([f"snap {snap:g} mm"] if snap else [])
-    for i, text in enumerate(lines):
-        blf.position(0, here.x + 16, here.y - 16 - i * size * 1.3, 0)
-        blf.draw(0, text)
-    blf.disable(0, blf.SHADOW)
+    from . import drawing, ops_draw
+    lines = [f"{'+' if amount >= 0 else '−'}{drawing.mm(abs(amount))} mm"] + ([f"snap {snap:g} mm"] if snap else [])
+    ops_draw.draw_text_lines(bpy.context, start + normal * (amount * factor), lines)
 
 
 class BLENDSOLID_GT_push_pull_hover(bpy.types.Gizmo):

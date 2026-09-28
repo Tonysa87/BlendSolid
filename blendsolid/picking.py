@@ -7,7 +7,6 @@ rounded them away doesn't hide them. An edge within EDGE_PX pixels of the hit is
 """
 from dataclasses import dataclass, field
 
-import bpy
 import numpy as np
 from mathutils import Vector, geometry
 

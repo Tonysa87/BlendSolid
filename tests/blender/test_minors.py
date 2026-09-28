@@ -5,11 +5,7 @@ import tempfile
 import bpy
 
 from blendsolid import part, paths, runtime
-from conftest import wait_for
-
-
-def up_to_date(obj):
-    return part.applied_hash(obj) == part.current_tag(obj)
+from conftest import up_to_date, wait_for
 
 
 def stop_worker():

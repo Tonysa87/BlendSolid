@@ -4,7 +4,8 @@ Every edge is discretized once (a list of curve parameters and 3D points); every
 from those lists, so neighbouring faces weld exactly. Curved faces with four corners become structured grids
 (transfinite interpolation of their sides, opposite sides matched in node count); other curved faces get a grid
 in (u, v) trimmed by their boundary, the band along the boundary triangulated by constrained Delaunay; flat
-faces are triangulated from their boundary alone. This is how Rhino, MoI and ACIS lay out display meshes: every
+faces are triangulated from their boundary alone (tessellate.py then makes them one polygon, or convex pieces
+with collars of radial quads around curved holes: ADR 0008). This is how Rhino, MoI and ACIS lay out display meshes: every
 mesh edge runs along a surface direction or along a trim.
 """
 import math
@@ -16,7 +17,6 @@ from OCP.BRepAdaptor import BRepAdaptor_Curve, BRepAdaptor_Curve2d, BRepAdaptor_
 from OCP.BRepLProp import BRepLProp_SLProps
 from OCP.BRepTools import BRepTools_WireExplorer
 from OCP.GCPnts import GCPnts_AbscissaPoint, GCPnts_TangentialDeflection
-from OCP.GeomAbs import GeomAbs_Plane
 from OCP.TopAbs import TopAbs_FORWARD, TopAbs_REVERSED, TopAbs_WIRE
 from OCP.TopExp import TopExp, TopExp_Explorer
 from OCP.TopoDS import TopoDS, TopoDS_Vertex

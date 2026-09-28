@@ -45,11 +45,6 @@ def _f32(x):
     return struct.unpack("f", struct.pack("f", x))[0]
 
 
-def _local_part(name):
-    obj = bpy.data.objects.get((name, None)) if name else None
-    return obj if part.is_local_part(obj) else None
-
-
 class BLENDSOLID_OT_draw_solid(bpy.types.Operator):
     """Draw a box or cylinder on a part's face (union or cut, by the direction of its height) or on the 3D
     cursor's plane (a new part)"""
@@ -93,7 +88,7 @@ class BLENDSOLID_OT_draw_solid(bpy.types.Operator):
     def execute(self, context):
         from . import ui  # lazy: ui.py itself imports ops_add/runtime lazily to avoid import cycles
         factor = part.unit_factor(context.scene)
-        reference = _local_part(self.target)
+        reference = part.local_part(self.target)
         if self.target and reference is None:
             self.report({"ERROR"}, f"There is no BlendSolid part named '{self.target}' to draw on")
             return {"CANCELLED"}
@@ -241,10 +236,36 @@ class BLENDSOLID_OT_draw_solid(bpy.types.Operator):
             context.area.tag_redraw()
 
 
-def _mouse_ray(context, event):
-    coord = (event.mouse_region_x, event.mouse_region_y)
+def ui_scale(context):
+    """Blender's interface scale (0.0 in background mode, where 1 is used)."""
+    return context.preferences.system.ui_scale or 1.0
+
+
+def mouse_ray(context, coord):
+    """World origin and direction of the view ray through region coordinate `coord`."""
     return (view3d_utils.region_2d_to_origin_3d(context.region, context.region_data, coord),
             view3d_utils.region_2d_to_vector_3d(context.region, context.region_data, coord))
+
+
+def _mouse_ray(context, event):
+    return mouse_ray(context, (event.mouse_region_x, event.mouse_region_y))
+
+
+def draw_text_lines(context, at, lines):
+    """The tools' drag labels: text `lines` below and right of world point `at`, white with a shadow."""
+    here = view3d_utils.location_3d_to_region_2d(context.region, context.region_data, at)
+    if here is None:
+        return
+    import blf  # drawing only
+    size = 14 * ui_scale(context)
+    blf.size(0, size)
+    blf.enable(0, blf.SHADOW)
+    blf.shadow(0, 3, 0.0, 0.0, 0.0, 0.8)
+    blf.color(0, 1.0, 1.0, 1.0, 1.0)
+    for i, text in enumerate(lines):
+        blf.position(0, here.x + 16, here.y - 16 - i * size * 1.3, 0)
+        blf.draw(0, text)
+    blf.disable(0, blf.SHADOW)
 
 
 PICK_RADIUS_PX = 3  # a drag started this close to a part's face (e.g. on its edge) starts on that face
@@ -375,7 +396,7 @@ def _draw_snap_guides(op, context):
         frame = op._base.frame
         pixel = _pixel_size(region, rv3d, frame.translation + frame.col[2].xyz * (op._drawn.height * factor))
         if pixel is not None and step / pixel >= drawing.MIN_GRID_PX:
-            ui = context.preferences.system.ui_scale
+            ui = ui_scale(context)
             ticks = drawing.height_ticks(frame, op._drawn.height * factor, step, tick=18 * ui * pixel)
             _draw_segments(region, [(a, b, colour[:3] + (alpha,), colour[:3] + (alpha,)) for a, b, alpha in ticks],
                            2.5 * ui)
@@ -395,19 +416,7 @@ def _draw_labels(op):
         at = plane.translation + plane.col[0].xyz * p1[0] + plane.col[1].xyz * p1[1]
     else:
         at = drawn.frame.translation + drawn.frame.col[2].xyz * (drawn.height * factor)
-    here = view3d_utils.location_3d_to_region_2d(context.region, context.region_data, at)
-    if here is None:
-        return
-    import blf  # drawing only
-    size = 14 * context.preferences.system.ui_scale
-    blf.size(0, size)
-    blf.enable(0, blf.SHADOW)
-    blf.shadow(0, 3, 0.0, 0.0, 0.0, 0.8)
-    blf.color(0, 1.0, 1.0, 1.0, 1.0)
-    for i, text in enumerate(drawing.labels(drawn, stage, snap)):
-        blf.position(0, here.x + 16, here.y - 16 - i * size * 1.3, 0)
-        blf.draw(0, text)
-    blf.disable(0, blf.SHADOW)
+    draw_text_lines(context, at, drawing.labels(drawn, stage, snap))
 
 
 def _pixel_size(region, rv3d, point):
@@ -440,7 +449,7 @@ def _draw_grid(context, plane, centre, step, colour):
     rgb = colour[:3]
     segments = [(a, b, rgb + (alpha_a * (0.9 if major else 0.5),), rgb + (alpha_b * (0.9 if major else 0.5),))
                 for a, b, alpha_a, alpha_b, major in drawing.grid_segments(plane, centre, step)]
-    _draw_segments(context.region, segments, 1.5 * context.preferences.system.ui_scale)
+    _draw_segments(context.region, segments, 1.5 * ui_scale(context))
 
 
 class BLENDSOLID_OT_snap_step(bpy.types.Operator):
@@ -501,9 +510,7 @@ class BLENDSOLID_GT_snap_marker(bpy.types.Gizmo):
     def draw(self, context):
         if self.mouse is None or context.region_data is None or _drawing:
             return
-        region, rv3d = context.region, context.region_data
-        origin = view3d_utils.region_2d_to_origin_3d(region, rv3d, self.mouse)
-        direction = view3d_utils.region_2d_to_vector_3d(region, rv3d, self.mouse)
+        origin, direction = mouse_ray(context, self.mouse)
         found = _hover(context, origin, direction, near=_near_rays(context, self.mouse))
         if found is None:
             return
@@ -516,7 +523,7 @@ def draw_marker(context, point, plane, target, node):
     pixel = _pixel_size(region, rv3d, point)
     if pixel is None:
         return
-    ui = context.preferences.system.ui_scale
+    ui = ui_scale(context)
     colour = marker_color(target)
     shown = drawing.visible_grid_step(step_mm(context.scene) * part.unit_factor(context.scene), pixel)
     if shown is not None:

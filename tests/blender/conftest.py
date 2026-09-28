@@ -22,8 +22,7 @@ def clean(addon):
     for coll in (bpy.data.objects, bpy.data.texts, bpy.data.meshes, bpy.data.libraries):
         bpy.data.batch_remove(list(coll))  # one pass: some tests create thousands of objects
     from blendsolid import runtime
-    if hasattr(runtime, "reset_state"):
-        runtime.reset_state()
+    runtime.reset_state()
     yield
 
 

@@ -5,7 +5,7 @@ import tempfile
 import bpy
 
 from blendsolid import part, runtime
-from conftest import wait_for
+from conftest import up_to_date, wait_for
 
 
 def expected_volume(length=40.0, width=30.0, height=20.0, r=6.0, bh=25.0, f=5.0):
@@ -15,10 +15,6 @@ def expected_volume(length=40.0, width=30.0, height=20.0, r=6.0, bh=25.0, f=5.0)
 def mm3(obj):
     """Mesh volume in cubic millimetres, the script's units (ADR 0003)."""
     return part.mesh_volume(obj.data) / part.unit_factor() ** 3
-
-
-def up_to_date(obj):
-    return part.applied_hash(obj) == part.current_tag(obj)
 
 
 def new_part():

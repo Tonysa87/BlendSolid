@@ -7,7 +7,7 @@ from types import SimpleNamespace
 
 import bpy
 
-from blendsolid import deps, part, runtime, script_model, trust, ui
+from blendsolid import deps, part, runtime, trust, ui
 from conftest import mm3, up_to_date, wait_for
 from test_deps import HOLE, PLATE, plate_and_pin
 

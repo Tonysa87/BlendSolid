@@ -287,7 +287,8 @@ def height_ticks(frame, height, step, tick, half=GRID_HALF):
     return ticks
 
 
-def _mm(value):
+def mm(value):
+    """A length in millimetres as shown in labels: 3 decimals at most, no trailing zeros."""
     return f"{value:.3f}".rstrip("0").rstrip(".")
 
 
@@ -295,11 +296,11 @@ def labels(drawn, stage, snap_mm):
     """Text lines shown next to a solid being drawn: the base's size or the height, and the snap step while
     Ctrl snaps (`snap_mm` > 0)."""
     if stage == "HEIGHT":
-        lines = [f"H {_mm(abs(drawn.height))} mm"]
+        lines = [f"H {mm(abs(drawn.height))} mm"]
     elif drawn.shape == "BOX":
-        lines = [f"{_mm(drawn.length)} × {_mm(drawn.width)} mm"]
+        lines = [f"{mm(drawn.length)} × {mm(drawn.width)} mm"]
     else:
-        lines = [f"R {_mm(drawn.radius)} mm"]
+        lines = [f"R {mm(drawn.radius)} mm"]
     return lines + ([f"snap {snap_mm:g} mm"] if snap_mm > 0 else [])
 
 def preview_lines(drawn, factor, segments=32):

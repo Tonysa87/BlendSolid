@@ -166,11 +166,6 @@ def show(context, obj):
                 layer.hide_viewport = False
 
 
-def _local_part(name):
-    obj = bpy.data.objects.get((name, None)) if name else None
-    return obj if part.is_local_part(obj) else None
-
-
 class BLENDSOLID_OT_remove_boolean(bpy.types.Operator):
     """Remove this boolean from the part's history: the part is rebuilt without it. A cutter no other part uses
     is shown and rendered again"""
@@ -182,7 +177,7 @@ class BLENDSOLID_OT_remove_boolean(bpy.types.Operator):
     feature: StringProperty()
 
     def execute(self, context):
-        target = _local_part(self.target)
+        target = part.local_part(self.target)
         if target is None:
             self.report({"ERROR"}, f"There is no BlendSolid part named '{self.target}'")
             return {"CANCELLED"}
@@ -212,7 +207,7 @@ class BLENDSOLID_OT_restore_cutter(bpy.types.Operator):
     part_id: StringProperty()
 
     def execute(self, context):
-        target = _local_part(self.target)
+        target = part.local_part(self.target)
         text = part.script_of_part(self.part_id)
         last = part.last_cutter(target, self.part_id) if target is not None else None
         if target is None or text is None or last is None:

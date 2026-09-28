@@ -9,7 +9,6 @@ import re
 
 import bpy
 from bpy.props import StringProperty
-from bpy_extras import view3d_utils
 
 from . import part, script_model
 
@@ -79,12 +78,9 @@ class BLENDSOLID_OT_focus_click(bpy.types.Operator):
         # On the press, before or after whatever select tool is active (Tweak consumes its click, Select Box
         # selects on release): the event always passes through, this only moves the focus of the part under the
         # mouse, which Blender's own selection then makes active.
-        region, rv3d = context.region, context.region_data
-        if rv3d is not None:
+        if context.region_data is not None:
             from . import ops_draw
-            mouse = (event.mouse_region_x, event.mouse_region_y)
-            origin = view3d_utils.region_2d_to_origin_3d(region, rv3d, mouse)
-            direction = view3d_utils.region_2d_to_vector_3d(region, rv3d, mouse)
+            origin, direction = ops_draw._mouse_ray(context, event)
             found = ops_draw._first_hit(context, context.evaluated_depsgraph_get(), origin, direction)
             if found is not None and part.is_local_part(found[3]) and focus_at(context, found[3], found[2]):
                 _redraw(context)

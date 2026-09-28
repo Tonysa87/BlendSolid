@@ -4,7 +4,8 @@ Faces are numbered with TopExp.MapShapes (deterministic for a given shape): brep
 
 Tessellation (ADR 0010): every edge is discretized once and every face meshed from those nodes (meshing.py), so
 neighbouring faces weld exactly: curved faces with four corners as structured grids, other curved faces as grids
-trimmed by their boundary, flat faces from their boundary. A full face of revolution (torus, cylinder or cone
+trimmed by their boundary, flat faces from their boundary, then shown as one polygon or as convex pieces with
+collars of radial quads around curved holes (ADR 0008 and its addendum). A full face of revolution (torus, cylinder or cone
 bounded only by its seam, poles and v-iso circles) is a structured grid of staggered rings (ADR 0005), its
 boundary rings taken from the shared edge nodes. A full sphere has no real boundary: it becomes a geodesic grid
 (an octahedron subdivided and projected onto it), which has neither the thin pole triangles nor the seam of a
@@ -14,7 +15,7 @@ import math
 from dataclasses import dataclass
 
 import numpy as np
-from OCP.BRep import BRep_Builder, BRep_Tool
+from OCP.BRep import BRep_Tool
 from OCP.BRepAdaptor import BRepAdaptor_Curve2d, BRepAdaptor_Surface
 from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeVertex
 from OCP.BRepExtrema import BRepExtrema_DistShapeShape
@@ -28,11 +29,10 @@ from OCP.collections import IndexedMap_TopoDS_Shape_TopTools_ShapeMapHasher as S
 from OCP.collections import IndexedDataMap_TopoDS_Shape_List_TopoDS_Shape_TopTools_ShapeMapHasher as AncestorMap
 from OCP.GeomAbs import GeomAbs_Cone, GeomAbs_Cylinder, GeomAbs_Line, GeomAbs_Plane, GeomAbs_Sphere, GeomAbs_Torus
 from OCP.GProp import GProp_GProps
-from OCP.IMeshTools import IMeshTools_Parameters
 from OCP.TopAbs import TopAbs_EDGE, TopAbs_FACE, TopAbs_REVERSED, TopAbs_SOLID, TopAbs_VERTEX
 from OCP.TopExp import TopExp, TopExp_Explorer
 from OCP.TopLoc import TopLoc_Location
-from OCP.TopoDS import TopoDS, TopoDS_Compound
+from OCP.TopoDS import TopoDS
 from OCP.gp import gp_Pnt, gp_Vec
 
 import meshing
@@ -844,7 +844,7 @@ def _collared(t, verts, normal, keep=()):
     polys = []
     region = [k for k in range(len(cycles)) if k not in collars]
     base = len(verts)
-    segs, offset, loops2d = [], 0, []
+    segs, offset = [], 0
     for k in region:  # the region outside the collars: the face's other loops, and the collars' outlines
         n = len(cycles[k])
         segs.extend((offset + i, offset + (i + 1) % n) for i in range(n))

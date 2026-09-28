@@ -58,7 +58,7 @@ def test_no_arrows_for_non_canonical_scripts(clean):
 
 def test_set_writes_the_parameter_like_the_panel(clean):
     obj = add_box()
-    runtime_tick_until_synced(obj)
+    wait_for(lambda: obj.blendsolid_params.get("box_1_height") is not None)
     f = part.unit_factor()
     assert abs(gizmos.arrow_get(obj.name, "box_1_height", 1.0) - 20 * f) < 1e-9
     gizmos.arrow_set(obj.name, "box_1_height", 1.0, 25 * f)
@@ -74,12 +74,6 @@ def test_set_on_a_deleted_object_does_nothing(clean):
     bpy.data.objects.remove(obj)
     gizmos.arrow_set(name, "box_1_height", 1.0, 0.03)
     assert gizmos.arrow_get(name, "box_1_height", 1.0) == 0.0
-
-
-def runtime_tick_until_synced(obj):
-    from blendsolid import runtime
-    runtime.tick()
-    assert obj.blendsolid_params.get("box_1_height") is not None
 
 
 def _set_tool(idname):

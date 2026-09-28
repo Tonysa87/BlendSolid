@@ -58,9 +58,9 @@ def unit_factor(scene=None):
 
 
 DEFAULT_TOLERANCE = 1.0  # millimetres
-MESH_FORMAT = 7  # part of every tag: bumping it recomputes saved meshes (2: face planes, 3: exact normals, 4: welded,
+MESH_FORMAT = 8  # part of every tag: bumping it recomputes saved meshes (2: face planes, 3: exact normals, 4: welded,
 #                 5: trimmed curved faces re-triangulated, ADR 0005 addendum; 6: edge-first grids, ADR 0010;
-#                 7: collars around curved holes in flat faces, ADR 0008 addendum)
+#                 7: collars around curved holes in flat faces, ADR 0008 addendum; 8: face-point rule 10°)
 
 
 def tolerance(scene=None):
@@ -347,6 +347,12 @@ def is_local_part(obj):
     to tell a real, writable part from anything else (part_groups(), and tools that scan bpy.data.objects, or
     poll() context.object, for parts to offer as targets/cutters/selectors)."""
     return obj is not None and obj.type == "MESH" and obj.blendsolid_script is not None and not is_linked(obj)
+
+
+def local_part(name):
+    """The writable local part called `name` (never a library object of the same name), or None."""
+    obj = bpy.data.objects.get((name, None)) if name else None
+    return obj if is_local_part(obj) else None
 
 
 def part_groups():

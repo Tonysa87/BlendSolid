@@ -17,11 +17,6 @@ from mathutils import Matrix
 from . import focus, part, primitives, script_model
 
 
-def _local_part(name):
-    obj = bpy.data.objects.get((name, None)) if name else None
-    return obj if part.is_local_part(obj) else None
-
-
 def feature_spec(references, radius, chamfer=False):
     return primitives.blend_spec(references, radius, chamfer)
 
@@ -47,7 +42,7 @@ class BLENDSOLID_OT_fillet(bpy.types.Operator):
 
     def execute(self, context):
         from . import ui  # lazy, as in ops_draw
-        obj = _local_part(self.target)
+        obj = part.local_part(self.target)
         if obj is None:
             self.report({"ERROR"}, f"There is no BlendSolid part named '{self.target}' to fillet")
             return {"CANCELLED"}
@@ -80,7 +75,7 @@ _dragging = set()  # the tool's modals in progress (the hover overlay hides mean
 
 def selection(context=None):
     """(part, [reference texts]) the Fillet tool has selected, or (None, []) if its part is gone."""
-    obj = _local_part(_selection["part"])
+    obj = part.local_part(_selection["part"])
     return (obj, list(_selection["refs"])) if obj is not None else (None, [])
 
 
@@ -100,11 +95,9 @@ def select(pick, extend=False):
 
 
 def _mouse_pick(context, coord):
-    from bpy_extras import view3d_utils
     from . import ops_draw, picking
     region, rv3d = context.region, context.region_data
-    origin = view3d_utils.region_2d_to_origin_3d(region, rv3d, coord)
-    direction = view3d_utils.region_2d_to_vector_3d(region, rv3d, coord)
+    origin, direction = ops_draw.mouse_ray(context, coord)
     hit = ops_draw._first_hit(context, context.evaluated_depsgraph_get(), origin, direction)
     if hit is None:
         return None, None
@@ -247,8 +240,8 @@ class BLENDSOLID_OT_fillet_click(bpy.types.Operator):
         self._anchor = anchor(obj, ref)
         if self._anchor is None:
             return
-        from . import drawing
-        origin, direction = _ray(context, self._press)
+        from . import drawing, ops_draw
+        origin, direction = ops_draw.mouse_ray(context, self._press)
         self._start = drawing.height_along_normal(self._anchor[2], self._anchor[0], origin, direction)
         self._target, self._source = obj, part.source_of(obj)
         self._handles = [bpy.types.SpaceView3D.draw_handler_add(_draw_drag, (self,), "WINDOW", "POST_VIEW"),
@@ -259,7 +252,7 @@ class BLENDSOLID_OT_fillet_click(bpy.types.Operator):
         with the fillet at that radius (no undo step: the release replaces it with the operator's own edit) and
         submitted at once: the worker's real result follows the overlay."""
         from . import drawing, ops_draw, runtime
-        origin, direction = _ray(context, (event.mouse_region_x, event.mouse_region_y))
+        origin, direction = ops_draw.mouse_ray(context, (event.mouse_region_x, event.mouse_region_y))
         mid, _, frame = self._anchor
         radius = (drawing.height_along_normal(frame, mid, origin, direction) - self._start) / self._factor
         step = ops_draw.step_mm(context.scene)
@@ -304,12 +297,6 @@ class BLENDSOLID_OT_fillet_click(bpy.types.Operator):
         return result
 
 
-def _ray(context, coord):
-    from bpy_extras import view3d_utils
-    return (view3d_utils.region_2d_to_origin_3d(context.region, context.region_data, coord),
-            view3d_utils.region_2d_to_vector_3d(context.region, context.region_data, coord))
-
-
 def _draw_drag(op):
     """While dragging: the fillet's immediate preview, the handle out to the radius, and snap ticks along it."""
     from . import drawing, ops_draw
@@ -335,28 +322,14 @@ def _draw_drag(op):
 
 
 def _draw_drag_label(op):
-    from bpy_extras import view3d_utils
     try:
         mid, w, _ = op._anchor
         radius, factor, snap, chamfer = op._radius, op._factor, op._snap, op._chamfer
     except (ReferenceError, AttributeError, TypeError):
         return
-    context = bpy.context
-    here = view3d_utils.location_3d_to_region_2d(context.region, context.region_data, mid + w * radius * factor)
-    if here is None:
-        return
-    import blf
-    from . import drawing
-    size = 14 * (context.preferences.system.ui_scale or 1.0)
-    blf.size(0, size)
-    blf.enable(0, blf.SHADOW)
-    blf.shadow(0, 3, 0.0, 0.0, 0.0, 0.8)
-    blf.color(0, 1.0, 1.0, 1.0, 1.0)
-    lines = [f"{'C' if chamfer else 'R'} {drawing._mm(radius)} mm"] + ([f"snap {snap:g} mm"] if snap else [])
-    for i, text in enumerate(lines):
-        blf.position(0, here.x + 16, here.y - 16 - i * size * 1.3, 0)
-        blf.draw(0, text)
-    blf.disable(0, blf.SHADOW)
+    from . import drawing, ops_draw
+    lines = [f"{'C' if chamfer else 'R'} {drawing.mm(radius)} mm"] + ([f"snap {snap:g} mm"] if snap else [])
+    ops_draw.draw_text_lines(bpy.context, mid + w * radius * factor, lines)
 
 
 class BLENDSOLID_OT_fillet_clear(bpy.types.Operator):

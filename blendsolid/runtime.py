@@ -48,6 +48,8 @@ def reset_state():
     _inflight.clear()
     _failed.clear()
     _synced.clear()
+    from . import picking
+    picking.clear_cache()  # keyed by mesh session_uid: stale entries only grow across files
 
 
 def force(obj):
@@ -110,8 +112,8 @@ def _mirror_to_siblings(primary, siblings, source, tag):
             try:
                 part.sync_params(sib, source)
                 _synced[sib.name] = tag
-            except Exception:
-                pass  # mirroring must never break the tick over a params-parsing hiccup on a sibling
+            except Exception as e:  # mirroring must never break the tick over a params-parsing hiccup on a sibling
+                print(f"BlendSolid: mirroring parameters to {sib.name}: {type(e).__name__}: {e}")
         sib_state = (sib.blendsolid_error, sib.blendsolid_error_line, part.error_tag(sib))
         if sib_state != primary_state:  # e.g. ui._on_param_value already wrote this same state to sib too
             part.set_error(sib, primary.blendsolid_error, primary.blendsolid_error_line, part.error_tag(primary))
@@ -217,8 +219,8 @@ def tick():
             if siblings:
                 try:
                     _mirror_to_siblings(obj, siblings, source, tag)
-                except Exception:
-                    pass  # mirroring must never make the remaining primaries in this tick get skipped
+                except Exception as e:  # mirroring must never make the remaining primaries in this tick get skipped
+                    print(f"BlendSolid: mirroring {obj.name} to its siblings: {type(e).__name__}: {e}")
     part.keep_used_scripts(used)
     global _last_activity
     activity = (frozenset(_inflight), _client.state if _client is not None else "stopped")

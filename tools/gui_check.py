@@ -1,6 +1,7 @@
-"""Automated GUI-session check of milestone 1.5: the 16 steps of the manual GUI test (plan
-docs/superpowers/plans/2026-09-26-milestone-1.5-build-without-selectors.md, Task 14, Step 1) walked through in
-a real Blender window, without a person.
+"""Automated GUI-session check: the 16 steps of milestone 1.5's manual GUI test (plan
+docs/superpowers/plans/2026-09-26-milestone-1.5-build-without-selectors.md, Task 14, Step 1) and milestone 2's
+steps 17-21 (Draw Solid on a bevelled part, Fillet, Push/Pull, fillet preview latency, focus click), walked through
+in a real Blender window, without a person.
 
 Usage (a real window, not -b):
     blender [--factory-startup --addons blendsolid] --enable-event-simulate --python tools/gui_check.py [-- --out DIR]
