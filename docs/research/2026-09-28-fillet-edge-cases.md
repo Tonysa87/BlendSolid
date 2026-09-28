@@ -286,7 +286,7 @@ Commercial kernels also *remove consumed faces* (Parasolid/ACIS overflow), which
    tune approximation tolerances and are not a fix for topological failures [unverified beyond 43c].
 8. **Don't "repair" with ShapeFix**: on case 43, `ShapeFix_Shape` produced a BRepCheck-valid shape with
    volume 0 (43d). FreeCAD's tolerance-limiting just hides invalidity.
-9. **Maximum radius search**: bisection (build123d `max_fillet`, our `blends._largest`) assumes that all
+9. **Maximum radius search**: bisection (build123d `max_fillet`, our `blends._search`) assumes that all
    sizes below a working one work. Case 43 disproves it. Mitigate by (a) using the geometric bound (2) when
    it applies, (b) re-checking a couple of sizes below the reported one, (c) wording "the largest size found
    that works" and not claiming "too large" when a smaller size also failed during the search.
@@ -347,10 +347,10 @@ Cases 01, 04, 21, 24/25, 26, 41, 45–47, 50 of §2 are good extra regressions (
    `BRepAlgoAPI_Check` if its cost on typical parts is acceptable (measure). T16/T17 must never be accepted.
 4. **Use the diagnostic API for location**: faulty contours → edges, faulty vertices → corner points; return
    them with the error so the viewport can highlight them (edge ids are already in the mesh attributes).
-5. **Fix the bisection's wording and assumptions** in `blends._largest/_explain`: never print a "largest
-   that works" equal (after rounding) to the failing size (T17); re-verify one or two smaller sizes; when a
-   smaller probe also failed, say "fails at several sizes (another face is in the way)" instead of "too
-   large"; round the reported size *down* to the displayed precision.
+5. **Fix the bisection's wording and assumptions** in `blends._search` (the bisection) and `blends._explain`
+   (the message): never print a "largest that works" equal (after rounding) to the failing size (T17);
+   re-verify one or two smaller sizes; when a smaller probe also failed, say "fails at several sizes (another
+   face is in the way)" instead of "too large"; round the reported size *down* to the displayed precision.
 6. **Per-contour isolation** when several edges fail together: report which contours fail alone and which
    only together (meeting fillets), so the message can say "these two fillets meet".
 7. **Tangent propagation visible**: the preview and the Adjust Last Operation panel should show the

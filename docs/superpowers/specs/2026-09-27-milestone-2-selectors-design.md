@@ -1,8 +1,9 @@
 # Milestone 2 — Selectors from clicks: design
 
 - **Date:** 2026-09-27
-- **Status:** decided by the controller (the maintainer asked for choices grounded in research on comparable
-  software, not for questions); to be reviewed by the maintainer with the first GUI check.
+- **Status:** implemented; milestone 2 signed off by the maintainer on 2026-09-28. Decided by the controller (the
+  maintainer asked for choices grounded in research on comparable software, not for questions). What this design
+  promised but wasn't built is listed in `docs/milestone-2-report.md` ("Known limits / follow-ups").
 - **Inputs:** `docs/spec.md` (milestone 2 row, risks), `docs/research/2026-09-27-selectors-and-click-operations.md`
   (Plasticity, Fusion, Onshape, SOLIDWORKS, Shapr3D, MoI, FreeCAD, KCL; persistent naming literature),
   `docs/research/2026-09-26-modeling-workflows.md`, spikes `spike/m2_s01_provenance.py` and

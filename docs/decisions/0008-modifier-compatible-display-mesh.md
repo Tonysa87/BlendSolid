@@ -68,9 +68,9 @@ The maintainer found the fans of slivers of flat faces with holes ugly (research
 1. **Collars.** A hole of ≥ 8 nodes, star-shaped from its centroid, gets a rectangle around it at 35% of its
    clearance to the other loops (`_COLLAR_SHARE`), with one radial piece per hole node (`_collar`). The region
    outside the collars is triangulated and merged as before (`_collared`).
-2. **No thin Catmull–Clark children** (`_thin_children`, `_FACE_POINT_ANGLE` = 20°). A merge is refused when the
-   merged polygon has a straight corner (a run of collinear collar nodes, turn < 1°) that sees the polygon's
-   vertex average within 20° of its sides. Subdivision Surface puts the face point at the vertex average: a
+2. **No thin Catmull–Clark children** (`_thin_children`, `_FACE_POINT_ANGLE`: 20° here, 10° since the revision
+   at the end of this addendum). A merge is refused when the merged polygon has a straight corner (a run of
+   collinear collar nodes, turn < 1°) that sees the polygon's vertex average within that angle of its sides. Subdivision Surface puts the face point at the vertex average: a
    collar side of 9 nodes inside one trapezoid had its face point far along the side, and the children there
    folded. Before this rule the collars folded 1–38 children per test part in one Catmull–Clark step; milestone
    2's fans folded too (plate with a small hole 72, bolt circle 36, two bosses 17), which the default-part-only
@@ -78,8 +78,8 @@ The maintainer found the fans of slivers of flat faces with holes ugly (research
 3. **BRep vertices keep a corner** (`keep` in `_merge_convex`): where a bevelled edge ends in a tangent arc, a
    merge may not make the vertex a nearly straight corner.
 
-Measured (unit test `test_subdivision_folds_nothing_around_holes`, simulation `spike/m2_flat_faces/cc_folds.py`,
-Blender tests): no folded child on the six test parts; Bevel 2 mm by weight on the default part removes the same
+Measured (unit test `test_subdivision_folds_nothing_around_holes`, removed in the 10° revision below; simulation
+`spike/m2_flat_faces/cc_folds.py`; Blender tests), at 20°: no folded child on the six test parts; Bevel 2 mm by weight on the default part removes the same
 volume with Clamp Overlap on and off (a hole, a boss likewise at 0.5–2 mm); fuzz 7 × 60–80 random parts: no
 fallback, closed, ≤ 0.33 s. Smallest polygon corner on holed faces: bolt circle 1.2° → 38°, slot 0.9° → 15°,
 washer 5.4° → 45°, plate with a small hole 0.13° → 45°.
@@ -99,6 +99,7 @@ tilted; cosmetic.
 Revised the same day after the maintainer's GUI review (`/mnt/e/bs_debug/test2.blend`): the wedges the rule adds
 from the face's corners to the collars' sides look worse than the 4 diagonals of plain trapezoids, and
 Subdivision belongs on "convert to quads", not on the display mesh (maintainer). Subdivision fold tests are gone.
+`part.MESH_FORMAT` 8 (7 was the collars at 20°), so saved files re-mesh.
 The rule itself stays, weaker (10°): without it, or below ~10°, one polygon holding the default part's whole
 fillet arc and a collar side folds under Bevel 2 mm (limiting the rule to polygons with arc nodes split the arc
 instead and made it worse). On test2's three holed flat faces, polygons with a corner under 10°: 18/21/49 at

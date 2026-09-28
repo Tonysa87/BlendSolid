@@ -339,12 +339,12 @@ Parked items from the ledger, worth keeping in view:
 - Tag stability for scale/placement still relies on 6-decimal rounding (F13): accepted as never producing a
   wrong result, only an occasional spurious recompute on reopening a file.
 - Draw Solid's height reads 0 when the view is exactly along the face normal (`height_along_normal`); the
-  manual test session should use an angled view for that stage, as noted in `docs/NEXT.md`.
+  manual test session should use an angled view for that stage.
 - The cone primitive's `top_radius` has `min=0.001`, so a perfectly pointed cone can't be dialled in from the
   panel (only from 0 at creation).
 - `gizmos._layout_cache` is never pruned (harmless growth, deferred).
-- The commit-trailer rule (a fixed model line vs. the model that actually wrote each commit) is still an open
-  question for the maintainer — see `docs/NEXT.md`.
+- The commit-trailer rule (a fixed model line vs. the model that actually wrote each commit): settled
+  2026-09-27 — keep the fixed `Co-Authored-By` line for now (the maintainer wants it removed for good later).
 
 ## Files changed in this closing session
 

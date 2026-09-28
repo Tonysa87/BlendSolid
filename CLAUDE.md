@@ -14,15 +14,17 @@ Chat with the maintainer is in Italian.
 
 - Exact BRep/NURBS modeling in Blender, **OCCT kernel via OCP** (`cadquery-ocp-novtk` 8.0.1, cp313 wheels).
 - **History = build123d script** stored in the `.blend`; every viewport action writes/edits lines of the script.
-  Face/edge references are semantic selectors; fallback to OCCT Generated/Modified history + geometric matching.
+  Face/edge references are provenance references (ADR 0009): `face("box_1", "+Z")`, `edge_between(...)`,
+  `near=` tie-breaks; a reference that names nothing is an error, a doubtful one a warning (never re-bound).
 - **100% native Blender UI:** standard transform gizmo via Empty proxies, native gizmos bound to parameters,
   Geometry Nodes gizmos, `WorkSpaceTool`, picking via BRep IDs stored as mesh attributes + `ray_cast`.
 - **Separate process** for OCCT computation (Blender doesn't support Python threads): the worker returns the
   tessellated mesh + face/edge map.
 - Distribution: GitHub-hosted Blender extension repository, one zip per platform (~220–255 MB, ADR 0001);
   extensions.blender.org (max 100 MB per zip) only with a lighter build, still to be decided.
-- Milestones: 0 spike → 1 history as code → 2 selectors from clicks → 3 publishable MVP → 4 SubD→NURBS
-  → 5 G2 surfaces → 6 G2 fillets.
+- Milestones: 0 spike → 1 history as code → 1.5 build without selectors → 2 selectors from clicks (0–2 done)
+  → 3 complete hard-surface modeling (3a sketch + extrude/revolve + STEP I/O, usage checkpoint, 3b–3e)
+  → 4 SubD→NURBS → 5 G2 surfaces → 6 G2 fillets; publication on extensions.blender.org only at the end.
 
 ## Project rules
 
@@ -65,15 +67,20 @@ tools/test.sh           # unit tests (Blender's Python) + Blender tests (blender
 "$BL" -b --factory-startup --python spike/<script>.py                      # headless test, Linux
 "$BW" -b --factory-startup --python "$(wslpath -w spike/<script>.py)"     # headless test, Windows
 "$BW" --factory-startup --python "$(wslpath -w spike/gui_session.py)" > spike/logs/gui.log 2>&1   # GUI session
-spike/s08_build_extension.sh                                               # per-platform zips in dist/
-"$BW" -c extension install-file -r user_default -e "$(wslpath -w dist/<zip>)"
 ```
 
 ## Layout
 
-- `docs/spec.md` — spec draft.
-- `spike/` — throwaway code for milestone 0.
+- `blendsolid/` — the extension (Blender side: operators, tools, gizmos, part/mesh handling, worker client);
+  `blendsolid/worker/` — the OCCT worker process (script runner, provenance, blends, tessellation/meshing).
+- `tests/unit/` — tests run with Blender's Python, no bpy; `tests/blender/` — tests run in `blender -b`.
+- `tools/` — dev setup, test runner, extension build, smoke test, `gui_check.py` (real-window GUI check).
+- `docs/spec.md` — spec; `docs/NEXT.md` — bookmark (state, next step, working agreement);
+  `docs/decisions/` — ADRs (index in its README); `docs/research/` — research notes;
+  `docs/milestone-*-report.md` — milestone reports.
 - `SPIKE_REPORT.md` — spike results (PASS/FAIL, evidence, timings, proposed spec changes).
+- `spike/` — throwaway experiments and measurement scripts (milestone 0 spike, `m2_*` scratch tools).
+- `.dev/` — local worker libraries and pytest for development (git-ignored); `logo/` — the maintainer's logos.
 - `wheels/`, `dist/` — downloaded wheels and built zips (git-ignored).
 
 ## Known pitfalls (from the spike)
@@ -140,9 +147,6 @@ spike/s08_build_extension.sh                                               # per
   (`poll()` receives `context.object = None`).
 - Headless tests of undo races must call `runtime.tick()` before `ed.undo()` to put a recompute in flight
   (timers don't fire in background mode).
-- **Display tessellation (ADR 0005):** BRepMesh triangulates curved faces with Delaunay in (u, v) space and gives
-  fans, slivers and a distorted seam band that no parameter fixes; full faces of revolution get BlendSolid's own
-  structured grids (`worker/tessellate.py`). The tolerance is a scene setting (mm, default 1) and part of the tag.
 - OCP 8: `Bnd_Box.Get()` can't be called (unregistered return type); use `SquareExtent()`/`CornerMin()`.
 - A scratch script named like a stdlib module (`inspect.py`) next to a script breaks numpy imports in Blender's
   Python ("No module named 'bpy'"): name probes `bl_*.py`.
@@ -170,7 +174,8 @@ spike/s08_build_extension.sh                                               # per
 
 - **Bevel's Clamp Overlap** (on by default) clamps the *whole* bevel to its tightest spot: short chords of a
   triangulated flat cap or of ears along an arc make a 1 mm bevel remove almost nothing. Flat faces are one
-  polygon, or convex polygons around holes (ADR 0008); check any new tessellation with clamp on vs off.
+  polygon, or convex polygons around holes with collars of radial quads around curved holes (ADR 0008 and its
+  addendum); check any new tessellation with clamp on vs off.
 - **Picking with modifiers:** `scene.ray_cast` returns polygon indices of the *evaluated* mesh; read attributes
   from `obj.evaluated_get(depsgraph).data`. Modifiers keep `brep_face_id` on new faces (copied from their source
   face), so an Array copy has the id but not the position: check the hit lies on the face's exact plane.
@@ -186,10 +191,14 @@ spike/s08_build_extension.sh                                               # per
 - `context.preferences.system.ui_scale` is 0.0 in background mode: use `ui_scale or 1.0` for pixel thresholds.
 - `gui_check.py -- --only 17,18` runs single steps; a step that makes parts from Python must push an undo step
   (`ed.undo_push`) before testing undo, or the undo goes back past the part.
-- **Display tessellation (ADR 0010):** every face is meshed from one shared edge discretization
-  (`worker/meshing.py`); BRepMesh is only a loud fallback. OCCT's vertex blends (fillet corner patches) have
+- **Display tessellation (ADR 0005, ADR 0010):** BRepMesh triangulates curved faces with Delaunay in (u, v) space
+  and gives fans, slivers and a distorted seam band that no parameter fixes, so every face is meshed from one
+  shared edge discretization (`worker/meshing.py`); BRepMesh is only a loud fallback. The tolerance is a scene
+  setting (mm, default 1) and part of the tag. OCCT's vertex blends (fillet corner patches) have
   curvature spikes (radius 0.07 mm) and vanishing derivatives: never size a grid from the raw max curvature.
   Any density rule needs a cap (cells per face, intervals per edge, growth while matching sides): an unbounded
   one hung the worker in the GUI. Fuzz random cut+fillet parts (`display_mesh` time, closed mesh) after changes.
 - BRepMesh with `Angle = a` turned curves by about a/2 per segment (a 10 mm circle at 0.3 rad: 42 segments):
   ADR 0010 keeps that density (`seg_angle = ang_defl / 2`); tests on normals and fillet volumes depend on it.
+- **Any change to the display mesh must bump `part.MESH_FORMAT`** (part of every mesh tag), or saved files keep
+  the old mesh (the 10° face-point change missed it at first).

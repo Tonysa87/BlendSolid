@@ -1,6 +1,6 @@
 # ADR 0011: Handles of one focused feature; cutters hidden in a collection
 
-- **Status:** accepted (2026-09-28, decided from research, awaiting the maintainer's GUI check)
+- **Status:** accepted (2026-09-28, decided from research; checked by the maintainer in the GUI on 2026-09-28)
 - **Date:** 2026-09-28
 - **Research:** `docs/research/2026-09-28-handles-and-tool-bodies.md`
 

@@ -148,6 +148,9 @@ numpy arrays as raw bytes. Medians over 20–30 recomputes (build + tessellation
    (with every dependency: 214 MB excluding numpy).
 2. **`typing_extensions` conflict:** build123d wants ≥ 4.16 (`typing_extensions.sentinel`), Blender 5.2 bundles
    4.14.1, which takes precedence → `ImportError`. Still to check whether a wheel in the extension can override it.
+   *Update:* a bundled wheel does override Blender's module, but for Blender and every add-on (extension
+   site-packages precede Blender's in `sys.path`; CLAUDE.md pitfall), so it is not a fix: build123d and its
+   dependencies load only in the worker, from a private library folder (ADR 0001).
 3. **OCP 8 API differs from OCP 7** (examples and snippets found online don't work):
    `TopTools_IndexedMapOfShape` → `OCP.collections.IndexedMap_TopoDS_Shape_TopTools_ShapeMapHasher`;
    `TopoDS.Face_s(x)` → `TopoDS.Face(x)`; `Standard_Version` not exposed.
