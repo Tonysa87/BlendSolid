@@ -131,14 +131,15 @@ def test_solidify_array_subdivision(default_part):
     default_part.modifiers.remove(array)
     add(default_part, "SUBSURF", levels=1)
     holes, smoothed = stats(default_part)
-    # a box without support loops shrinks a lot (measured 47 % of the volume left; 53 % before the collars)
+    # a box without support loops shrinks a lot (measured 52 % of the volume left; 53 % before the collars)
     assert holes == 0 and 0.4 * before < smoothed < before
     mesh = evaluated(default_part)
     normals = np.empty(3 * len(mesh.polygons))
     mesh.polygons.foreach_get("normal", normals)
     top = face_ids(mesh) == top_face_id(default_part)  # the top face has the boss: collar pieces, all convex
     assert top.any() and (normals.reshape(-1, 3)[top, 2] > 0).all()  # no child polygon folded over
-    assert part.face_id(evaluated(default_part), hit_polygon(default_part, 5, 25)) == top_face_id(default_part)
+    # the corners shrink most: pick nearer the middle than the other tests
+    assert part.face_id(evaluated(default_part), hit_polygon(default_part, 8, 22)) == top_face_id(default_part)
 
 
 # -- picking: Draw Solid's plane on a part with modifiers ------------------------------------------------------

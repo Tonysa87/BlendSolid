@@ -59,3 +59,39 @@ used as the base of a modifier workflow. Milestone 2 also needs the CAD edges in
   sharp where either end is angled.
 - Known: a Boolean modifier's operand polygons get `brep_face_id` 0; the on-plane check keeps them from using
   face 0's exact plane unless they lie on it.
+
+## Addendum (2026-09-28, session 8): collars around curved holes
+
+The maintainer found the fans of slivers of flat faces with holes ugly (research:
+`docs/research/2026-09-28-planar-faces-with-holes.md`). Changes (`worker/tessellate.py`):
+
+1. **Collars.** A hole of ≥ 8 nodes, star-shaped from its centroid, gets a rectangle around it at 35% of its
+   clearance to the other loops (`_COLLAR_SHARE`), with one radial piece per hole node (`_collar`). The region
+   outside the collars is triangulated and merged as before (`_collared`).
+2. **No thin Catmull–Clark children** (`_thin_children`, `_FACE_POINT_ANGLE` = 20°). A merge is refused when the
+   merged polygon has a straight corner (a run of collinear collar nodes, turn < 1°) that sees the polygon's
+   vertex average within 20° of its sides. Subdivision Surface puts the face point at the vertex average: a
+   collar side of 9 nodes inside one trapezoid had its face point far along the side, and the children there
+   folded. Before this rule the collars folded 1–38 children per test part in one Catmull–Clark step; milestone
+   2's fans folded too (plate with a small hole 72, bolt circle 36, two bosses 17), which the default-part-only
+   test had missed.
+3. **BRep vertices keep a corner** (`keep` in `_merge_convex`): where a bevelled edge ends in a tangent arc, a
+   merge may not make the vertex a nearly straight corner.
+
+Measured (unit test `test_subdivision_folds_nothing_around_holes`, simulation `spike/m2_flat_faces/cc_folds.py`,
+Blender tests): no folded child on the six test parts; Bevel 2 mm by weight on the default part removes the same
+volume with Clamp Overlap on and off (a hole, a boss likewise at 0.5–2 mm); fuzz 7 × 60–80 random parts: no
+fallback, closed, ≤ 0.33 s. Smallest polygon corner on holed faces: bolt circle 1.2° → 38°, slot 0.9° → 15°,
+washer 5.4° → 45°, plate with a small hole 0.13° → 45°.
+
+Tuning found by measurement: a collar at 45% of the clearance left a low strip between its side and the face's
+edge, whose wedges to the face's corners were 2° slivers that Bevel 2 mm + Subdivision folded; at 25–35% there
+is room for fat pieces. A stricter rule (≥ 23°) split the fillet arc of the default part between two polygons,
+and Blender's clamp (`geometry_collide_offset`: an un-bevelled edge at angle θ to a bevelled chord adds cot θ to
+the chord's "collapse" sum) then limited a 2 mm bevel to 1.5 mm through the arc's 0.7 mm chords.
+
+Known limit: a hole close to a straight edge (e.g. bosses 4 mm from it) leaves a thin strip between its collar
+and that edge; with no vertex allowed on a BRep edge, the strip can only be fans to the edge's two ends (min
+corner 0.3° on the two-bosses face, 0.02° for a hole 0.3 mm from an edge). They don't fold under Subdivision.
+Collars are aligned with the outer loop's longest segment, so on round faces (washer, bolt circle) they are
+tilted; cosmetic.

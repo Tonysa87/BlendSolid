@@ -583,15 +583,40 @@ def _convex_at(pts, loop, v, normal):
 _STRAIGHT = math.radians(10)  # a BRep vertex's corner turning less than this keeps an interior edge
 
 
-def _straight_at(pts, loop, v):
-    """Does `loop` turn by less than _STRAIGHT at vertex v?"""
+def _straight_at(pts, loop, v, limit=_STRAIGHT):
+    """Does `loop` turn by less than `limit` at vertex v?"""
     i = loop.index(v)
     a, b, c = pts[loop[i - 1]], pts[v], pts[loop[(i + 1) % len(loop)]]
     u = [y - x for x, y in zip(a, b)]
     w = [y - x for x, y in zip(b, c)]
     dot = sum(x * y for x, y in zip(u, w))
     norm = math.sqrt(sum(x * x for x in u) * sum(x * x for x in w))
-    return norm > 0 and dot > norm * math.cos(_STRAIGHT)
+    return norm > 0 and dot > norm * math.cos(limit)
+
+
+_COLLINEAR = math.radians(1)  # a run of collar nodes, not an arc's nodes (an arc keeps its face point near it)
+_FACE_POINT_ANGLE = math.radians(20)  # at a straight corner, least angle from its sides to the face point
+
+
+def _thin_children(pts, loop):
+    """Would Catmull-Clark make thin (foldable) children in polygon `loop`? Subdivision Surface puts the face
+    point at the vertex average; at a nearly straight corner the child quad spans that corner, its two edge
+    points (almost on the corner's line) and the face point, so a face point seen from the corner almost along
+    its sides gives a sliver child that the edge points' pull toward the face point flips (measured on the
+    default part: a collar's side of 9 collinear nodes in one outer polygon folded)."""
+    m = len(loop)
+    f = [sum(pts[v][k] for v in loop) / m for k in range(3)]
+    for i in range(m):
+        if not _straight_at(pts, loop, loop[i], _COLLINEAR):
+            continue
+        a, b = pts[loop[i - 1]], pts[loop[i]]
+        u = [y - x for x, y in zip(a, b)]
+        w = [y - x for x, y in zip(b, f)]
+        cross = (u[1] * w[2] - u[2] * w[1], u[2] * w[0] - u[0] * w[2], u[0] * w[1] - u[1] * w[0])
+        nu, nw = math.sqrt(sum(x * x for x in u)), math.sqrt(sum(x * x for x in w))
+        if nu * nw > 0 and math.sqrt(sum(x * x for x in cross)) < math.sin(_FACE_POINT_ANGLE) * nu * nw:
+            return True
+    return False
 
 
 def _merge_convex(t, pts, keep=()):
@@ -632,6 +657,8 @@ def _merge_convex(t, pts, keep=()):
             continue
         if (a in keep and _straight_at(pts, merged, a)) or (b in keep and _straight_at(pts, merged, b)):
             continue
+        if _thin_children(pts, merged):
+            continue
         del polys[q]
         polys[p] = merged
         for k in range(m):
@@ -642,7 +669,9 @@ def _merge_convex(t, pts, keep=()):
 
 
 _COLLAR_MIN_NODES = 8  # holes with fewer nodes (pockets, polygonal cuts) already decompose into few good pieces
-_COLLAR_SHARE = 0.45  # of a collar's clearance to the other loops (two neighbours keep a gap between their collars)
+_COLLAR_SHARE = 0.35  # of a collar's clearance to the other loops. Neighbours keep a gap between their collars;
+# a narrower collar leaves room outside it for fat pieces (0.45: Bevel 2 mm + Subdivision folded slivers from a
+# corner to the collar's side on the default part; 0.25-0.35: none on the test parts, Bevel not clamped)
 
 
 def _cycles(t):

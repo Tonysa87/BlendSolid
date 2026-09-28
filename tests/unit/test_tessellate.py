@@ -262,7 +262,7 @@ def test_flat_faces_without_holes_are_one_polygon():
         if BRepAdaptor_Surface(face).GetType() != GeomAbs_Plane or per_face[fid] == 1:
             continue
         polys = np.nonzero(holed.poly_face == fid)[0]
-        assert holed.poly_sizes[polys].min() >= 4  # the collar's radial quads and the pieces outside it
+        assert holed.poly_sizes[polys].min() >= 3  # radial quads; outside, triangles where a merge would fold
         normal = np.zeros(3)
         for p in polys:  # every polygon convex, all turning the same way
             loop = v[holed.loops[starts[p]:starts[p] + holed.poly_sizes[p]]]
@@ -293,9 +293,11 @@ def _corner_angles(loop):
 COLLARED = {  # (part, smallest polygon corner in degrees on its holed faces; before the collars 0.13-1.16)
     "plate_small_hole": (lambda: bd.Box(200, 200, 5) - bd.Cylinder(3, 20), 40),
     "washer": (lambda: bd.Cylinder(20, 5) - bd.Cylinder(8, 20), 40),
-    "slot": (lambda: bd.Box(60, 30, 10) - bd.extrude(bd.SlotOverall(30, 8), 20, both=True), 20),
+    "slot": (lambda: bd.Box(60, 30, 10) - bd.extrude(bd.SlotOverall(30, 8), 20, both=True), 8),
+    # the bosses are 4 mm from the face's edge: the thin strip between their collars and that edge can only be
+    # fans to the edge's two ends (no vertex may be added on a BRep edge)
     "two_bosses": (lambda: bd.Box(100, 40, 100) + [bd.Pos(x, -20, 38) * bd.Rot(90, 0, 0) * bd.Cylinder(8, 30)
-                                                    for x in (-25, 25)], 8),
+                                                    for x in (-25, 25)], 0.1),
     "bolt_circle": (lambda: bd.Cylinder(50, 5) - [bd.Pos(35 * math.cos(a), 35 * math.sin(a), 0) * bd.Cylinder(4, 20)
                                                    for a in np.arange(6) * math.pi / 3], 30),
 }
@@ -328,6 +330,47 @@ def test_curved_holes_in_flat_faces_get_collars(name):
         tri = t[f == fid]
         expected = np.linalg.norm(np.cross(v[tri[:, 1]] - v[tri[:, 0]], v[tri[:, 2]] - v[tri[:, 0]]), axis=1).sum() / 2
         assert area == pytest.approx(expected, rel=1e-6)  # the pieces tile the face's boundary polygon
+
+
+def _catmull_clark_folds(m):
+    """Child polygons of one Catmull-Clark step (Subdivision Surface on a closed mesh) facing against their
+    parent polygon."""
+    v = m.verts.astype(np.float64)
+    polys = [m.loops[s:s + n].tolist() for s, n in zip(poly_starts(m), m.poly_sizes)]
+    fp = np.array([v[p].mean(0) for p in polys])
+    edge_faces, vert_faces, vert_edges = {}, {}, {}
+    for i, p in enumerate(polys):
+        for k in range(len(p)):
+            a, b = p[k], p[(k + 1) % len(p)]
+            edge_faces.setdefault((min(a, b), max(a, b)), []).append(i)
+            vert_faces.setdefault(a, []).append(i)
+    for e in edge_faces:
+        for x in e:
+            vert_edges.setdefault(x, []).append(e)
+    ep = {e: (v[e[0]] + v[e[1]] + fp[f].sum(0)) / (2 + len(f)) for e, f in edge_faces.items()}
+    vp = {}
+    for x, fs in vert_faces.items():
+        n = len(fs)
+        mid = np.mean([(v[a] + v[b]) / 2 for a, b in vert_edges[x]], axis=0)
+        vp[x] = (fp[fs].mean(0) + 2 * mid + (n - 3) * v[x]) / n
+    folds = 0
+    for i, p in enumerate(polys):
+        parent = sum(np.cross(v[p[k]] - fp[i], v[p[(k + 1) % len(p)]] - fp[i]) for k in range(len(p)))
+        for k in range(len(p)):
+            a, b, c = p[k - 1], p[k], p[(k + 1) % len(p)]
+            q = [vp[b], ep[(min(b, c), max(b, c))], fp[i], ep[(min(a, b), max(a, b))]]
+            child = np.cross(q[1] - q[0], q[3] - q[0]) + np.cross(q[3] - q[2], q[1] - q[2])
+            folds += np.dot(child, parent) <= 0
+    return folds
+
+
+@pytest.mark.parametrize("name", sorted(COLLARED))
+def test_subdivision_folds_nothing_around_holes(name):
+    # A convex polygon holding a long straight run of nodes (a collar's side) has its Catmull-Clark face point far
+    # along the run: the children at the run's nodes are slivers that fold. Milestone 2's fans of slivers folded
+    # too (plate 72, bolt circle 36, two bosses 17 children); plain collars as well (slot 32, two bosses 38).
+    folds = _catmull_clark_folds(tessellate.display_mesh(COLLARED[name][0]().wrapped, 1.0, ANG))
+    assert folds == 0
 
 
 @pytest.mark.parametrize("name", sorted(DISPLAY_SHAPES))
