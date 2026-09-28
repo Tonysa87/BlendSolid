@@ -74,6 +74,21 @@ Full comparison with Plasticity commands: Plasticity command by command
 | Blender output | Adjustable tessellation, hard edges, UV seams | Quad mesh for simple faces | Quads on trimmed faces (QuiltMesher) |
 | I/O | STEP, IGES, BREP | Hidden line SVG | — |
 
+## Candidate features (backlog, 2026-09-28)
+
+From `docs/research/2026-09-28-modeling-feature-survey.md` (Plasticity, FORGE, Fusion, Shapr3D, MoI, Onshape, Rhino,
+SolidWorks, Blender hard-surface add-ons). Not scheduled: pulled into a sub-milestone when the usage checkpoint
+(after 3a) or real use asks for them. Suggested places in brackets.
+
+- Slice a part into two parts (3c); inset panel on flat faces (3c); rule fillet: all edges of a face/feature,
+  convex or concave only (3b); hole feature with ISO presets, counterbore/countersink, cosmetic thread (3b);
+  boundary fill / cells (3c); exact panel lines and grooves along a curve (3c/3d); 3D text and emboss/deboss on
+  cylinders and cones (3a/3c); rib/web (3b/3c); interference, mass properties, live section (3e).
+- Later: grille/vent generator; edit or remove fillets by radius on imported solids; helix/coil; named variables
+  shared across parts.
+- Not planned: Flex/Deform/Twist/Flow (Blender's deform modifiers cover them on the mesh), Dome, sheet metal,
+  BoxCutter's Extract (cutters are already in the history).
+
 ## Milestones
 
 Decisions of 2026-09-28 (maintainer): publication on extensions.blender.org only at the end of everything;
@@ -89,7 +104,7 @@ We start with a 1–2 day spike; every milestone has a measurable criterion.
 | 1 | History as code | build123d script saved in the `.blend`; changing a parameter → correct recomputation; worker in a separate process |
 | 1.5 | Build without selectors (added 2026-09-26) | A user builds the milestone 1 default part and a bracket with 3 holes using only parametric primitives (Shift+A), the Draw Solid tool (on a face or the grid; union/cut by drag direction) and booleans between parts with live cutters; every step is one undo step and one script edit |
 | 2 | Selectors from clicks | Starts with face/edge → feature provenance from the worker. 95% of the edges **and faces** clicked on a set of 20 parts produce a unique selector that survives 3 upstream changes |
-| 3 | Complete hard-surface modeling (redefined 2026-09-28) | All in the CAD kernel (exact, filletable, STEP-exportable), one sub-milestone at a time: **3a** 2D sketch on a face or plane + extrude/revolve; **3b** chamfer with two distances or distance + angle (side choice) and variable fillet; mirror, linear/polar array, shell/thicken as CAD features with Blender-modifier-like UI; **3c** direct editing: offset face, delete face with healing, draft face; split body/imprint, cut by sketch; **3d** loft, sweep, pipe; **3e** analysis mode (Blender's `reflection_check_*` matcaps are the zebra: the mode switches to them and re-tessellates finely for the analysis, then restores) and measurements, STEP/IGES/BREP I/O, convert to quads. Each sub-milestone gets its measurable criterion when planned. Distributed from the GitHub extension repository (ADR 0001) |
+| 3 | Complete hard-surface modeling (redefined 2026-09-28) | All in the CAD kernel (exact, filletable, STEP-exportable), one sub-milestone at a time: **3a** 2D sketch on a face or plane + extrude (with taper angle and up-to-face/next/last) / revolve, and STEP/IGES/BREP import/export (moved up from 3e: real parts to test on, and to exchange with other CAD); then a **usage checkpoint**: the maintainer models 2–3 real objects end to end, and the friction found orders what follows; **3b** chamfer with two distances or distance + angle (side choice) and variable fillet; mirror, linear/polar array, shell/thicken as CAD features with Blender-modifier-like UI; **3c** direct editing: offset face, delete face with healing, draft face; split body/imprint, cut by sketch; **3d** loft, sweep, pipe; **3e** analysis mode (Blender's `reflection_check_*` matcaps are the zebra: the mode switches to them and re-tessellates finely for the analysis, then restores) and measurements, convert to quads. Each sub-milestone gets its measurable criterion when planned. Distributed from the GitHub extension repository (ADR 0001) |
 | 4 | SubD → NURBS | Regular faces converted with deviation ≤ tolerance; solid valid for OCCT |
 | 5 | G2 surfaces | G2 blend between untrimmed edges with curvature jump below threshold |
 | 6 | G2 fillets and Y-blend | To be defined after milestone 5 |

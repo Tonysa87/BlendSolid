@@ -101,18 +101,32 @@ sign-off** (`docs/milestone-2-report.md`). Read this first when resuming, then "
   installed in the portable Blender.
 
 ## Next step (session 9) — resume exactly here
-1. The maintainer's GUI check (steps in chat, session 8): focused arrows (click a hole's face → its arrows; click
-   empty space → none), cutters hidden after a boolean and brought back (eye in "Booleans of this part", Alt+H),
-   the two-bosses scene in wireframe with Bevel + Subdivision, a fillet dragged too far (header message). Then
-   milestone 2 sign-off; merge `milestone-2` into `main`.
-2. Only after sign-off: milestone 3, redefined by the maintainer on 2026-09-28 as "complete hard-surface
-   modeling" in sub-milestones 3a–3e (`docs/spec.md`); publication on extensions.blender.org only at the very end.
-   First, a small completion of the Fillet tool: chamfer with two distances / distance + angle and the choice of
-   side (the kernel already supports `length2`). Then plan 3a (sketch + extrude/revolve) from research on
-   Plasticity/Fusion/Shapr3D/Onshape sketching and recent literature.
-3. Open M2 follow-ups (see the report): highlight failing fillet edges; a geometric radius bound with a reason;
-   choosing the continuing piece of a split face; a per-job time budget in the worker; UX redesign of the tools'
-   feedback; ADR 0011's open points.
+1. **The maintainer's GUI check of milestone 2** (they are about to run it; steps below). Compare their reports with
+   the numbers; fix what they find; then sign-off and merge `milestone-2` into `main`.
+2. **Complete the chamfer** in the Fillet tool: two distances or distance + angle, choice of side (the kernel
+   already supports `length2`; `worker/blends.py`), in the Adjust Last Operation panel and a key while dragging.
+3. **Plan 3a** (sketch 2D on a face/plane, extrude with taper and up-to-face, revolve, STEP/IGES/BREP I/O): research
+   Plasticity/Fusion/Shapr3D/Onshape/FORGE sketching and recent literature first (sketch solvers, region detection
+   from curves), then design + plan + ADRs. After 3a: the usage checkpoint (the maintainer models 2–3 real objects;
+   friction orders what follows; backlog in `docs/spec.md` "Candidate features").
+4. Open M2 follow-ups (report): highlight failing fillet edges; a geometric radius bound with a reason; the
+   continuing piece of a split face; a per-job time budget in the worker; UX redesign of the tools' feedback;
+   ADR 0011's open points.
+
+### GUI check steps (portable Blender, `E:\blender-5.2.2-windows-x64`, zip of session 8 installed)
+1. Shift+A → BlendSolid → Box; Draw Solid tool, draw a cylinder into the top face (a cut). Expected: blue arrows
+   only on the hole. Select tool: click the top face → the box's arrows; click the hole's bottom → the hole's;
+   click empty space → none. Sidebar "Arrows of:" lists box_1 / cut_1.
+2. A cylinder through the box; select the cylinder, then the box (active), Ctrl+Numpad −. Expected: the cylinder
+   disappears (collection "BlendSolid Cutters"), the hole stays; G on the box → the hole follows; the eye in
+   "Booleans of this part" shows/hides the cutter; Select Cutter selects it.
+3. The two-bosses scene (a box with two cylinders near an edge) in wireframe: collars of radial quads around
+   the bosses; add Bevel (Limit Method: Weight) then Subdivision: nothing folds (screenshot).
+4. Fillet tool: select an edge, drag the radius far beyond the part. Expected: the header says "can't: fillet
+   radius … mm is too large …: the largest that works is … mm"; releasing leaves the error in the sidebar, Ctrl+Z
+   undoes it. Click an edge between a fillet and a flat face: "nothing to round" warning, nothing selected.
+5. A face split by a later change (e.g. a wall that stops reaching an edge): the sidebar shows "Check these
+   references".
 
 ## Working agreement with the maintainer
 - Repo content in English; chat in Italian.
