@@ -159,6 +159,7 @@ def _build(source, filename, deps, cache, depth=0, tracker=None):
     ns = provenance.namespace(tracker)
     ns["ref"] = _make_ref(deps, cache, depth)
     exec(code, ns)
+    tracker.flush()
     return _result_shape(ns)
 
 

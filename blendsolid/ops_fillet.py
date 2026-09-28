@@ -14,7 +14,7 @@ import bpy
 from bpy.props import BoolProperty, FloatProperty, StringProperty
 from mathutils import Matrix
 
-from . import focus, part, script_model
+from . import focus, part, primitives, script_model
 
 
 def _local_part(name):
@@ -23,13 +23,7 @@ def _local_part(name):
 
 
 def feature_spec(references, radius, chamfer=False):
-    """The FeatureSpec of a fillet (or chamfer) of `references` (reference texts: edge_between(...),
-    edges_of(face(...))): one call on their sum (build123d ShapeLists add up)."""
-    joined = " + ".join(references)
-    if chamfer:
-        return script_model.FeatureSpec("chamfer", (("length", float(radius)),),
-                                        f"chamfer({joined}, length={{name}}_length)")
-    return script_model.FeatureSpec("fillet", (("radius", float(radius)),), f"fillet({joined}, radius={{name}}_radius)")
+    return primitives.blend_spec(references, radius, chamfer)
 
 
 class BLENDSOLID_OT_fillet(bpy.types.Operator):

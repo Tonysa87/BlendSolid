@@ -128,6 +128,7 @@ class Tracker:
         self.history = {}         # feature name -> [(face, label)] right after it
         self.warnings = []        # (script line or None, message): references that resolved, but doubtfully
         self.filename = None      # the script's compiled filename: warnings take their line from its frame
+        self._pending = []        # (faces, (line, message)) waiting to see whether edge_between() takes them
 
     def warn(self, message):
         """Record a warning on the script line being run (the innermost frame of the part script)."""
@@ -141,6 +142,23 @@ class Tracker:
         if (line, message) not in self.warnings:
             self.warnings.append((line, message))
 
+    def defer(self, faces, message):
+        """A warning about `faces` (a face() result) that holds only if they are used as they are: edge_between()
+        takes them as one side of a pair, where a role naming several faces is normal (it consumes them)."""
+        before = len(self.warnings)
+        self.warn(message)  # finds the script line now, while the script's frame is on the stack
+        self._pending.append((faces, self.warnings.pop()) if len(self.warnings) > before else (faces, None))
+
+    def consume(self, faces):
+        self._pending = [(f, m) for f, m in self._pending if f is not faces]
+
+    def flush(self):
+        """Record the deferred warnings still standing (at the end of each feature, and of the script)."""
+        pending, self._pending = self._pending, []
+        for _, warning in pending:
+            if warning is not None and warning not in self.warnings:
+                self.warnings.append(warning)
+
     def labels(self):
         return [(TopoDS.Face(self._index.FindKey(i + 1)), label) for i, label in enumerate(self._label_list)]
 
@@ -149,6 +167,7 @@ class Tracker:
         return self._label_list[i - 1] if i > 0 else None
 
     def step(self, feature, builder, rotation):
+        self.flush()
         part = builder.part
         self.features.append(feature)
         if self._shape is not None and part.wrapped.IsSame(self._shape):  # the statement didn't change the part
@@ -160,20 +179,26 @@ class Tracker:
             labels = [(feature, "new")] * len(faces)
         else:
             before, brought = record._from()
-            labels = [self._label(feature, f, before, brought, rotation) for f in faces]
+            own = ShapeMap()  # the brought-in faces as they are in the feature's own solid (orientation included)
+            for shape in record.brought:
+                TopExp.MapShapes_s(shape, TopAbs_FACE, own)
+            labels = [self._label(feature, f, before, brought, rotation, own) for f in faces]
         index = ShapeMap()
         for f in faces:
             index.Add(f)
         self._index, self._label_list, self._shape, self._ancestors = index, labels, part.wrapped, None
         self.history[feature] = self.labels()
 
-    def _label(self, feature, f, before, brought, rotation):
+    def _label(self, feature, f, before, brought, rotation, own):
         if before.untouched.Contains(f):
             return self.label_of(f) or (feature, "new")
         if before.modified_from.IsBound(f):
             return self.label_of(before.modified_from.Find(f)) or (feature, "new")
         if brought.untouched.Contains(f):
-            return feature, _role(f, rotation)
+            # the role of the face as it is in the feature's solid: a cut's untouched wall is reversed in the part,
+            # and computing its role there swapped +X and -X whenever OCCT left the wall untouched (vs modified)
+            i = own.FindIndex(f)
+            return feature, _role(TopoDS.Face(own.FindKey(i)) if i > 0 else f, rotation)
         if brought.modified_from.IsBound(f):
             return feature, _role(TopoDS.Face(brought.modified_from.Find(f)), rotation)
         if before.generated_from.IsBound(f):
@@ -264,16 +289,18 @@ def _helpers(tracker):
                                   else f"no face of {feature} is left")
         if near is not None:
             found = [_closest_centre(found, near, tracker.warn, f"the {what} face near {_point(near)}")]
-        elif role is not None and len(found) > 1:  # a click writes a plain role only when it names one face
-            tracker.warn(f"face {what} now names {len(found)} faces (it was split by a change before it): the "
-                         f"feature uses all of them")
         out = ShapeList(found)
         out._bs_name = what
+        if near is None and role is not None and len(found) > 1:  # a click writes a plain role only for one face
+            tracker.defer(out, f"face {what} now names {len(found)} faces (it was split by a change before it): "
+                               f"the feature uses all of them")
         return out
 
     def edge_between(a, b, near=None):
         """The edges shared by a face of `a` and a face of `b` (results of face()); with `near`, the one whose
         centre is closest to it."""
+        tracker.consume(a)
+        tracker.consume(b)
         second = ShapeMap()
         for f in b:
             for e in _edges(f.wrapped):

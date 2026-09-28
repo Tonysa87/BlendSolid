@@ -151,3 +151,21 @@ def arrows(feature, values):
             origin[g.shift[1]] += v[g.shift[0]]
         out.append(Arrow(f"{feature.name}_{g.param}", tuple(origin), tuple(direction), scale))
     return out
+
+
+def blend_spec(references, size, chamfer=False):
+    """The Fillet tool's feature: a fillet (or chamfer) of `references` (reference texts: edge_between(...),
+    edges_of(face(...))), one call on their sum (build123d ShapeLists add up)."""
+    joined = " + ".join(references)
+    if chamfer:
+        return FeatureSpec("chamfer", (("length", float(size)),), f"chamfer({joined}, length={{name}}_length)")
+    return FeatureSpec("fillet", (("radius", float(size)),), f"fillet({joined}, radius={{name}}_radius)")
+
+
+def push_spec(reference, amount):
+    """The Push/Pull tool's feature: extrude face `reference` by `amount` mm (out of the part adds, into it cuts)."""
+    if amount >= 0:
+        return FeatureSpec("push", (("amount", float(amount)),),
+                           f"extrude({reference}, amount={{name}}_amount, mode=Mode.ADD)")
+    return FeatureSpec("push", (("amount", float(-amount)),),
+                       f"extrude({reference}, amount=-{{name}}_amount, mode=Mode.SUBTRACT)")

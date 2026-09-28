@@ -65,3 +65,12 @@ references" with the message (and the line when scripts are shown). The worker r
   (`provenance.AMBIGUOUS`): the point no longer tells them apart.
 Repair stays manual in milestone 2 (undo the upstream change, remove the feature, or redo it with the tool);
 ghost overlay and suggested repairs are follow-ups.
+
+Found by the success-criterion test (phase F), same session:
+- **Roles of a cut's faces were unstable**: a face brought in by a feature and left untouched by the boolean had
+  its role computed on the result's face, which a subtraction reverses (the cutter's +X wall faces -X in the
+  part), while a modified one used the feature's own face. The same wall swapped +X/-X depending on whether OCCT
+  touched it (a slot as wide as the box, then the box narrower): silent wrong bindings. Roles now always use the
+  face as it is in the feature's own solid.
+- The "names several faces" warning is deferred and dropped when the faces are one side of `edge_between()`
+  (there a role naming several faces is normal, e.g. a fillet's `blend`).

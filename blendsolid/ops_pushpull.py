@@ -9,7 +9,7 @@ calling it, Blender's redo re-runs it, tests call it). Curved faces are refused 
 import bpy
 from bpy.props import FloatProperty, StringProperty
 
-from . import focus, part, script_model
+from . import focus, part, primitives, script_model
 
 
 def _local_part(name):
@@ -18,12 +18,7 @@ def _local_part(name):
 
 
 def feature_spec(reference, amount):
-    """The FeatureSpec extruding face `reference` by `amount` mm: out of the part (> 0) adds, into it cuts."""
-    if amount >= 0:
-        return script_model.FeatureSpec("push", (("amount", float(amount)),),
-                                        f"extrude({reference}, amount={{name}}_amount, mode=Mode.ADD)")
-    return script_model.FeatureSpec("push", (("amount", float(-amount)),),
-                                    f"extrude({reference}, amount=-{{name}}_amount, mode=Mode.SUBTRACT)")
+    return primitives.push_spec(reference, amount)
 
 
 def face_id_of(obj, reference):
