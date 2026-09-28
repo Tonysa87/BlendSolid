@@ -1,7 +1,7 @@
 # Where we are / what's next (bookmark)
 
-Updated: 2026-09-28, session 8 (collars fixed and merged; handles/cutters UX, ADR 0011). Read this first when
-resuming, then "Session 8".
+Updated: 2026-09-28, end of session 8: **milestone 2 complete, waiting for the maintainer's GUI check and
+sign-off** (`docs/milestone-2-report.md`). Read this first when resuming, then "Session 8".
 
 ## State
 - **Milestone 0 (spike):** done — `SPIKE_REPORT.md`.
@@ -86,19 +86,29 @@ resuming, then "Session 8".
   in the real Windows window; 244 unit + 225 Blender tests. Windows zip built and **installed in the portable
   Blender** (smoke PASS).
 
+- **Fillet edge cases** (research `docs/research/2026-09-28-fillet-edge-cases.md`, ~60 measured cases): part
+  scripts use `worker/blends.py`'s fillet()/chamfer(): results must be one valid solid of positive volume; errors
+  give the largest working size (bisection with a 2 s budget and probes around the limit), name seams/tangent/free
+  edges and slivers, and say "another face is in the way" when the working sizes aren't an interval. The Fillet
+  tool refuses clicks on tangent edges and shows the worker's error in the drag header. Tests T1–T23
+  (`tests/unit/test_blends.py`).
+- **Phase E (warnings)**: split faces/edges behind plain references and ambiguous `near=` build with a warning on
+  the feature's line, shown in the sidebar ("Check these references"). ADR 0009 addendum.
+- **Phase F (success criterion)**: `tests/unit/test_criterion.py` — 20 parts, 559 clicked entities, 97.1% survive 3
+  upstream changes, 100% an inserted feature, 0 silent wrong bindings. It found a provenance bug (roles of a cut's
+  untouched faces were reversed: +X/−X swapped), fixed. Milestone report written.
+- 281 unit + 227 Blender tests; `gui_check` 21/21 on Linux and Windows; the Windows zip (all of the above) is
+  installed in the portable Blender.
+
 ## Next step (session 9) — resume exactly here
-1. The maintainer's GUI check (steps given in chat, session 8): collars on the two-bosses scene (wireframe, Bevel
-   + Subdivision), focus clicks on faces of cuts, cutters hidden after a boolean and brought back.
-2. Fillet edge cases (maintainer's request): research online the typical failure cases of CAD fillets/chamfers
-   (OCCT `BRepFilletAPI_MakeFillet` known failures, FreeCAD/Fusion/Onshape/SolidWorks docs: radius larger than a
-   face, vertex blends where 3+ fillets meet, tangent chains, fillets next to fillets, mixed convex/concave,
-   fillets touching holes, asymmetric chamfers, tiny faces after booleans, seam edges, self-intersecting results);
-   write `docs/research/…-fillet-edge-cases.md`; turn each case into a test (script + Fillet tool path); fix what
-   fails (clear errors on the fillet's line, `max_fillet`, suggestions), otherwise document the limitation.
-3. If the check shows slow parts: a per-job time budget in the worker (BRepMesh fallback past a few seconds).
-4. Then milestone 2 phases E (broken references) and F (20-part corpus criterion test), report, sign-off.
-5. Later: UX redesign of the tools' on-screen feedback (the maintainer dislikes the yellow handle and the preview);
-   ADR 0011's open points (a focused boolean's cutter arrows drawn in place; "show all arrows" option).
+1. The maintainer's GUI check (steps in chat, session 8): focused arrows (click a hole's face → its arrows; click
+   empty space → none), cutters hidden after a boolean and brought back (eye in "Booleans of this part", Alt+H),
+   the two-bosses scene in wireframe with Bevel + Subdivision, a fillet dragged too far (header message). Then
+   milestone 2 sign-off; merge `milestone-2` into `main`.
+2. Only after sign-off: milestone 3 (publishable MVP) — plan it from `docs/spec.md` (one milestone at a time).
+3. Open M2 follow-ups (see the report): highlight failing fillet edges; a geometric radius bound with a reason;
+   choosing the continuing piece of a split face; a per-job time budget in the worker; UX redesign of the tools'
+   feedback; ADR 0011's open points.
 
 ## Working agreement with the maintainer
 - Repo content in English; chat in Italian.

@@ -14,15 +14,15 @@ STEP 12 OK union 12281.8, intersect 281.8 mm³ (Ctrl+Numpad keys, boolean ran, s
 STEP 13 OK simulated press: first ray hit is the wire cutter, the tool picked Box's -Y face (y = -15.000 mm)
 STEP 14 OK deleted: Box keeps its cut, no error, listed as deleted; undo -> cutter back, 36331.9 mm³
 STEP 15 OK 37 undos to the empty scene and 37 redos back; every step matched its scripts
-00:34.453  blend            | Read blend: "E:\bs_debug\gui8\gui-check.blend"
+00:34.469  blend            | Read blend: "E:\bs_debug\gui8\gui-check.blend"
 Info: Saved as "gui-check.blend"
 STEP 16 OK reopened untrusted: cached meshes, Recompute off, no recompute on move; trusted -> 37177.2 mm³
 STEP 17 OK simulated Ctrl drag; +1200.0 mm³ on Box.006 (z = 20.0 mm), Bevel result closed
 STEP 18 OK 2 edges picked by reference, dragged radius 6.00 mm -> 729.0 mm³ less; one undo removes it
 STEP 19 OK pull +X 12 mm, push top 6 mm (+7200.0 mm³ after undoing the push)
-STEP 20 OK script edit -> mesh: [81, 79, 79, 79, 80, 79, 80, 79] ms (median 79 ms)
+STEP 20 OK script edit -> mesh: [82, 79, 79, 80, 79, 80, 80, 79] ms (median 80 ms)
 STEP 21 OK clicks focus box_1: ['box_1_length', 'box_1_width', 'box_1_height']; cut_1: ['cut_1_radius', 'cut_1_height']; empty-space click deselects, no arrows
-WORKER PID 24760
+WORKER PID 12112
 SCREENSHOT E:\bs_debug\gui8\01-box.png
 SCREENSHOT E:\bs_debug\gui8\02-primitives.png
 SCREENSHOT E:\bs_debug\gui8\03-gizmo-drag.png
@@ -48,6 +48,6 @@ SCREENSHOT E:\bs_debug\gui8\22-push-pull-dragging-in.png
 SCREENSHOT E:\bs_debug\gui8\23-push-pull.png
 SCREENSHOT E:\bs_debug\gui8\24-focus-cut.png
 GUI CHECK PASS
-00:49.828  blend            | Saved session recovery to "C:\Users\Tony\AppData\Local\Temp\quit.blend"
+00:49.859  blend            | Saved session recovery to "C:\Users\Tony\AppData\Local\Temp\quit.blend"
 
 Blender quit
