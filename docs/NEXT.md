@@ -60,8 +60,11 @@ Updated: 2026-09-28, end of session 6 (milestone 2 phases A–D built on branch 
   `MESH_FORMAT` 6. The maintainer's first GUI test **hung the worker** (1000 mm box, cylinder cut on an edge,
   Fillet drag): fuzzing found curvature spikes on OCCT's vertex blends, unbounded density and endless side
   matching, quadratic boundary recovery and broken OCCT fillet results (now a clear part error); fixed (ADR 0010
-  addendum) with regression tests; over 1,000 fuzzed parts all under 1.5 s and closed. 233 unit + 210 Blender tests and `gui_check` (20/20, Linux) pass. **Windows zip built and installed; not yet checked by
-  the maintainer in the GUI.**
+  addendum) with regression tests; over 1,000 fuzzed parts all under 1.5 s and closed. 233 unit + 210 Blender tests and `gui_check` (20/20, Linux) pass. Windows zip built and installed. **Checked by the maintainer
+  on Windows (2026-09-28, session 7):** fillet.blend's bands/columns "ottimi"; the scenario that hung (1000 mm box,
+  cylinder cut on an edge, Fillet drag) is fast and correct. They then pointed at the fans of slivers on flat faces
+  with holes (ADR 0008's convex pieces, e.g. boolean holes of cylinders): to improve (research
+  `docs/research/2026-09-28-planar-faces-with-holes.md`).
 
 ## Next step (session 7)
 1. **GUI check of ADR 0010 with the maintainer (Windows):** relaunch `blender.exe >> spike/logs/gui-m2.log 2>&1`.
@@ -70,11 +73,9 @@ Updated: 2026-09-28, end of session 6 (milestone 2 phases A–D built on branch 
    new scene, Box 1000 mm, Draw Solid a cylinder cut on a vertical edge, Fillet tool on the cut face's edges, drag
    the radius up and down: results keep coming (no endless "computing"), mesh closed. Ask for screenshots of both;
    if the big cylinder's ~3 mm columns look too dense, tune `_ASPECT`/`_ASPECT_SPLIT` (meshing.py).
-2. **Known open case:** 1 of ~400 fuzzed parts has a face that falls back to BRepMesh (mesh open along it):
-   `tests/unit/data/fallback_open.brep`, strict xfail `test_fuzzed_part_without_fallback`. Find why `trimmed()`
-   gives up there (boundary recovery budget? pcurve loop?) and fix; the fuzz scripts are easy to recreate
-   (random box/cylinder cut on a 1000 mm box, fillet 1–4 random edges, `display_mesh` under an alarm, check
-   every mesh edge has two polygons).
+2. ~~Known open case~~ **resolved (session 7):** `fallback_open.brep` is an invalid OCCT result (a torus fillet face
+   overlapping itself in (u, v), BRepCheck fails), which the runner rejects before meshing; 347 valid fuzzed parts
+   had no fallback and closed meshes (max 0.34 s). The xfail became `test_invalid_part_is_rejected_before_tessellation`.
 3. If the check shows other slow parts: add a per-job time budget in the worker (tessellation falls back to BRepMesh
    for the remaining faces past a few seconds) — today only the client's 120 s job timeout exists.
 4. Fillet edge cases (maintainer's request): research online the typical failure cases of CAD fillets/chamfers

@@ -30,3 +30,6 @@ Blender quit
 05:26.344  blend            | Saved session recovery to "C:\Users\Tony\AppData\Local\Temp\quit.blend"
 
 Blender quit
+=== session 2026-09-28T12:26:17+02:00
+00:01.297  blend            | Read blend: "E:\bs_debug\fillet.blend"
+05:35.563  operator         | Deleted 1 object(s)

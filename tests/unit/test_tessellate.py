@@ -578,10 +578,11 @@ def test_implausible_fillet_edge_is_a_clear_error_not_a_hang():
     assert time.perf_counter() - start < 2.0
 
 
-@pytest.mark.xfail(reason="known (2026-09-28): one face of this fuzzed part isn't meshed from its edges (BRepMesh "
-                          "fallback, mesh open along it); see docs/NEXT.md", strict=True)
-def test_fuzzed_part_without_fallback():
-    m = tessellate.display_mesh(_read_brep("fallback_open.brep"), 1.0, ANG)
-    pairs, _ = sides(m)
-    _, counts = np.unique(np.sort(pairs, axis=1), axis=0, return_counts=True)
-    assert (counts == 2).all()
+def test_invalid_part_is_rejected_before_tessellation():
+    # The one fuzzed part whose face fell back to BRepMesh (mesh open along it) is an invalid OCCT result: a torus
+    # fillet face whose boundary covers its v=0 circle more than once around (overlapping itself in (u, v)).
+    # BRepCheck rejects it, and the runner reports "not a valid solid" before meshing (runner.run); display_mesh
+    # still returns a mesh for it instead of hanging. 347 valid fuzzed parts (2026-09-28) had no fallback.
+    shape = _read_brep("fallback_open.brep")
+    assert not tessellate.check(shape)["valid"]
+    tessellate.display_mesh(shape, 1.0, ANG)
