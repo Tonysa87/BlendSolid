@@ -253,7 +253,7 @@ def test_flat_faces_without_holes_are_one_polygon():
     for fid in flat:
         assert (cyl.poly_face == fid).sum() == 1 and cyl.poly_sizes[cyl.poly_face == fid][0] > 8
     assert (cyl.poly_sizes[~np.isin(cyl.poly_face, flat)] == 3).all()
-    shape, holed = display("box_with_hole")  # top and bottom have a hole: convex polygons around it
+    shape, holed = display("box_with_hole")  # top and bottom have a hole: convex polygons, a collar around it
     per_face = np.bincount(holed.poly_face)
     assert sum(1 for c in per_face if c == 1) == 4  # the four sides
     starts = poly_starts(holed)
@@ -262,8 +262,7 @@ def test_flat_faces_without_holes_are_one_polygon():
         if BRepAdaptor_Surface(face).GetType() != GeomAbs_Plane or per_face[fid] == 1:
             continue
         polys = np.nonzero(holed.poly_face == fid)[0]
-        _, t, f, _ = tessellate.tessellate_with_normals(shape, LIN, ANG)
-        assert len(polys) < (f == fid).sum() and holed.poly_sizes[polys].max() > 3  # merged, not the triangles
+        assert holed.poly_sizes[polys].min() >= 4  # the collar's radial quads and the pieces outside it
         normal = np.zeros(3)
         for p in polys:  # every polygon convex, all turning the same way
             loop = v[holed.loops[starts[p]:starts[p] + holed.poly_sizes[p]]]
@@ -271,6 +270,64 @@ def test_flat_faces_without_holes_are_one_polygon():
             turns = np.cross(np.roll(loop, -1, 0) - loop, np.roll(loop, -2, 0) - np.roll(loop, -1, 0))
             normal = turns.sum(0) if not normal.any() else normal
             assert (turns @ normal > -1e-9).all()
+
+
+def _plane_polygons(shape, m):
+    """{flat face id: [polygon vertices (float64)]} of the flat faces meshed as more than one polygon."""
+    starts = poly_starts(m)
+    v = m.verts.astype(np.float64)
+    out = {}
+    for fid, face in enumerate(tessellate.face_map(shape)):
+        polys = np.nonzero(m.poly_face == fid)[0]
+        if BRepAdaptor_Surface(face).GetType() == GeomAbs_Plane and len(polys) > 1:
+            out[fid] = [v[m.loops[starts[p]:starts[p] + m.poly_sizes[p]]] for p in polys]
+    return out
+
+
+def _corner_angles(loop):
+    a, b = np.roll(loop, 1, 0) - loop, np.roll(loop, -1, 0) - loop
+    cos = (a * b).sum(1) / (np.linalg.norm(a, axis=1) * np.linalg.norm(b, axis=1))
+    return np.degrees(np.arccos(np.clip(cos, -1, 1)))
+
+
+COLLARED = {  # (part, smallest polygon corner in degrees on its holed faces; before the collars 0.13-1.16)
+    "plate_small_hole": (lambda: bd.Box(200, 200, 5) - bd.Cylinder(3, 20), 40),
+    "washer": (lambda: bd.Cylinder(20, 5) - bd.Cylinder(8, 20), 40),
+    "slot": (lambda: bd.Box(60, 30, 10) - bd.extrude(bd.SlotOverall(30, 8), 20, both=True), 20),
+    "two_bosses": (lambda: bd.Box(100, 40, 100) + [bd.Pos(x, -20, 38) * bd.Rot(90, 0, 0) * bd.Cylinder(8, 30)
+                                                    for x in (-25, 25)], 8),
+    "bolt_circle": (lambda: bd.Cylinder(50, 5) - [bd.Pos(35 * math.cos(a), 35 * math.sin(a), 0) * bd.Cylinder(4, 20)
+                                                   for a in np.arange(6) * math.pi / 3], 30),
+}
+
+
+@pytest.mark.parametrize("name", sorted(COLLARED))
+def test_curved_holes_in_flat_faces_get_collars(name):
+    # Without interior vertices a flat face's convex pieces next to a curved hole reach its outer corners: fans
+    # of slivers (0.13-1.16 degrees). Collars of radial quads keep every piece convex and well shaped
+    # (docs/research/2026-09-28-planar-faces-with-holes.md).
+    make, min_angle = COLLARED[name]
+    shape = make().wrapped
+    m = tessellate.display_mesh(shape, 1.0, ANG)
+    pairs, _ = sides(m)
+    _, counts = np.unique(np.sort(pairs, axis=1), axis=0, return_counts=True)
+    assert (counts == 2).all()  # closed: the collars' nodes are shared by their pieces only
+    v, t, f, _ = tessellate.tessellate_with_normals(shape, 1.0, ANG)
+    v = v.astype(np.float64)
+    holed = _plane_polygons(shape, m)
+    assert holed
+    for fid, polys in holed.items():
+        normal = np.cross(polys[0][1] - polys[0][0], polys[0][2] - polys[0][0])
+        area = 0.0
+        for loop in polys:
+            a, b = np.roll(loop, -1, 0) - loop, np.roll(loop, -2, 0) - np.roll(loop, -1, 0)
+            sin = np.cross(a, b) @ (normal / np.linalg.norm(normal)) / (np.linalg.norm(a, axis=1) * np.linalg.norm(b, axis=1))
+            assert (sin > -1e-5).all()  # convex (a collar's sides have straight corners, up to float32 rounding)
+            assert _corner_angles(loop).min() > min_angle
+            area += np.linalg.norm(np.cross(loop, np.roll(loop, -1, 0)).sum(0)) / 2
+        tri = t[f == fid]
+        expected = np.linalg.norm(np.cross(v[tri[:, 1]] - v[tri[:, 0]], v[tri[:, 2]] - v[tri[:, 0]]), axis=1).sum() / 2
+        assert area == pytest.approx(expected, rel=1e-6)  # the pieces tile the face's boundary polygon
 
 
 @pytest.mark.parametrize("name", sorted(DISPLAY_SHAPES))

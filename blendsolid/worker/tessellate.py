@@ -30,7 +30,7 @@ from OCP.GeomAbs import GeomAbs_Cone, GeomAbs_Cylinder, GeomAbs_Line, GeomAbs_Pl
 from OCP.GProp import GProp_GProps
 from OCP.IMeshTools import IMeshTools_Parameters
 from OCP.TopAbs import TopAbs_EDGE, TopAbs_FACE, TopAbs_REVERSED, TopAbs_SOLID, TopAbs_VERTEX
-from OCP.TopExp import TopExp
+from OCP.TopExp import TopExp, TopExp_Explorer
 from OCP.TopLoc import TopLoc_Location
 from OCP.TopoDS import TopoDS, TopoDS_Compound
 from OCP.gp import gp_Pnt, gp_Vec
@@ -580,13 +580,30 @@ def _convex_at(pts, loop, v, normal):
             + (ux * wy - uy * wx) * normal[2]) >= -1e-12
 
 
-def _merge_convex(t, pts):
+_STRAIGHT = math.radians(10)  # a BRep vertex's corner turning less than this keeps an interior edge
+
+
+def _straight_at(pts, loop, v):
+    """Does `loop` turn by less than _STRAIGHT at vertex v?"""
+    i = loop.index(v)
+    a, b, c = pts[loop[i - 1]], pts[v], pts[loop[(i + 1) % len(loop)]]
+    u = [y - x for x, y in zip(a, b)]
+    w = [y - x for x, y in zip(b, c)]
+    dot = sum(x * y for x, y in zip(u, w))
+    norm = math.sqrt(sum(x * x for x in u) * sum(x * x for x in w))
+    return norm > 0 and dot > norm * math.cos(_STRAIGHT)
+
+
+def _merge_convex(t, pts, keep=()):
     """Hertel-Mehlhorn: triangles `t` of a flat face merged across their shared edges,
     shortest first, while both ends of the removed edge stay convex. A face with holes can't be one Blender
     polygon, and its triangles' short chords (ears along an arc) clamp Blender's Bevel (Clamp Overlap, its
     default, limits the whole bevel to the tightest spot); measured: the default part's 1 mm bevel removed
     0.22 mm³ with triangles, 25 with the fewest simple (concave) polygons, and 82 — the unclamped value — with
-    convex ones. Returns the polygons as vertex lists in the triangles' winding."""
+    convex ones. A vertex in `keep` (a BRep vertex) never becomes a nearly straight corner: where a bevelled
+    CAD edge ends in a tangent arc (a fillet's), Bevel slides along the vertex's next edge, and the arc's first
+    chord, nearly collinear, flipped polygons (measured on the default part with collars). Returns the polygons as
+    vertex lists in the triangles' winding."""
     tri_n = np.cross(pts[t[:, 1]] - pts[t[:, 0]], pts[t[:, 2]] - pts[t[:, 0]]).sum(axis=0)
     normal = tuple(float(c) for c in tri_n)  # the side the triangles face (outward, orientation included)
     pts = [tuple(float(c) for c in p) for p in pts]
@@ -613,6 +630,8 @@ def _merge_convex(t, pts):
         m = len(merged)
         if not (_convex_at(pts, merged, a, normal) and _convex_at(pts, merged, b, normal)):
             continue
+        if (a in keep and _straight_at(pts, merged, a)) or (b in keep and _straight_at(pts, merged, b)):
+            continue
         del polys[q]
         polys[p] = merged
         for k in range(m):
@@ -622,19 +641,269 @@ def _merge_convex(t, pts):
     return list(polys.values())
 
 
-def _polygons(shape, verts, tris, tri_face):
-    """(loops, poly_sizes, poly_face): a flat face whose triangles have one boundary cycle becomes that one
-    polygon (Blender's Bevel clamps to the shortest chord of a triangulated cap; Blender's own primitives have
-    n-gon caps); a flat face with holes becomes convex polygons (_merge_convex); curved faces keep their
-    triangles."""
+_COLLAR_MIN_NODES = 8  # holes with fewer nodes (pockets, polygonal cuts) already decompose into few good pieces
+_COLLAR_SHARE = 0.45  # of a collar's clearance to the other loops (two neighbours keep a gap between their collars)
+
+
+def _cycles(t):
+    """The boundary cycles of triangles `t` (one face) in the triangles' winding, or None if a boundary vertex
+    has more than one outgoing boundary edge (loops touching at a vertex)."""
+    directed = np.concatenate([t[:, [0, 1]], t[:, [1, 2]], t[:, [2, 0]]])
+    keys = {(int(a), int(b)) for a, b in directed}
+    nxt = {}
+    for a, b in keys:
+        if (b, a) not in keys:
+            if a in nxt:
+                return None
+            nxt[a] = b
+    cycles, seen = [], set()
+    for start in nxt:
+        if start in seen:
+            continue
+        cycle, v = [start], nxt[start]
+        seen.add(start)
+        while v != start:
+            if v not in nxt or v in seen:
+                return None
+            cycle.append(v)
+            seen.add(v)
+            v = nxt[v]
+        cycles.append(cycle)
+    return cycles
+
+
+def _area(p):
+    return 0.5 * float(np.sum(p[:, 0] * np.roll(p[:, 1], -1) - np.roll(p[:, 0], -1) * p[:, 1]))
+
+
+def _convex2d(p):
+    """Is the polygon `p` (2D, CCW) convex (180° corners allowed)?"""
+    d = np.roll(p, -1, axis=0) - p
+    cross = d[:, 0] * np.roll(d[:, 1], -1) - d[:, 1] * np.roll(d[:, 0], -1)
+    return _area(p) > 0 and bool((cross >= -1e-12 * float(np.max(np.abs(d))) ** 2).all())
+
+
+def _segment_distance(points, loop):
+    """Smallest distance from `points` to the closed polygon `loop` (both 2D)."""
+    return float(meshing._distance_to(points, np.stack([loop, np.roll(loop, -1, axis=0)], axis=1)).min())
+
+
+def _collar(hole, others, lo, hi):
+    """Radial pieces around a curved hole (2D, the hole in the face's winding: clockwise), out to its bounding
+    rectangle [lo, hi] grown by a share of the rectangle's clearance to the `others` loops. Returns (collar
+    polygon CCW, pieces as lists of indices: < len(hole) a hole node, else collar node - len(hole)), or None
+    if the hole isn't star-shaped from its centroid or a piece isn't convex."""
+    centre = hole.mean(axis=0)
+    rel = hole - centre
+    if not np.all(np.linalg.norm(rel, axis=1) > 0):
+        return None
+    ang = np.arctan2(rel[:, 1], rel[:, 0])
+    turn = (np.roll(ang, -1) - ang + math.pi) % (2 * math.pi) - math.pi
+    if not (np.all(turn < 0) and abs(turn.sum() + 2 * math.pi) < 1e-6):
+        return None  # not strictly clockwise around the centroid once: not star-shaped from it
+    rect = np.array([lo, [hi[0], lo[1]], hi, [lo[0], hi[1]]])
+    clearance = min(_segment_distance(rect, o) for o in others) if others else math.inf
+    for o in others:  # a loop reaching inside the rectangle's edges from outside (no rectangle corner near it)
+        clearance = min(clearance, float(meshing._distance_to(o, np.stack([rect, np.roll(rect, -1, axis=0)],
+                                                                           axis=1)).min()))
+    margin = min(_COLLAR_SHARE * clearance, 0.5 * float(np.max(hi - lo)))
+    if not margin > 1e-6:
+        return None
+    lo, hi = lo - margin, hi + margin
+    # each hole node's ray from the centre onto the grown rectangle, then the corners between two rays
+    ray = []
+    for d in rel:
+        s = min((hi[0] - centre[0]) / d[0] if d[0] > 0 else (lo[0] - centre[0]) / d[0] if d[0] < 0 else math.inf,
+                (hi[1] - centre[1]) / d[1] if d[1] > 0 else (lo[1] - centre[1]) / d[1] if d[1] < 0 else math.inf)
+        p = centre + s * d
+        # exactly on the side it hits, so the collar's straight sides stay straight (180° corners, not dents);
+        # a ray through a corner (a hole node on a diagonal) lands on that corner
+        tol = 1e-7 * float(np.max(hi - lo))
+        for k, bound in ((0, lo[0]), (0, hi[0]), (1, lo[1]), (1, hi[1])):
+            if abs(p[k] - bound) <= tol:
+                p[k] = bound
+        ray.append(p)
+    corners = np.array([lo, [hi[0], lo[1]], hi, [lo[0], hi[1]]])
+    # a ray landing close to a corner (next to a node on the diagonal) moves onto it: no stub side next to the
+    # corner (the pieces' convexity is checked below)
+    near = 0.2 * 2 * float(np.sum(hi - lo)) / len(ray)
+    for c in corners:
+        dist = [float(np.max(np.abs(p - c))) for p in ray]
+        k = int(np.argmin(dist))
+        if dist[k] <= near:
+            ray[k][:] = c
+    corner_ang = np.arctan2(corners[:, 1] - centre[1], corners[:, 0] - centre[0])
+    nodes, pieces, n = [], [], len(hole)
+    ray_index = []
+    for p in ray:
+        ray_index.append(len(nodes))
+        nodes.append(p)
+    corner_index = []
+    for c in corners:
+        hit = [i for i, p in enumerate(ray) if np.array_equal(p, c)]
+        corner_index.append(ray_index[hit[0]] if hit else len(nodes))
+        if not hit:
+            nodes.append(c)
+    nodes = np.asarray(nodes)
+    for i in range(n):
+        j = (i + 1) % n
+        # between ray j and ray i (counter-clockwise from j to i): the rectangle corners there
+        a0 = math.atan2(*(ray[j] - centre)[::-1])
+        span = (math.atan2(*(ray[i] - centre)[::-1]) - a0) % (2 * math.pi)
+        between = sorted(((ca - a0) % (2 * math.pi), k) for k, ca in enumerate(corner_ang)
+                         if 1e-12 < (ca - a0) % (2 * math.pi) < span - 1e-12
+                         and corner_index[k] not in (ray_index[i], ray_index[j]))
+        piece = [i, j, n + ray_index[j]] + [n + corner_index[k] for _, k in between] + [n + ray_index[i]]
+        pts = np.array([hole[x] if x < n else nodes[x - n] for x in piece])
+        if not _convex2d(pts):
+            return None
+        pieces.append(piece)
+    # the collar's outline, counter-clockwise: ray points and unused corners by angle around the centre
+    outline = sorted(range(len(nodes)), key=lambda k: math.atan2(*(nodes[k] - centre)[::-1]))
+    return nodes[outline], outline, pieces, lo, hi
+
+
+def _collared(t, verts, normal, keep=()):
+    """Convex polygons of a flat face with holes, curved holes wrapped in collars of radial quads (research:
+    docs/research/2026-09-28-planar-faces-with-holes.md): without interior vertices every convex piece next to
+    a curved hole reaches the outer boundary, a fan of slivers. Returns (polygons of vertex indices, new vertices
+    (3D)) or None where no hole takes a collar or the collars don't fit (the caller merges the triangles)."""
+    cycles = _cycles(t)
+    if cycles is None or len(cycles) < 2:
+        return None
+    # the face's frame: z along the triangles' side, x along the outer loop's longest segment
+    pts3 = verts.astype(np.float64)
+    ez = normal / np.linalg.norm(normal)
+    areas = []
+    for cyc in cycles:
+        c = pts3[cyc]
+        areas.append(float(np.dot(np.cross(c, np.roll(c, -1, axis=0)).sum(axis=0), ez)) / 2)
+    outer = int(np.argmax(areas))
+    oc = pts3[cycles[outer]]
+    seg = np.roll(oc, -1, axis=0) - oc
+    ex = seg[int(np.argmax(np.linalg.norm(seg, axis=1)))]
+    ex = ex - ez * np.dot(ex, ez)
+    ex /= np.linalg.norm(ex)
+    ey = np.cross(ez, ex)
+    origin = oc[0]
+    flat = [np.column_stack([(pts3[c] - origin) @ ex, (pts3[c] - origin) @ ey]) for c in cycles]
+    collars = {}
+    for k, (cyc, p) in enumerate(zip(cycles, flat)):
+        if k == outer or len(cyc) < _COLLAR_MIN_NODES:
+            continue
+        others = [q for j, q in enumerate(flat) if j != k]
+        out = _collar(p, others, p.min(axis=0), p.max(axis=0))
+        if out is not None:
+            collars[k] = out
+    if not collars:
+        return None
+    # collars may not overlap one another (each took its share of their gap, but only against the holes' loops)
+    ks = list(collars)
+    for a in range(len(ks)):
+        for b in range(a + 1, len(ks)):
+            la, ha = collars[ks[a]][3], collars[ks[a]][4]
+            lb, hb = collars[ks[b]][3], collars[ks[b]][4]
+            if np.all(la < hb) and np.all(lb < ha):
+                return None
+    # nodes: the face's own, then each collar's
+    q, index, extra = [], [], []
+    for k, (cyc, p) in enumerate(zip(cycles, flat)):
+        if k not in collars:
+            q.extend(p)
+            index.extend(cyc)
+    polys = []
+    region = [k for k in range(len(cycles)) if k not in collars]
+    base = len(verts)
+    segs, offset, loops2d = [], 0, []
+    for k in region:  # the region outside the collars: the face's other loops, and the collars' outlines
+        n = len(cycles[k])
+        segs.extend((offset + i, offset + (i + 1) % n) for i in range(n))
+        offset += n
+    for k, (outline, order, pieces, lo, hi) in collars.items():
+        nodes_start = base + len(extra)
+        # the collar's own nodes, in the order _collar numbered them
+        n_nodes = len(outline)
+        own = [None] * n_nodes
+        for pos, node in zip(order, outline):
+            own[pos] = node
+        extra.extend(own)
+        n_hole = len(cycles[k])
+        for piece in pieces:
+            polys.append([cycles[k][x] if x < n_hole else nodes_start + x - n_hole for x in piece])
+        # the outline goes around the region's hole the other way (clockwise), in the region's winding
+        ring = [nodes_start + pos for pos in order][::-1]
+        start = len(q)
+        q.extend(own[pos] for pos in order[::-1])
+        index.extend(ring)
+        segs.extend((start + i, start + (i + 1) % n_nodes) for i in range(n_nodes))
+    q = np.asarray(q, dtype=np.float64)
+    segs = np.asarray(segs, dtype=np.int64)
+    from scipy.spatial import Delaunay
+    try:
+        tri = Delaunay(q).simplices
+    except Exception:
+        return None
+    tri = meshing._recover(q, tri, segs)
+    if tri is None:
+        return None
+    tri = tri[meshing._interior(tri, segs)]
+    if not len(tri):
+        return None
+    signed = (q[tri[:, 1], 0] - q[tri[:, 0], 0]) * (q[tri[:, 2], 1] - q[tri[:, 0], 1]) - \
+             (q[tri[:, 1], 1] - q[tri[:, 0], 1]) * (q[tri[:, 2], 0] - q[tri[:, 0], 0])
+    tri = np.where((signed < 0)[:, None], tri[:, ::-1], tri)
+    # merged in the face's frame: collinear collar nodes have exact coordinates there (straight 180° corners)
+    index = np.asarray(index, dtype=np.int64)
+    local_keep = {k for k, g in enumerate(index.tolist()) if g in keep}
+    region_polys = _merge_convex(tri, np.column_stack([q, np.zeros(len(q))]), local_keep)
+    polys.extend([int(index[v]) for v in piece] for piece in region_polys)
+    extra3 = np.array([origin + x * ex + y * ey for x, y in extra], dtype=np.float64)
+    return polys, extra3
+
+
+def _brep_vertices(face, verts, t):
+    """The mesh vertices of triangles `t` (one face) that lie on the face's BRep vertices."""
+    used = np.unique(t)
+    p = verts[used].astype(np.float64)
+    out = set()
+    explorer = TopExp_Explorer(face, TopAbs_VERTEX)
+    while explorer.More():
+        q = BRep_Tool.Pnt_s(TopoDS.Vertex(explorer.Current()))
+        d = np.linalg.norm(p - (q.X(), q.Y(), q.Z()), axis=1)
+        k = int(np.argmin(d))
+        if d[k] < 1e-4:
+            out.add(int(used[k]))
+        explorer.Next()
+    return out
+
+
+def _polygons(shape, verts, normals, tris, tri_face):
+    """(loops, poly_sizes, poly_face, verts, normals): a flat face whose triangles have one boundary cycle
+    becomes that one polygon (Blender's Bevel clamps to the shortest chord of a triangulated cap; Blender's own
+    primitives have n-gon caps); a flat face with holes becomes convex polygons, curved holes wrapped in collars
+    of radial quads (_collared, whose new vertices are appended) or else merged triangles (_merge_convex);
+    curved faces keep their triangles."""
     loops, sizes, faces = [], [], []
+    new_verts, new_normals, count = [], [], len(verts)
     for fid, face in enumerate(face_map(shape)):
         t = tris[tri_face == fid]
         surf = BRepAdaptor_Surface(face)
         if surf.GetType() == GeomAbs_Plane and len(t) > 1:
             cycle = _boundary_loop(t)
             if cycle is None:
-                pieces = _merge_convex(t, verts.astype(np.float64))
+                normal = np.cross(verts[t[:, 1]].astype(np.float64) - verts[t[:, 0]],
+                                  verts[t[:, 2]].astype(np.float64) - verts[t[:, 0]]).sum(axis=0)
+                keep = _brep_vertices(face, verts, t)
+                out = _collared(t, verts, normal, keep)
+                if out is None:
+                    pieces = _merge_convex(t, verts.astype(np.float64), keep)
+                else:
+                    pieces, extra = out
+                    # _collared numbered its nodes from len(verts): shift them past the faces collared before
+                    pieces = [[v if v < len(verts) else v + count - len(verts) for v in piece] for piece in pieces]
+                    new_verts.append(extra)
+                    new_normals.append(np.repeat(normals[t[:1, 0]], len(extra), axis=0))
+                    count += len(extra)
             else:
                 pieces = [cycle]
             for piece in pieces:
@@ -645,7 +914,10 @@ def _polygons(shape, verts, tris, tri_face):
             loops.append(t.ravel().astype(np.int64))
             sizes.extend([3] * len(t))
             faces.extend([fid] * len(t))
-    return np.concatenate(loops), np.array(sizes, dtype=np.int32), np.array(faces, dtype=np.int32)
+    if new_verts:
+        verts = np.concatenate([verts, np.concatenate(new_verts).astype(verts.dtype)])
+        normals = np.concatenate([normals, np.concatenate(new_normals)])
+    return np.concatenate(loops), np.array(sizes, dtype=np.int32), np.array(faces, dtype=np.int32), verts, normals
 
 
 def _sides(loops, sizes):
@@ -685,7 +957,7 @@ def display_mesh(shape, lin_defl=0.1, ang_defl=0.3):
     with that edge's id and whether it is sharp (the faces meet at an angle) or smooth (tangent faces, e.g. a
     fillet and its flat neighbour). Seams and poles are inside a face: no edge id."""
     verts, tris, tri_face, normals = tessellate_with_normals(shape, lin_defl, ang_defl)
-    loops, sizes, poly_face = _polygons(shape, verts, tris, tri_face)
+    loops, sizes, poly_face, verts, normals = _polygons(shape, verts, normals, tris, tri_face)
     corner_normals = normals[loops].astype(np.float32)
     verts, loops = _weld_all(verts, loops)
     pairs, _, _, _ = _sides(loops, sizes)
