@@ -66,6 +66,26 @@ Updated: 2026-09-28, end of session 6 (milestone 2 phases A–D built on branch 
   with holes (ADR 0008's convex pieces, e.g. boolean holes of cylinders): to improve (research
   `docs/research/2026-09-28-planar-faces-with-holes.md`).
 
+## Flat faces with holes (session 7, in progress — branch `flat-collars-wip`)
+- Maintainer's request (2026-09-28): the fans of slivers on flat faces with holes (boolean holes/bosses of
+  cylinders; ADR 0008's convex pieces) should get a better topology. Research:
+  `docs/research/2026-09-28-planar-faces-with-holes.md` (no convex decomposition without interior vertices avoids
+  the fans; CAD tools don't either; recommended: a rectangular collar of radial quads around each curved hole,
+  Hertel–Mehlhorn outside).
+- Built on `flat-collars-wip` (`tessellate._collared`, `_collar`, `_cycles`, `_brep_vertices`; `_merge_convex`
+  keeps an interior edge at BRep vertices that would become straight corners): the fans are gone (min polygon
+  angle 0.13–1.16° → 24–45° on plates, washers, slots, bolt circles, two bosses; mesh closed, areas exact).
+- **Blocked by modifier regressions** (the new tests on `milestone-2` pass with today's mesh and fail with collars):
+  `test_bevel_then_subdivision_folds_nothing` — on the default part's top face, Bevel 2 mm flips a polygon next
+  to the fillet's arc (near (1.7, 3.2) mm), and Subdivision (with or without Bevel) flips a few child polygons
+  near the collar's corner (~(26–28, 24) mm); `test_solidify_array_subdivision`'s new fold check fails the same
+  way. Suspects: Catmull–Clark face points of the outer n-gons, which carry many collinear collar nodes (the
+  face point is the vertex average, pulled onto the collar side), and Bevel sliding along long interior edges
+  from the arc's nodes. Next: reproduce on the bmesh level (flat top face + SubD) to see which polygon folds, then
+  e.g. split the outer n-gons at collar nodes (quads/trapezoids of few vertices), or give the collar sides only
+  their corner nodes plus a transition row; re-measure Bevel clamp on/off (ADR 0008) and write an ADR 0008
+  addendum. Then the maintainer's GUI check on the scene with the two bosses.
+
 ## Next step (session 7)
 1. **GUI check of ADR 0010 with the maintainer (Windows):** relaunch `blender.exe >> spike/logs/gui-m2.log 2>&1`.
    (a) open `E:\bs_debug\fillet.blend`, Trust, wireframe overlay: fillet bands in regular rows, the big quarter
