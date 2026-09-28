@@ -74,6 +74,7 @@ class RunResult:
     edge_sharp: np.ndarray | None = None  # 1 where the faces meet at an angle, 0 where tangent
     face_refs: list | None = None  # per BRep face: the reference text a click writes (provenance.reference_texts)
     edge_refs: list | None = None  # per BRep edge: the same
+    warnings: list = field(default_factory=list)  # [(script line or None, message)]: doubtful references
     timing: dict = field(default_factory=dict)
 
 
@@ -153,6 +154,7 @@ def _build(source, filename, deps, cache, depth=0, tracker=None):
     """Exec `source` (ref() and the face/edge references available) and return its `result` shape. A canonical
     script runs with the provenance hook, which fills `tracker`. Raises whatever the script raises."""
     tracker = provenance.Tracker() if tracker is None else tracker
+    tracker.filename = filename
     code = provenance.instrument(source, filename) or compile(source, filename, "exec")
     ns = provenance.namespace(tracker)
     ns["ref"] = _make_ref(deps, cache, depth)
@@ -197,6 +199,7 @@ def run_script(source, lin_defl=0.1, ang_defl=0.3, deps=(), tag=None, cache=None
                          poly_sizes=mesh.poly_sizes, poly_face=mesh.poly_face, planes=planes, corner_normals=mesh.corner_normals, edges=mesh.edges,
                          edge_ids=mesh.edge_ids, edge_sharp=mesh.edge_sharp,
                          face_refs=refs[0] if refs else None, edge_refs=refs[1] if refs else None,
+                         warnings=list(tracker.warnings),
                          timing={"script": t1 - t0, "tessellate": t2 - t1})
     except Exception as e:
         # tessellate.check/tessellate (and any OCCT call here) must never take down the worker process.

@@ -35,6 +35,8 @@ class BlendError(Exception):
 
 
 def _fmt(mm):
+    if 0 < mm < 0.001:
+        return f"{mm:.2g}"
     return f"{mm:.3f}".rstrip("0").rstrip(".")
 
 

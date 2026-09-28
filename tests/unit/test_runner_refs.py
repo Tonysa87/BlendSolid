@@ -129,3 +129,37 @@ def test_cache_drops_the_least_recently_used():
     assert cache.get("a") == 1
     cache.put("c", 3)
     assert cache.get("b") is None and cache.get("a") == 1 and cache.get("c") == 3
+
+
+# -- warnings: references that still resolve, but doubtfully (milestone 2 phase E) --------------------------------
+
+GROOVED = """groove_1_width = {w}
+with BuildPart() as part:
+    Box(40, 30, 20)  # feature: box_1
+    with Locations((0, 0, 10)):  # feature: groove_1
+        Box(groove_1_width, 40, 10, mode=Mode.SUBTRACT)
+    {op}  # feature: fillet_1
+result = part.part
+"""
+
+
+def test_a_split_face_warns_on_the_feature_line():
+    r = runner.run_script(GROOVED.format(w=10, op='fillet(edges_of(face("box_1", "+Z")), radius=1)'))
+    assert r.ok
+    assert r.warnings == [(6, 'face box_1 +Z now names 2 faces (it was split by a change before it): the feature '
+                              'uses all of them')]
+
+
+def test_a_near_pick_that_no_longer_tells_faces_apart_warns():
+    # picked at x = -12 when the groove was 20 mm wide off-centre; the groove is now centred and 38 mm wide
+    op = 'fillet(edges_of(face("box_1", "+Z", near=(-0.5, 0, 10))), radius=0.5)'
+    r = runner.run_script(GROOVED.format(w=10, op=op))
+    assert r.ok and len(r.warnings) == 1 and "about as close to another one" in r.warnings[0][1]
+    assert r.warnings[0][0] == 6
+    op = 'fillet(edges_of(face("box_1", "+Z", near=(-12, 0, 10))), radius=0.5)'
+    assert runner.run_script(GROOVED.format(w=10, op=op)).warnings == []  # clearly the left half
+
+
+def test_no_warnings_on_a_plain_part():
+    r = runner.run_script(GROOVED.format(w=10, op='fillet(edges_of(face("box_1", "-Z")), radius=1)'))
+    assert r.ok and r.warnings == []

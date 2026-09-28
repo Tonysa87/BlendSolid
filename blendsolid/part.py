@@ -20,6 +20,7 @@ KEPT_KEY = "bs_kept"  # on a part's Text: given a fake user because a part uses 
 LAST_KEY = "bs_ref_last"  # on a part's Text: {cutter part id: {"name", "matrices"}} last seen (remember_cutters())
 FACE_REFS_KEY = "bs_face_refs"  # per BRep face: the reference a click writes, e.g. 'face("box_1", "+Z")'
 EDGE_REFS_KEY = "bs_edge_refs"  # per BRep edge: the same, e.g. 'edge_between(face(...), face(...))'
+WARNINGS_KEY = "bs_warnings"  # the last result's doubtful references: ["<line>\t<message>", ...] (ADR 0009)
 PLANES_KEY = "bs_face_planes"  # per BRep face: exact plane (nx, ny, nz, d mm, part frame) or NaN, flattened
 ERROR_TAG_KEY = "bs_error_tag"
 PART_ID_KEY = "bs_part_id"  # on the part's Text: identity follows the script (Shift+D copies it, Alt+D and
@@ -122,8 +123,22 @@ def apply_result(obj, event, factor):
             obj.data[key] = list(refs)
         elif key in obj.data:
             del obj.data[key]
+    warnings = [f"{line or 0}\t{text}" for line, text in event.get("warnings") or ()]
+    if warnings:
+        obj.data[WARNINGS_KEY] = warnings
+    elif WARNINGS_KEY in obj.data:
+        del obj.data[WARNINGS_KEY]
     obj.data[HASH_KEY] = event["tag"]
     set_error(obj, "")
+
+
+def warnings(obj):
+    """[(script line or None, message)] of the part's last result: references that resolved doubtfully."""
+    out = []
+    for item in obj.data.get(WARNINGS_KEY, ()) if obj.data is not None else ():
+        line, _, text = str(item).partition("\t")
+        out.append((int(line) or None, text))
+    return out
 
 
 def set_error(obj, message, line=None, tag=None):

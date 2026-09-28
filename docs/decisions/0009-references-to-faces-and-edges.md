@@ -51,3 +51,17 @@ mapped forward through the history.
 - Deferred to phase E: the signature of a reference's last good match (to catch silent re-binding), warnings for
   multi-reference features that lose part of their references.
 - A live cutter's faces get roles computed on the cutter in the part frame, not the cutter's own labels.
+
+## Addendum (2026-09-28, session 8): warnings (milestone 2 phase E)
+
+A reference that no longer names anything is an error on its line (`BrokenReference`, as before). A reference
+that still resolves but doubtfully is now a **warning**: the part is built, and the sidebar shows "Check these
+references" with the message (and the line when scripts are shown). The worker returns them with the result
+(`RunResult.warnings`), the part keeps them on its mesh (`bs_warnings`, replaced by every result). Cases:
+- a plain `face(feature, role)` that names several faces (a click writes a plain role only when it names one
+  face: an upstream change split it) — the feature uses all of them;
+- a plain `edge_between(a, b)` that is now several edges, likewise;
+- a `near=` pick whose runner-up centre is at least 70% as far from the picked point as the chosen one
+  (`provenance.AMBIGUOUS`): the point no longer tells them apart.
+Repair stays manual in milestone 2 (undo the upstream change, remove the feature, or redo it with the tool);
+ghost overlay and suggested repairs are follow-ups.

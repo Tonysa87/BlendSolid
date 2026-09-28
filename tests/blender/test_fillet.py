@@ -139,3 +139,17 @@ def test_edges_between_tangent_faces_are_not_sharp(clean):
     hard = {int(i) for i in ids[(ids >= 0) & sharp]}
     assert len(smooth) == 2 and hard  # the two vertical edges of the fillet band
     assert not any(picking.edge_is_sharp(obj, e) for e in smooth) and all(picking.edge_is_sharp(obj, e) for e in hard)
+
+
+def test_reference_warnings_reach_the_part(clean):
+    source = ("with BuildPart() as part:\n    Box(40, 30, 20)  # feature: box_1\n"
+              "    with Locations((0, 0, 10)):  # feature: groove_1\n"
+              "        Box(10, 40, 10, mode=Mode.SUBTRACT)\n"
+              '    fillet(edges_of(face("box_1", "+Z")), radius=1)  # feature: fillet_1\nresult = part.part\n')
+    obj = part.new_part(bpy.context, source)
+    wait_for(lambda: up_to_date(obj))
+    assert not obj.blendsolid_error
+    assert [(line, text.split(" now ")[0]) for line, text in part.warnings(obj)] == [(5, "face box_1 +Z")]
+    obj.blendsolid_script.from_string(source.replace('face("box_1", "+Z")', 'face("box_1", "-Z")'))
+    wait_for(lambda: up_to_date(obj))
+    assert part.warnings(obj) == []

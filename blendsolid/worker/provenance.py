@@ -126,6 +126,20 @@ class Tracker:
         self._ancestors = None    # edge -> faces of the current part, built when first asked
         self.features = []        # feature names in script order, up to the current one
         self.history = {}         # feature name -> [(face, label)] right after it
+        self.warnings = []        # (script line or None, message): references that resolved, but doubtfully
+        self.filename = None      # the script's compiled filename: warnings take their line from its frame
+
+    def warn(self, message):
+        """Record a warning on the script line being run (the innermost frame of the part script)."""
+        import sys
+        frame, line = sys._getframe(1), None
+        while frame is not None:
+            if frame.f_code.co_filename == self.filename:
+                line = frame.f_lineno
+                break
+            frame = frame.f_back
+        if (line, message) not in self.warnings:
+            self.warnings.append((line, message))
 
     def labels(self):
         return [(TopoDS.Face(self._index.FindKey(i + 1)), label) for i, label in enumerate(self._label_list)]
@@ -212,9 +226,20 @@ def _centre(shape):
     return (c.X, c.Y, c.Z)
 
 
-def _closest_centre(items, point):
-    """The item whose centre is closest to `point` (the `near=` tie-break)."""
-    return min(items, key=lambda s: sum((a - b) ** 2 for a, b in zip(_centre(s), point)))
+AMBIGUOUS = 0.7  # near=: the chosen centre is at least this fraction of the runner-up's distance from the point
+
+
+def _closest_centre(items, point, warn=None, what="it"):
+    """The item whose centre is closest to `point` (the `near=` tie-break). With `warn`, a pick whose runner-up
+    is about as close (the entities moved since the click, and the point no longer tells them apart) is
+    reported."""
+    ranked = sorted(items, key=lambda s: sum((a - b) ** 2 for a, b in zip(_centre(s), point)))
+    if warn is not None and len(ranked) > 1:
+        d = [sum((a - b) ** 2 for a, b in zip(_centre(s), point)) ** 0.5 for s in ranked[:2]]
+        if d[0] > AMBIGUOUS * d[1]:
+            warn(f"{what}: the picked point is now about as close to another one ({d[0]:.3g} vs {d[1]:.3g} mm);"
+                 f" check that the right one is used")
+    return ranked[0]
 
 
 def _edges(face):
@@ -238,7 +263,10 @@ def _helpers(tracker):
             raise BrokenReference(f"{feature} has no face '{role}'" if role is not None
                                   else f"no face of {feature} is left")
         if near is not None:
-            found = [_closest_centre(found, near)]
+            found = [_closest_centre(found, near, tracker.warn, f"the {what} face near {_point(near)}")]
+        elif role is not None and len(found) > 1:  # a click writes a plain role only when it names one face
+            tracker.warn(f"face {what} now names {len(found)} faces (it was split by a change before it): the "
+                         f"feature uses all of them")
         out = ShapeList(found)
         out._bs_name = what
         return out
@@ -259,7 +287,11 @@ def _helpers(tracker):
         if not shared:
             raise BrokenReference(f"no edge between {_name(a)} and {_name(b)}")
         if near is not None:
-            shared = [_closest_centre(shared, near)]
+            shared = [_closest_centre(shared, near, tracker.warn,
+                                      f"the edge between {_name(a)} and {_name(b)} near {_point(near)}")]
+        elif len(shared) > 1:  # a click writes no near= only when the pair of faces shares one edge
+            tracker.warn(f"the edge between {_name(a)} and {_name(b)} is now {len(shared)} edges: the feature "
+                         f"uses all of them")
         return ShapeList(shared)
 
     def edges_of(faces):

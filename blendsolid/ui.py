@@ -180,6 +180,13 @@ class BLENDSOLID_PT_part(bpy.types.Panel):
             box.label(text="Auto Run Python Scripts is off or excludes this file:", icon="BLANK1")
             box.label(text="the part keeps its saved mesh and won't rebuild.", icon="BLANK1")
             box.operator("blendsolid.trust_scripts", icon="CHECKMARK")
+        doubts = part.warnings(obj)
+        if doubts and not obj.blendsolid_error:
+            box = layout.box()
+            box.label(text="Check these references", icon="ERROR")
+            for line, text in doubts[:4]:
+                where = f" (line {line})" if advanced and line else ""
+                box.label(text=text + where, icon="BLANK1")
         if obj.blendsolid_error:
             box = layout.box()
             box.label(text="The part could not be rebuilt", icon="ERROR")
