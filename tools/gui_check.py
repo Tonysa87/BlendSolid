@@ -1296,10 +1296,23 @@ def step21():
     shows the arrows of the feature that made the face; a click in empty space deselects and hides them."""
     if not SIM:
         return "SKIP: needs --enable-event-simulate"
+    # the click tools (Tweak, the default, and Select Box); Circle and Lasso take the press for their own modal
+    tools = ["builtin.select", "builtin.select_box"]
+    report = []
+    for tool in tools:
+        report.append(tool + ": " + (yield from _focus_clicks(tool)))
+    return "; ".join(report)
+
+
+def _focus_clicks(tool):
     with override():
-        bpy.ops.wm.tool_set_by_id(name="builtin.select_box")
+        bpy.ops.wm.tool_set_by_id(name=tool)
+    for o in list(bpy.data.objects):
+        if o.name.startswith("Focus") or o.name == "Cube":  # the factory cube would swallow the part (--only 21)
+            bpy.data.objects.remove(o)
     cursor((0, 300, 0))
     op(bpy.ops.blendsolid.add_box, length=40, width=30, height=20)
+    active().name = "Focus"
     name = active().name
     cursor()
     op(bpy.ops.blendsolid.draw_solid, shape="CYLINDER", mode="CUT", target=name, location=(5, 5, 20),
@@ -1309,6 +1322,7 @@ def step21():
     click(ob(name))
     yield from set_view((0, 300, 10), rot_deg=(15, 0, 10), dist=0.2)  # the hole's bottom in sight
     shown = []
+    yield from key("ESC", px((80, 300, 20)))  # the first simulated event after a pause only focuses the window
     for where, want in (((-12, 290, 20), "box_1"), ((5, 305, 14), "cut_1")):
         at = px(where)
         ev("MOUSEMOVE", "NOTHING", at)

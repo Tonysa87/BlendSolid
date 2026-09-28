@@ -58,6 +58,13 @@ def focus_at(context, obj, polygon_index):
     return name
 
 
+def _redraw(context):
+    for window in context.window_manager.windows:
+        for area in window.screen.areas:
+            if area.type == "VIEW_3D":
+                area.tag_redraw()
+
+
 class BLENDSOLID_OT_focus_click(bpy.types.Operator):
     """Show the arrows of the feature that made the clicked face of the active part"""
     bl_idname = "blendsolid.focus_click"
@@ -69,17 +76,18 @@ class BLENDSOLID_OT_focus_click(bpy.types.Operator):
         return context.mode == "OBJECT" and context.area is not None and context.area.type == "VIEW_3D"
 
     def invoke(self, context, event):
-        # runs after Blender's own select click (the event passes through both ways): it only moves the focus
-        obj = context.object
+        # On the press, before or after whatever select tool is active (Tweak consumes its click, Select Box
+        # selects on release): the event always passes through, this only moves the focus of the part under the
+        # mouse, which Blender's own selection then makes active.
         region, rv3d = context.region, context.region_data
-        if part.is_local_part(obj) and obj.select_get() and rv3d is not None:
+        if rv3d is not None:
             from . import ops_draw
             mouse = (event.mouse_region_x, event.mouse_region_y)
             origin = view3d_utils.region_2d_to_origin_3d(region, rv3d, mouse)
             direction = view3d_utils.region_2d_to_vector_3d(region, rv3d, mouse)
             found = ops_draw._first_hit(context, context.evaluated_depsgraph_get(), origin, direction)
-            if found is not None and found[3] == obj:
-                focus_at(context, obj, found[2])
+            if found is not None and part.is_local_part(found[3]) and focus_at(context, found[3], found[2]):
+                _redraw(context)
         return {"PASS_THROUGH"}
 
 
@@ -98,6 +106,7 @@ class BLENDSOLID_OT_focus_feature(bpy.types.Operator):
             self.report({"ERROR"}, f"'{self.part_name}' has no feature '{self.feature}'")
             return {"CANCELLED"}
         set_focus(obj, self.feature)
+        _redraw(context)  # the arrows follow at once, not when the mouse next enters the viewport
         return {"FINISHED"}
 
 
@@ -125,7 +134,7 @@ def register():
     kc = bpy.context.window_manager.keyconfigs.addon
     if kc is not None:  # None in some background sessions
         km = kc.keymaps.new(name="Object Mode", space_type="EMPTY")
-        _keymap_items.append((km, km.keymap_items.new(BLENDSOLID_OT_focus_click.bl_idname, "LEFTMOUSE", "CLICK")))
+        _keymap_items.append((km, km.keymap_items.new(BLENDSOLID_OT_focus_click.bl_idname, "LEFTMOUSE", "PRESS")))
 
 
 def unregister():
