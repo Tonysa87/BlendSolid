@@ -73,7 +73,9 @@ def on_face(faces):
         raise SketchError("a sketch goes on a flat face")
     n, o = tessellate.plane_normal(face)
     origin, x, _, z = plane_frame(n, float(n @ o))
-    return Plane(origin=origin, x_dir=x, z_dir=z)
+    plane = Plane(origin=origin, x_dir=x, z_dir=z)
+    plane._bs_face = items[0]  # its edges bound the sketch's regions too (a line across the face splits it)
+    return plane
 
 
 def _entity_edges(shape):
@@ -117,6 +119,10 @@ class Sketch:
                 raise SketchError(f"sketch entity {name} leaves the sketch plane (z != 0)")
         self.entities[name] = edges
         self.shapes[name] = value
+        try:
+            value._bs_sketch, value._bs_entity = self, name  # groove(sketch_1.path_1) finds its sketch
+        except AttributeError:
+            pass
         self._regions = None
 
     def __getattr__(self, name):
@@ -141,7 +147,11 @@ class Sketch:
     def regions_local(self):
         """The bounded areas of the sketch's curves, as faces in local XY (cached)."""
         if self._regions is None:
-            self._regions = _split([e for edges in self.entities.values() for e in edges])
+            edges = [e for edges in self.entities.values() for e in edges]
+            face = getattr(self.plane, "_bs_face", None)
+            if face is not None and edges:
+                edges += list(self.plane.to_local_coords(face).edges())
+            self._regions = _split(edges)
         return self._regions
 
     def region_index(self, uv, warn=None, what="the region"):
@@ -211,7 +221,7 @@ def _snap_points(entities):
             if e.geom_type == GeomType.CIRCLE:
                 points.append(e.arc_center)
             for p in points:
-                q = [p.X + 0.0, p.Y + 0.0]
+                q = [round(p.X, 9) + 0.0, round(p.Y, 9) + 0.0]  # 5.000000000000001 -> 5.0
                 if all(abs(q[0] - r[0]) + abs(q[1] - r[1]) > 1e-9 for r in out):
                     out.append(q)
     return out
@@ -356,6 +366,118 @@ class _Roles:
         return self._roles[i - 1] if i > 0 else None
 
 
+# -- paths: polylines with tangent arcs, drawn in the sketch plane ---------------------------------------------------
+
+class ArcTo:
+    """A path segment: a circular arc tangent to the path so far, ending at `end` (plane coordinates, mm)."""
+
+    def __init__(self, end):
+        self.end = (float(end[0]), float(end[1]))
+
+
+def arc_to(end):
+    return ArcTo(end)
+
+
+def path(start, *segments, closed=False):
+    """A wire in the sketch plane from `start` through `segments`: points (straight lines to them) and
+    arc_to(point) (arcs tangent to the previous segment); `closed` adds a line back to the start (or ends there when
+    the last segment already does)."""
+    from build123d import Edge, Vector, Wire
+    here = Vector(float(start[0]), float(start[1]), 0.0)
+    first = here
+    edges = []
+    for seg in segments:
+        if isinstance(seg, ArcTo):
+            end = Vector(*seg.end, 0.0)
+            if not edges:
+                raise SketchError("a path can't start with an arc: its tangent comes from the segment before it")
+            edge = Edge.make_tangent_arc(here, edges[-1].tangent_at(1), end)
+        else:
+            end = Vector(float(seg[0]), float(seg[1]), 0.0)
+            edge = Edge.make_line(here, end)
+        if (end - here).length < 1e-9:
+            continue
+        edges.append(edge)
+        here = end
+    if closed and (here - first).length > 1e-6:
+        edges.append(Edge.make_line(here, first))
+    if not edges:
+        raise SketchError("a path needs at least two different points")
+    return Wire(edges)
+
+
+PROFILES = ("rect", "round", "v", "circle")
+CORNERS = ("mitre", "round")
+OVERSHOOT = 0.5  # mm a groove's profile reaches above the face it cuts (no coplanar faces in the boolean)
+
+
+def _profile_points(profile, width, depth, over):
+    """The groove/rib profile as (lateral, up) points: `up` is along the sketch's normal, 0 on the plane; the solid
+    reaches `depth` below the plane (and `over` above it). For a rib the caller flips `up`."""
+    w = width / 2
+    if profile == "rect":
+        return [(-w, -depth), (w, -depth), (w, over), (-w, over)]
+    if profile == "v":
+        k = w / depth  # the V's half width per mm of depth, from the apex up to the plane
+        return [(0.0, -depth), (w + k * over, over), (-w - k * over, over)]
+    raise SketchError(f"unknown profile '{profile}' (one of {', '.join(PROFILES)})")
+
+
+def _profile_wire(profile, width, depth, over, place):
+    """The profile as a wire placed by `place` (lateral, up) -> 3D point."""
+    from build123d import Edge, Wire
+    if profile == "circle":
+        return Wire([Edge.make_circle(width / 2, place.plane)])
+    if profile == "round":
+        r = width / 2
+        if depth < r:
+            raise SketchError(f"a round groove's depth ({depth:g} mm) must be at least half its width ({r:g} mm)")
+        pts = [place((-r, over)), place((-r, -depth + r))]
+        edges = [Edge.make_line(pts[0], pts[1]),
+                 Edge.make_three_point_arc(place((-r, -depth + r)), place((0.0, -depth)), place((r, -depth + r))),
+                 Edge.make_line(place((r, -depth + r)), place((r, over))),
+                 Edge.make_line(place((r, over)), place((-r, over)))]
+        return Wire(edges)
+    return Wire.make_polygon([place(p) for p in _profile_points(profile, width, depth, over)], close=True)
+
+
+class _Place:
+    """(lateral, up) in the plane normal to a path at its start -> 3D points."""
+
+    def __init__(self, origin, lateral, up, tangent):
+        from build123d import Plane
+        self.origin, self.lateral, self.up = origin, lateral, up
+        self.plane = Plane(origin=origin, x_dir=lateral, z_dir=tangent)
+
+    def __call__(self, p):
+        return self.origin + self.lateral * p[0] + self.up * p[1]
+
+
+def _sweep(wire, profile_wire, normal, corners):
+    """The solid swept by `profile_wire` along `wire`, the profile kept square to the plane of normal `normal`
+    (binormal mode: build123d's sweep(normal=) fixes the trihedron instead), sharp corners mitred or rounded
+    (build123d's default Transformed transition gives invalid solids there)."""
+    from build123d import Solid
+    from OCP.BRepBuilderAPI import BRepBuilderAPI_TransitionMode as Mode
+    from OCP.BRepOffsetAPI import BRepOffsetAPI_MakePipeShell
+    from OCP.gp import gp_Dir
+    maker = BRepOffsetAPI_MakePipeShell(wire.wrapped)
+    maker.SetMode(gp_Dir(normal.X, normal.Y, normal.Z))
+    maker.SetTransitionMode(Mode.BRepBuilderAPI_RoundCorner if corners == "round" else Mode.BRepBuilderAPI_RightCorner)
+    maker.Add(profile_wire.wrapped, False, False)
+    maker.Build()
+    if not maker.IsDone():
+        raise SketchError("the profile can't follow this path (a corner or an arc too tight for its width?)")
+    maker.MakeSolid()
+    solid = Solid(maker.Shape())
+    from OCP.BRepCheck import BRepCheck_Analyzer
+    if not BRepCheck_Analyzer(solid.wrapped).IsValid() or solid.volume <= 0:
+        raise SketchError("the profile swept along this path isn't a valid solid (does the path cross itself, or "
+                          "turn tighter than the profile is wide?)")
+    return solid
+
+
 # -- the script helpers -------------------------------------------------------------------------------------------
 
 def helpers(tracker):
@@ -464,7 +586,44 @@ def helpers(tracker):
                     roles[f.wrapped] = "end"
         return _add(solids, clean, mode)
 
-    return {"sketch": sketch, "on_face": on_face, "regions": regions, "extrude": extrude, "revolve": revolve}
+    def groove(curve, width, depth, profile="rect", corners="mitre", mode=bd.Mode.SUBTRACT):
+        """A profile swept along a sketch path (sketch_1.path_1): a groove cut `depth` mm into the part (mode
+        SUBTRACT), or a rib standing `depth` mm out of the sketch plane (mode ADD). Profiles: "rect" (width x
+        depth), "round" (U: its bottom a half circle of the width), "v" (width at the plane, apex at depth),
+        "circle" (a pipe of diameter `width` centred on the path; depth unused). Corners "mitre" or "round"."""
+        sk, name = _owner(curve)
+        if profile not in PROFILES:
+            raise SketchError(f"unknown profile '{profile}' (one of {', '.join(PROFILES)})")
+        if corners not in CORNERS:
+            raise SketchError(f"unknown corners '{corners}' (one of {', '.join(CORNERS)})")
+        if width <= 0 or (profile != "circle" and depth <= 0):
+            raise SketchError("a groove needs a width and a depth")
+        edges = sk.entities[name]
+        wire = sk.placed(bd.Wire(edges) if len(edges) > 1 else bd.Wire([edges[0]]))
+        n = sk.plane.z_dir
+        start, tangent = wire.position_at(0), wire.tangent_at(0)
+        lateral = n.cross(tangent).normalized()
+        cut = mode != bd.Mode.ADD
+        up = n if cut else -n  # a rib is a groove turned over: its "depth" goes out of the plane
+        on_part = getattr(sk.plane, "_bs_face", None) is not None
+        over = OVERSHOOT if (cut or on_part) else 0.0  # a rib on a face sinks a little into it to fuse
+        solid = _sweep(wire, _profile_wire(profile, width, depth, over, _Place(start, lateral, up, tangent)), n,
+                       corners)
+        roles = tracker.roles
+        for f in solid.faces():
+            roles[f.wrapped] = "wall"
+        return _add([solid], True, mode)
+
+    return {"sketch": sketch, "on_face": on_face, "regions": regions, "extrude": extrude, "revolve": revolve,
+            "path": path, "arc_to": arc_to, "groove": groove}
+
+
+def _owner(curve):
+    """(sketch, entity name) of a sketch entity given as `sketch_1.path_1`."""
+    sk = getattr(curve, "_bs_sketch", None)
+    if sk is None:
+        raise SketchError("groove() takes a sketch path, e.g. sketch_1.path_1")
+    return sk, curve._bs_entity
 
 
 def _until(face, target, n, until, mode):

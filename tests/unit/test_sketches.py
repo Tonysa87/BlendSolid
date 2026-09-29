@@ -60,8 +60,10 @@ def test_overlapping_entities_make_regions():
                   '        sketch_1.c = Pos(10.0, 0.0) * Circle(4.0)\n'
                   '        sketch_1.l = Line((-15.0, -3.0), (3.0, 2.0))\n')
     areas = sorted(round(g["area"], 4) for g in r.sketches[0]["regions"])
-    # the rectangle minus the circle's half, the two halves of the circle; the dangling line splits nothing
-    assert areas == sorted([round(200 - 8 * math.pi, 4), round(8 * math.pi, 4), round(8 * math.pi, 4)])
+    # the rectangle minus the circle's half, the two halves of the circle (the dangling line splits nothing), and
+    # the rest of the face the sketch is on
+    assert areas == sorted([round(200 - 8 * math.pi, 4), round(8 * math.pi, 4), round(8 * math.pi, 4),
+                            round(1200 - 200 - 8 * math.pi, 4)])
     assert r.sketches[0]["used"] is False
 
 
@@ -77,10 +79,10 @@ def test_seed_outside_every_region_is_an_error_on_its_line():
     source = ("with BuildPart() as part:\n" + BOX +
               '    with sketch(on_face(face("box_1", "+Z"))) as sketch_1:  # feature: sketch_1\n'
                   '        sketch_1.c = Circle(5.0)\n'
-              '    extrude(regions(sketch_1, (9.0, 0.0)), amount=5.0)  # feature: extrude_1\n'
+              '    extrude(regions(sketch_1, (90.0, 0.0)), amount=5.0)  # feature: extrude_1\n'
               "result = part.part\n")
     r = runner.run_script(source)
-    assert not r.ok and "no closed area" in r.error and r.line == 5
+    assert not r.ok and "no closed area" in r.error and "(90.0, 0.0)" in r.error and r.line == 5
 
 
 def test_seed_on_a_boundary_warns():
@@ -250,3 +252,79 @@ def test_union_up_to_a_slanted_face_is_exact():
     base = 40 * 30 * 5 + 60 * 40 * 2
     # the roof's lower plane passes through (0, 0, 20) tilted 10° about Y: z = 20 - x tan(10°) under the column
     assert abs(r.volume - base - 10 * 10 * 15) < 1e-6
+
+
+# -- paths, face regions, grooves and ribs ---------------------------------------------------------------------------
+
+GROOVE_BOX = '    Box(40, 20, 10, align=(Align.CENTER, Align.CENTER, Align.MIN))  # feature: box_1\n'
+# on the top face: line 20, tangent semicircle r 5, line 20, sharp 90° corner, line 7 (research note, section 6)
+GROOVE_PATH = ('    with sketch(on_face(face("box_1", "+Z"))) as sketch_1:  # feature: sketch_1\n'
+               '        sketch_1.path_1 = path((-15.0, -5.0), (5.0, -5.0), arc_to((5.0, 5.0)), (-15.0, 5.0), '
+               '(-15.0, -2.0))\n')
+PATH_LENGTH = 47 + 5 * math.pi
+
+
+def test_path_with_a_tangent_arc():
+    r = run(GROOVE_BOX + GROOVE_PATH)
+    curves = r.sketches[0]["curves"]["path_1"]
+    assert len(curves) == 4  # one polyline per edge
+    assert [5.0, 5.0] in r.sketches[0]["points"] and [-15.0, -2.0] in r.sketches[0]["points"]
+
+
+def test_a_path_cannot_start_with_an_arc():
+    source = ("with BuildPart() as part:\n" + GROOVE_BOX +
+              '    with sketch(on_face(face("box_1", "+Z"))) as sketch_1:  # feature: sketch_1\n'
+              '        sketch_1.path_1 = path((0.0, 0.0), arc_to((5.0, 5.0)))\n'
+              "result = part.part\n")
+    r = runner.run_script(source)
+    assert not r.ok and "start with an arc" in r.error and r.line == 4
+
+
+@pytest.mark.parametrize("profile, corners, removed", [
+    ("rect", "mitre", 2 * 2 * PATH_LENGTH),
+    ("rect", "round", 2 * (2 * PATH_LENGTH - 1 + math.pi / 4)),  # the sharp corner's outside rounded off
+    ("v", "mitre", 2 * 2 / 2 * PATH_LENGTH),
+])
+def test_grooves_along_a_path(profile, corners, removed):
+    r = run(GROOVE_BOX + GROOVE_PATH +
+            f'    groove(sketch_1.path_1, width=2.0, depth=2.0, profile="{profile}", corners="{corners}")'
+            '  # feature: groove_1\n')
+    assert abs(8000 - r.volume - removed) < 1e-3, (8000 - r.volume, removed)
+
+
+def test_round_groove_and_pipe_rib():
+    r = run(GROOVE_BOX + GROOVE_PATH +
+            '    groove(sketch_1.path_1, width=2.0, depth=2.0, profile="round")  # feature: groove_1\n')
+    u = (2 * 1 + math.pi / 2) * PATH_LENGTH  # a 1 mm deep rectangle 2 wide over a half circle r 1, along the path
+    assert abs(8000 - r.volume - u) < 0.05 * u
+    r = run(GROOVE_BOX + GROOVE_PATH +
+            '    groove(sketch_1.path_1, width=3.0, depth=0.0, profile="circle", corners="round", mode=Mode.ADD)'
+            '  # feature: rib_1\n')
+    assert r.volume > 8000 and abs(r.volume - 8000 - math.pi * 2.25 * PATH_LENGTH / 2) < 0.05 * 8 * PATH_LENGTH
+
+
+def test_rib_stands_out_of_the_face():
+    r = run(GROOVE_BOX +
+            '    with sketch(on_face(face("box_1", "+Z"))) as sketch_1:  # feature: sketch_1\n'
+            '        sketch_1.path_1 = path((-10.0, 0.0), (10.0, 0.0))\n'
+            '    groove(sketch_1.path_1, width=2.0, depth=3.0, mode=Mode.ADD)  # feature: rib_1\n')
+    assert abs(r.volume - 8000 - 2 * 3 * 20) < 1e-6
+
+
+def test_closed_path_groove():
+    r = run(GROOVE_BOX +
+            '    with sketch(on_face(face("box_1", "+Z"))) as sketch_1:  # feature: sketch_1\n'
+            '        sketch_1.path_1 = path((-10.0, -5.0), (10.0, -5.0), (10.0, 5.0), (-10.0, 5.0), closed=True)\n'
+            '    groove(sketch_1.path_1, width=2.0, depth=2.0)  # feature: groove_1\n')
+    assert abs(8000 - r.volume - 2 * 2 * 60) < 1e-6
+
+
+def test_a_line_across_a_face_splits_it_into_regions():
+    r = run('    Box(40, 20, 10, align=(Align.CENTER, Align.CENTER, Align.MIN))  # feature: box_1\n'
+            '    with sketch(on_face(face("box_1", "+Z"))) as sketch_1:  # feature: sketch_1\n'
+            '        sketch_1.line_1 = Line((0.0, -15.0), (0.0, 15.0))\n'
+            '    extrude(regions(sketch_1, (10.0, 0.0)), amount=5.0)  # feature: extrude_1\n'
+            '    extrude(regions(sketch_1, (-10.0, 0.0)), amount=-4.0, mode=Mode.SUBTRACT)  # feature: step_1\n')
+    areas = sorted(round(g["area"], 6) for g in r.sketches[0]["regions"])
+    assert areas == [400.0, 400.0]
+    assert abs(r.volume - (8000 + 400 * 5 - 400 * 4)) < 1e-6

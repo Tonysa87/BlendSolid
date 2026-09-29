@@ -82,7 +82,7 @@ def test_region_at_and_entity_at_on_worker_display():
     source, _ = sm.add_entity(source, sketch, sketching.rect_spec((0, -5), (20, 5)))
     display = _run(source).sketches[0]
     areas = sorted(round(r["area"], 3) for r in display["regions"])
-    assert len(areas) == 2  # the circle, inside the rectangle, and the rectangle around it
+    assert len(areas) == 3  # the circle, the rectangle around it, and the rest of the box's top face
     i = sketching.region_at(display, (5.0, 0.0))
     assert i is not None and display["regions"][i]["area"] < 200
     assert sketching.entity_at(display, (8.0, 0.0), 0.1) == "circle_1"
