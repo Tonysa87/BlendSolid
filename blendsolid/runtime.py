@@ -5,6 +5,7 @@ hash stored on its mesh. Parameter edits, script edits, undo/redo and file loads
 single path; nothing is decided in undo handlers (evaluated data isn't ready there — spike finding).
 """
 import atexit
+from collections import OrderedDict
 
 import bpy
 from bpy.app.handlers import persistent
@@ -18,6 +19,9 @@ _client = None
 _inflight = {}  # object name -> script hash being computed
 _failed = {}    # object name -> script hash that failed (not resubmitted until the script changes)
 _synced = {}    # object name -> script hash its blendsolid_params were last synced from
+_MESHES = 24    # worker results kept for undo/redo (a result is a whole display mesh)
+_meshes = OrderedDict()  # (object name, script hash) -> the worker's result applied to that part
+_shown = {}     # object name -> script hash of the mesh this session last put on the part
 
 
 def client():
@@ -48,6 +52,8 @@ def reset_state():
     _inflight.clear()
     _failed.clear()
     _synced.clear()
+    _meshes.clear()
+    _shown.clear()
     from . import picking
     picking.clear_cache()  # keyed by mesh session_uid: stale entries only grow across files
 
@@ -96,10 +102,37 @@ def _handle(event, factor):
     if kind == "result" and event["ok"]:
         _failed.pop(key, None)
         part.apply_result(obj, event, factor)
+        _remember(key, tag, event)
     else:
         _failed[key] = tag
         message = event["error"] if kind == "result" else f"The geometry worker crashed: {event['error']}"
         part.set_error(obj, message, event.get("line"), tag)
+
+
+def _remember(name, tag, event):
+    _meshes[(name, tag)] = event
+    _meshes.move_to_end((name, tag))
+    while len(_meshes) > _MESHES:
+        _meshes.popitem(last=False)
+    _shown[name] = tag
+
+
+def _restore_mesh(obj, tag, factor):
+    """Undo and redo put meshes back as they were when their step was pushed, and an operator's step is pushed
+    as soon as it has written the script, before the worker's result arrives: undoing to the step of a part just
+    added gave an empty mesh, and the Adjust Last Operation panel (undo, then the operator again) showed it while
+    the new result computed (the maintainer's GUI test, 2026-09-29). A mesh other than the one this session last
+    put on the part gets the script's own result back, if it is still kept, else that last mesh while the script
+    computes. Returns whether it applied one."""
+    shown = _shown.get(obj.name)
+    if shown is None or part.applied_hash(obj) == shown:
+        return False
+    event = _meshes.get((obj.name, tag)) or _meshes.get((obj.name, shown))
+    if event is None:
+        return False
+    part.apply_result(obj, event, factor)
+    _shown[obj.name] = event["tag"]
+    return True
 
 
 def _mirror_to_siblings(primary, siblings, source, tag):
@@ -190,6 +223,8 @@ def tick():
                 continue
             if obj.data.is_editmode:
                 continue  # rebuilt once the mesh (shared by every object of the part) leaves Edit Mode
+            if _restore_mesh(obj, tag, factor) and tag == part.applied_hash(obj):
+                continue
             if tag in (_inflight.get(obj.name), _failed.get(obj.name)):
                 continue
 
@@ -302,8 +337,25 @@ def _on_undo(*_):
     the tick mirrored that script (an operator's step is pushed as soon as it has written the script). The
     restored script may still carry the tag _synced remembers, so forget what was synced: the next tick
     mirrors every part again (sync_params only writes what differs). Nothing else is decided here: evaluated
-    data isn't ready in undo handlers (spike finding)."""
+    data isn't ready in undo handlers (spike finding).
+    Parts whose restored mesh isn't the one last shown get a kept result back here, before Blender redraws: from
+    the tick, 50 ms later, the Adjust Last Operation panel's re-run still flashed the empty mesh. The script's
+    tag can depend on cutters' matrices, not evaluated yet: a miss falls back to the last mesh shown, and the
+    tick settles it."""
     _synced.clear()
+    factor = part.unit_factor()
+    for name in list(_shown):
+        obj = _local_object(name)
+        if obj is None or obj.data is None or obj.data.is_editmode or obj.blendsolid_script is None:
+            continue
+        try:
+            tag = part.current_tag(obj, factor)
+        except Exception:
+            tag = None
+        try:
+            _restore_mesh(obj, tag, factor)
+        except Exception as e:  # never break Blender's undo
+            print(f"BlendSolid: restoring {name}'s mesh after undo: {type(e).__name__}: {e}")
 
 
 def _kill_worker_at_exit():

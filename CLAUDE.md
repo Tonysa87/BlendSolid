@@ -131,6 +131,8 @@ tools/test.sh           # unit tests (Blender's Python) + Blender tests (blender
 - **Undo restores stale derived data:** an operator's undo step is pushed before the next tick updates data
   derived from the script (the parameter mirror), and memfile undo only reloads IDs that differ between steps.
   Python caches keyed by script tag (`runtime._synced`) must be dropped in `undo_post`/`redo_post`.
+  The mesh too: undoing to "add a part" gives an empty mesh; `runtime._meshes` keeps recent results and the
+  undo handler puts them back before the redraw (from the tick, the Adjust Last Operation panel still flashed).
 - **GUI checks:** `tools/gui_check.py` drives a real window with `--enable-event-simulate`; under WSLg with
   software OpenGL (`WAYLAND_DISPLAY= LIBGL_ALWAYS_SOFTWARE=1 blender --gpu-backend opengl`) simulated events
   ARE delivered (contrary to an earlier finding), but the first simulated press after a pause only focuses the

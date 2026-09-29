@@ -192,9 +192,25 @@ def fillet(objects, radius):
                     lambda base, edges, r: base.fillet(r, edges))
 
 
+def _reference_face(objects, reference):
+    """build123d wants one Face holding every chamfered edge; a script names it with face(), a list (a label can
+    name several faces after a split): the one that holds them all."""
+    if reference is None or isinstance(reference, bd.Face):
+        return reference
+    edges = list(bd.flatten_sequence(objects))
+    for face in reference:
+        held = face.edges()
+        if all(any(e.wrapped.IsSame(h.wrapped) for h in held) for e in edges):
+            return face
+    raise BlendError("the chamfer's reference face doesn't hold all its edges: the first length is measured on a "
+                     "face every chamfered edge lies on")
+
+
 def chamfer(objects, length, length2=None, angle=None, reference=None):
     """build123d's chamfer(), raising BlendError with what would work when it fails (for a length-and-angle
-    chamfer, build123d's own error)."""
+    chamfer, build123d's own error). `reference` (with length2 or angle): the face the first length is measured
+    on, a Face or a face() result."""
+    reference = _reference_face(objects, reference)
     make = lambda: bd.chamfer(objects, length, length2, angle, reference)  # noqa: E731
     if angle is not None:
         return make()

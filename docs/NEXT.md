@@ -1,6 +1,6 @@
 # Where we are / what's next (bookmark)
 
-Updated: 2026-09-29, session 10. Read this first when resuming, then "Next step".
+Updated: 2026-09-29, end of session 10. Read this first when resuming, then "Next step".
 
 ## State
 - **Milestone 0 (spike):** done — `SPIKE_REPORT.md`.
@@ -9,12 +9,22 @@ Updated: 2026-09-29, session 10. Read this first when resuming, then "Next step"
   (SDD ledger and GUI check report archived in `docs/milestone-1.5/`).
 - **Milestone 2 (selectors from clicks):** done, signed off 2026-09-28 (GUI tests 1–5), merged into `main`
   (tag `m2`) — `docs/milestone-2-report.md` (what was built, criterion, history, known limits).
-- 281 unit + 229 Blender tests; `tools/gui_check.py` 21/21 on Linux and Windows (as of session 9). The Windows
-  portable Blender has the `outer-arc-collars` branch installed (session 10, `MESH_FORMAT` 10, smoke PASS).
-- **Branch `outer-arc-collars`** (session 10, GUI-checked by the maintainer and merged into `main`): partial collars for curved runs of a flat face's loops,
-  collars that shrink instead of cancelling, collar safety nets, planar cells of curved faces as quads (the
-  maintainer's GUI review: a fillet of sliver triangles); `MESH_FORMAT` 10 — ADR 0008 and ADR 0010 addenda of
-  2026-09-29 (measured on a STEP corpus in `/mnt/e/bs_debug/step_corpus`, scratch tools `spike/m3_outer_arcs/`).
+- 283 unit + 236 Blender tests (branch `chamfer-options`); `tools/gui_check.py` 21/21 on Linux and Windows (as of
+  session 9, not re-run since). The Windows portable Blender has the `chamfer-options` branch installed (last
+  commit a29ee9c, `MESH_FORMAT` 10, smoke PASS).
+- **Merged into `main` (session 10):** partial collars for curved runs of a flat face's loops, collars that shrink
+  instead of cancelling, collar safety nets, planar cells of curved faces as quads (the maintainer's GUI review:
+  a fillet of sliver triangles); `MESH_FORMAT` 10 — ADR 0008 and ADR 0010 addenda of 2026-09-29 (measured on a
+  STEP corpus in `/mnt/e/bs_debug/step_corpus`, copied from the maintainer's Google Drive; scratch tools
+  `spike/m3_outer_arcs/`).
+- **Branch `chamfer-options`** (session 10, not merged): Equal / Two Distances / Distance and Angle + Flip in the
+  Fillet operator's Adjust Last Operation panel (research `docs/research/2026-09-29-chamfer-options.md`); the
+  maintainer checked all of it in the GUI ("tutti gli altri comandi del panel fillet funzionano"). The same GUI
+  test found that re-running an operator from that panel (and plain undo) showed the part empty/small while
+  recomputing — the undo step was pushed before the worker's result; fixed by keeping recent results
+  (`runtime._meshes`) and putting them back in the undo handler (commits c2012b8, a29ee9c; test
+  `test_undo_and_redo_panel_keep_showing_the_part`). The first fix (from the tick) still flashed for a frame;
+  the second (in the handler) is installed but not yet seen by the maintainer.
 
 ## Next step — resume exactly here
 1. Open corpus findings on flat faces (ADR 0008 addendum of 2026-09-29, known limits): BRepMesh-fallback
@@ -22,9 +32,11 @@ Updated: 2026-09-29, session 10. Read this first when resuming, then "Next step"
    big hole's rectangle corners, polygonal holes; and the maintainer's GUI note (2026-09-29, accepted for now):
    the thin strip between a hole's collar and a straight edge fans out to the point where the edge turns into a
    rounded corner (visible wedges; a part like test2's with a vertical fillet at a corner).
-2. **Complete the chamfer** in the Fillet tool: two distances or distance + angle, choice of side. The spec
-   schedules it in 3b; done now as a small exception because it is UI only (`worker/blends.chamfer` already
-   accepts `length2`/`angle`/`reference`).
+2. **Resume here (2026-09-30):** GUI check of the undo fix — open the portable Blender with an empty scene, add a
+   Box, chamfer a top edge with the Fillet tool, change Type in Adjust Last Operation: the part must not shrink
+   even for an instant. If it passes, merge `chamfer-options` into `main`. If a frame still flashes, the redraw
+   happens between Blender's undo and the operator's re-run before undo_post: look at `bpy.app.handlers`
+   order in `ED_undo_operator_repeat` (source) rather than guessing.
 3. **Plan 3a** (sketch 2D + extrude with taper/up-to-face + revolve + STEP/IGES/BREP I/O) from research.
 4. Consider: Draw Solid placements that follow the face they were drawn on (the maintainer hit the limit).
 5. Open M2 follow-ups (`docs/milestone-2-report.md`, "Known limits / follow-ups").

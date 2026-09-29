@@ -131,3 +131,18 @@ def test_no_arrows_for_unknown_or_non_literal_features():
     base, rnd = sm.features(source)
     assert pr.arrows(base, {"size": 10.0}) == []   # no align literal, and no base_* parameters
     assert pr.arrows(rnd, {}) == []
+
+
+def test_chamfer_sides_from_reference_texts():
+    front = 'edge_between(face("box_1", "+Z"), face("box_1", "-Y"))'
+    near = 'edge_between(face("box_1", "+X"), face("box_1", "+Z", near=(1.0, 2.0, 3.0)), near=(5.0, 0.0, 20.0))'
+    top = 'edges_of(face("box_1", "+Z"))'
+    assert pr.reference_faces(front) == ['face("box_1", "+Z")', 'face("box_1", "-Y")']
+    assert pr.reference_faces(near) == ['face("box_1", "+X")', 'face("box_1", "+Z", near=(1.0, 2.0, 3.0))']
+    assert pr.reference_faces("nearest_edge((1.0, 2.0, 3.0))") == []
+    assert pr.common_faces([front, top]) == ['face("box_1", "+Z")']
+    assert pr.common_faces([front, 'edge_between(face("box_1", "-Z"), face("box_1", "+Y"))']) == []
+    spec = pr.blend_spec([front], 2, True, angle=30, side='face("box_1", "-Y")')
+    assert spec.params == (("length", 2.0), ("angle", 30.0))
+    assert spec.call == f'chamfer({front}, length={{name}}_length, angle={{name}}_angle, reference=face("box_1", "-Y"))'
+    assert pr.blend_spec([front], 2, True).call == f"chamfer({front}, length={{name}}_length)"
