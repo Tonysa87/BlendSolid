@@ -337,8 +337,25 @@ def _on_undo(*_):
     the tick mirrored that script (an operator's step is pushed as soon as it has written the script). The
     restored script may still carry the tag _synced remembers, so forget what was synced: the next tick
     mirrors every part again (sync_params only writes what differs). Nothing else is decided here: evaluated
-    data isn't ready in undo handlers (spike finding)."""
+    data isn't ready in undo handlers (spike finding).
+    Parts whose restored mesh isn't the one last shown get a kept result back here, before Blender redraws: from
+    the tick, 50 ms later, the Adjust Last Operation panel's re-run still flashed the empty mesh. The script's
+    tag can depend on cutters' matrices, not evaluated yet: a miss falls back to the last mesh shown, and the
+    tick settles it."""
     _synced.clear()
+    factor = part.unit_factor()
+    for name in list(_shown):
+        obj = _local_object(name)
+        if obj is None or obj.data is None or obj.data.is_editmode or obj.blendsolid_script is None:
+            continue
+        try:
+            tag = part.current_tag(obj, factor)
+        except Exception:
+            tag = None
+        try:
+            _restore_mesh(obj, tag, factor)
+        except Exception as e:  # never break Blender's undo
+            print(f"BlendSolid: restoring {name}'s mesh after undo: {type(e).__name__}: {e}")
 
 
 def _kill_worker_at_exit():
