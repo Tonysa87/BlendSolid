@@ -184,7 +184,7 @@ def fill_mesh(mesh, verts, loops, poly_sizes, poly_face, corner_normals=None, ed
     mesh.loops.add(n_loops)
     mesh.loops.foreach_set("vertex_index", np.ascontiguousarray(loops, dtype=np.int32))
     mesh.polygons.add(n_polys)
-    mesh.polygons.foreach_set("loop_start", np.concatenate([[0], np.cumsum(sizes)[:-1]]).astype(np.int32))
+    mesh.polygons.foreach_set("loop_start", (np.cumsum(sizes) - sizes).astype(np.int32))  # [] for no polygons
     mesh.polygons.foreach_set("use_smooth", np.ones(n_polys, dtype=bool))  # sharp edges come from sharp_edge
     attr = _attribute(mesh, FACE_ATTR, "INT", "FACE")
     attr.data.foreach_set("value", np.ascontiguousarray(poly_face, dtype=np.int32))
