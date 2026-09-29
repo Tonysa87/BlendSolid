@@ -209,3 +209,35 @@ def test_busy_ticks_poll_faster_and_kick_submits_at_once(clean):
     assert runtime._inflight.get(obj.name) == part.current_tag(obj)
     assert runtime.tick() == runtime.TICK_BUSY < runtime.TICK_INTERVAL
     wait_for(lambda: part.applied_hash(obj) == part.current_tag(obj))
+
+
+def test_undo_and_redo_panel_keep_showing_the_part(clean):
+    # An operator's undo step is pushed before the worker's result arrives: undoing to "add a box" restored an
+    # empty mesh, and the Adjust Last Operation panel (undo, then the operator again) showed it while the new
+    # result computed (the maintainer saw the part vanish/shrink, 2026-09-29). The results are kept: one tick
+    # puts the script's own mesh back, or the last one shown while the new script computes.
+    from blendsolid import runtime
+
+    def dims(name):
+        bpy.context.view_layer.update()
+        return tuple(round(x * 1000, 3) for x in bpy.data.objects[name].dimensions)
+
+    bpy.ops.ed.undo_push()
+    bpy.ops.blendsolid.add_box("EXEC_DEFAULT", True)
+    name = bpy.context.view_layer.objects.active.name
+    wait_for(lambda: up_to_date(bpy.data.objects[name]))
+    ref = 'edge_between(face("box_1", "+Z"), face("box_1", "-Y"))'
+    bpy.ops.blendsolid.fillet("EXEC_DEFAULT", True, target=name, references=ref, radius=2.0, chamfer=True)
+    wait_for(lambda: up_to_date(bpy.data.objects[name]))
+    bpy.ops.ed.undo()
+    assert len(bpy.data.objects[name].data.vertices) == 0  # what the undo step holds
+    runtime.tick()
+    assert up_to_date(bpy.data.objects[name]) and dims(name) == (40.0, 30.0, 20.0)  # no recompute needed
+    bpy.ops.ed.redo()
+    bpy.ops.ed.undo()  # the panel's undo, then the operator with the new values
+    bpy.ops.blendsolid.fillet("EXEC_DEFAULT", True, target=name, references=ref, radius=2.0, chamfer=True,
+                              chamfer_mode="TWO", length2=5.0)
+    runtime.tick()
+    assert dims(name) == (40.0, 30.0, 20.0)  # the box while the chamfer computes
+    wait_for(lambda: up_to_date(bpy.data.objects[name]))
+    assert len(bpy.data.objects[name].data.vertices) == 10
