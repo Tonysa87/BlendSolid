@@ -153,3 +153,59 @@ def test_reference_warnings_reach_the_part(clean):
     obj.blendsolid_script.from_string(source.replace('face("box_1", "+Z")', 'face("box_1", "-Z")'))
     wait_for(lambda: up_to_date(obj))
     assert part.warnings(obj) == []
+
+
+@pytest.fixture
+def plain_box(clean):
+    obj = part.new_part(bpy.context, "with BuildPart() as part:\n"
+                                     "    Box(40, 30, 20, align=(Align.CENTER, Align.CENTER, Align.MIN))  # feature: box_1\n"
+                                     "result = part.part\n")
+    wait_for(lambda: up_to_date(obj))
+    return obj
+
+
+def has_vertex(obj, y_mm, z_mm, x_mm=20):
+    """A mesh vertex at (x, y, z) mm (by default at the box's end x = 20 mm)."""
+    return any((v.co - Vector((x_mm * F, y_mm * F, z_mm * F))).length < 1e-4 * F for v in obj.data.vertices)
+
+
+@pytest.mark.parametrize("mode, flip, removed, on_top, on_front", [
+    ("TWO", False, 0.5 * 2 * 4 * 40, 2, 4),        # 2 mm along the top (+Z, the first face), 4 mm down the front
+    ("TWO", True, 0.5 * 2 * 4 * 40, 4, 2),         # Flip: the first length on the other face
+    ("ANGLE", False, 0.5 * 2 * 2 * math.tan(math.radians(30)) * 40, 2, 2 * math.tan(math.radians(30))),
+    ("ANGLE", True, 0.5 * 2 * 2 * math.tan(math.radians(30)) * 40, 2 * math.tan(math.radians(30)), 2),
+])
+def test_asymmetric_chamfers(plain_box, mode, flip, removed, on_top, on_front):
+    # Fusion 360 / Onshape's chamfer types: two distances, or a distance and the angle to the first face; the
+    # first face is the edge's first face in its reference, Flip takes the other one.
+    v0 = mm3(plain_box)
+    assert bpy.ops.blendsolid.fillet(target=plain_box.name, references=TOP_FRONT, radius=2.0, chamfer=True,
+                                     chamfer_mode=mode, length2=4.0, angle=30.0, flip=flip) == {"FINISHED"}
+    source = part.source_of(plain_box)
+    side = 'face("box_1", "-Y")' if flip else 'face("box_1", "+Z")'
+    assert f"reference={side})" in source
+    wait_for(lambda: up_to_date(plain_box))
+    assert plain_box.blendsolid_error == ""
+    assert v0 - mm3(plain_box) == pytest.approx(removed, rel=1e-6)
+    assert has_vertex(plain_box, -15 + on_top, 20) and has_vertex(plain_box, -15, 20 - on_front)
+
+
+def test_asymmetric_chamfer_of_a_face_flips_by_swapping(plain_box):
+    # every edge of the top face: the top is the only face they all lie on, so Flip swaps the two distances
+    assert bpy.ops.blendsolid.fillet(target=plain_box.name, references='edges_of(face("box_1", "+Z"))', radius=1.0,
+                                     chamfer=True, chamfer_mode="TWO", length2=3.0, flip=True) == {"FINISHED"}
+    assert "chamfer_1_length = 3" in part.source_of(plain_box)
+    wait_for(lambda: up_to_date(plain_box))
+    assert plain_box.blendsolid_error == ""
+    assert has_vertex(plain_box, -15 + 3, 20, 20 - 3) and has_vertex(plain_box, -15, 20 - 1)  # the corners
+    with pytest.raises(RuntimeError):  # a distance and an angle can't be flipped that way
+        bpy.ops.blendsolid.fillet(target=plain_box.name, references='edges_of(face("box_1", "-Z"))', radius=1.0,
+                                  chamfer=True, chamfer_mode="ANGLE", flip=True)
+
+
+def test_asymmetric_chamfer_needs_a_common_face(plain_box):
+    other = 'edge_between(face("box_1", "-Z"), face("box_1", "+Y"))'
+    with pytest.raises(RuntimeError):
+        bpy.ops.blendsolid.fillet(target=plain_box.name, references=f"{TOP_FRONT}\n{other}", radius=1.0,
+                                  chamfer=True, chamfer_mode="TWO")
+    assert "chamfer(" not in part.source_of(plain_box)

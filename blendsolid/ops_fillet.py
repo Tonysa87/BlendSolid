@@ -11,14 +11,21 @@ tangent to the selected ones (it can't be turned off; research §3.1).
 import math
 
 import bpy
-from bpy.props import BoolProperty, FloatProperty, StringProperty
+from bpy.props import BoolProperty, EnumProperty, FloatProperty, StringProperty
 from mathutils import Matrix
 
 from . import focus, part, primitives, script_model
 
 
-def feature_spec(references, radius, chamfer=False):
-    return primitives.blend_spec(references, radius, chamfer)
+def feature_spec(references, radius, chamfer=False, length2=None, angle=None, side=None):
+    return primitives.blend_spec(references, radius, chamfer, length2, angle, side)
+
+
+CHAMFER_MODES = [  # Fusion 360 and Onshape's chamfer types (research: docs/research/2026-09-29-chamfer-options.md)
+    ("EQUAL", "Equal Distance", "The same length along both faces"),
+    ("TWO", "Two Distances", "One length along the first face, another along the second"),
+    ("ANGLE", "Distance and Angle", "A length along the first face and the chamfer's angle to that face"),
+]
 
 
 class BLENDSOLID_OT_fillet(bpy.types.Operator):
@@ -33,12 +40,51 @@ class BLENDSOLID_OT_fillet(bpy.types.Operator):
     radius: FloatProperty(name="Radius", default=2.0, min=0.001, precision=3, step=10,
                           description="Fillet radius, or chamfer length, in millimetres")
     chamfer: BoolProperty(name="Chamfer", default=False, description="A flat chamfer instead of a round fillet")
+    chamfer_mode: EnumProperty(name="Type", items=CHAMFER_MODES, default="EQUAL",
+                               description="How the chamfer's size is given")
+    length2: FloatProperty(name="Length 2", default=2.0, min=0.001, precision=3, step=10,
+                           description="The chamfer's length along the second face, in millimetres")
+    angle: FloatProperty(name="Angle", default=45.0, min=0.1, max=89.9, precision=2, step=100,
+                         description="The chamfer's angle to the first face, in degrees")
+    flip: BoolProperty(name="Flip", default=False,
+                       description="Measure the first length on the other face")
 
     def draw(self, context):
         layout = self.layout
         layout.use_property_split = True
         layout.prop(self, "chamfer")
-        layout.prop(self, "radius", text="Length" if self.chamfer else "Radius")
+        if self.chamfer:
+            layout.prop(self, "chamfer_mode")
+        layout.prop(self, "radius", text=("Length" if self.chamfer_mode == "EQUAL" else "Length 1") if self.chamfer
+                    else "Radius")
+        if self.chamfer and self.chamfer_mode == "TWO":
+            layout.prop(self, "length2")
+        elif self.chamfer and self.chamfer_mode == "ANGLE":
+            layout.prop(self, "angle")
+        if self.chamfer and self.chamfer_mode != "EQUAL":
+            layout.prop(self, "flip")
+
+    def _chamfer_side(self, obj, refs):
+        """(length, length2, angle, side face text) of an asymmetric chamfer, or an error message. The first
+        length is measured on a face every selected edge lies on; Flip takes the other one (a single edge's two
+        faces), or, for edges sharing one face only, swaps the two distances."""
+        length, length2, angle = self.radius, None, None
+        if self.chamfer_mode == "TWO":
+            length2 = self.length2
+        else:
+            angle = self.angle
+        sides = primitives.common_faces(refs)
+        if not sides:
+            return ("Two Distances and Distance and Angle measure the first length on a face all the edges lie on, "
+                    "and these edges share none: chamfer them one face at a time")
+        if not self.flip:
+            return length, length2, angle, sides[0]
+        if len(sides) > 1:
+            return length, length2, angle, sides[1]
+        if length2 is not None:
+            return length2, length, None, sides[0]
+        return ("Flip measures the length on the other face, and these edges have different other faces: select "
+                "one edge, or use Two Distances")
 
     def execute(self, context):
         from . import ui  # lazy, as in ops_draw
@@ -53,9 +99,16 @@ class BLENDSOLID_OT_fillet(bpy.types.Operator):
         if not refs:
             self.report({"ERROR"}, "Select one or more edges (or a face, for all its edges) to fillet")
             return {"CANCELLED"}
+        length, length2, angle, side = self.radius, None, None, None
+        if self.chamfer and self.chamfer_mode != "EQUAL":
+            chosen = self._chamfer_side(obj, refs)
+            if isinstance(chosen, str):
+                self.report({"ERROR"}, chosen)
+                return {"CANCELLED"}
+            length, length2, angle, side = chosen
         try:
             source, name = script_model.append_feature(part.source_of(obj),
-                                                       feature_spec(refs, self.radius, self.chamfer))
+                                                       feature_spec(refs, length, self.chamfer, length2, angle, side))
         except script_model.NotCanonical as e:
             self.report({"ERROR"}, part.not_canonical_message(obj, e, detail=ui.scripts_visible(context)))
             return {"CANCELLED"}
@@ -398,7 +451,8 @@ class FilletTool(bpy.types.WorkSpaceTool):
     bl_idname = "blendsolid.fillet_tool"
     bl_label = "Fillet"
     bl_description = ("Click edges of a part (Shift: add), or a face for all its edges, then drag to round them; "
-                      "C while dragging: chamfer; Ctrl: snap the radius")
+                      "C while dragging: chamfer (two distances, distance and angle, Flip: Adjust Last Operation "
+                      "panel); Ctrl: snap the radius")
     bl_icon = "ops.mesh.bevel"
     bl_widget = "BLENDSOLID_GGT_fillet_hover"
     bl_keymap = (

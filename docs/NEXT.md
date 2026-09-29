@@ -22,9 +22,9 @@ Updated: 2026-09-29, session 10. Read this first when resuming, then "Next step"
    big hole's rectangle corners, polygonal holes; and the maintainer's GUI note (2026-09-29, accepted for now):
    the thin strip between a hole's collar and a straight edge fans out to the point where the edge turns into a
    rounded corner (visible wedges; a part like test2's with a vertical fillet at a corner).
-2. **Complete the chamfer** in the Fillet tool: two distances or distance + angle, choice of side. The spec
-   schedules it in 3b; done now as a small exception because it is UI only (`worker/blends.chamfer` already
-   accepts `length2`/`angle`/`reference`).
+2. **Chamfer options** (branch `chamfer-options`, session 10): Equal / Two Distances / Distance and Angle + Flip in
+   the Fillet operator's Adjust Last Operation panel (research `docs/research/2026-09-29-chamfer-options.md`);
+   GUI check with the maintainer, then merge.
 3. **Plan 3a** (sketch 2D + extrude with taper/up-to-face + revolve + STEP/IGES/BREP I/O) from research.
 4. Consider: Draw Solid placements that follow the face they were drawn on (the maintainer hit the limit).
 5. Open M2 follow-ups (`docs/milestone-2-report.md`, "Known limits / follow-ups").

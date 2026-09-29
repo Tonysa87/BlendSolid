@@ -149,3 +149,18 @@ def test_no_edges_keeps_build123d_error():
 def test_standalone_fillet_works_like_the_builder():
     r = runner.run_script("b = Box(40, 30, 20)\nresult = fillet(b.edges().filter_by(Axis.Z), radius=16)\n")
     assert not r.ok and r.line == 2 and 14.9 < largest(r.error) < 15
+
+
+def test_chamfer_reference_is_a_face_result():
+    # the Fillet tool writes reference=face(...), a list: the face of it holding every chamfered edge is used
+    source = ("with BuildPart() as part:\n"
+              "    Box(40, 30, 20)  # feature: box_1\n"
+              '    chamfer(edge_between(face("box_1", "+Z"), face("box_1", "-Y")), length=2, length2=4,'
+              ' reference=face("box_1", "-Y"))  # feature: chamfer_1\n'
+              "result = part.part\n")
+    r = runner.run_script(source)
+    assert r.ok and BOX - r.volume == pytest.approx(0.5 * 2 * 4 * 40, rel=1e-6)
+    top = [v for v in r.verts if abs(v[2] - 10) < 1e-4]
+    assert min(v[1] for v in top) == pytest.approx(-15 + 4, abs=1e-4)  # 2 mm measured on the front (-Y)
+    r = runner.run_script(source.replace('reference=face("box_1", "-Y")', 'reference=face("box_1", "+X")'))
+    assert not r.ok and r.line == 3 and "reference face doesn't hold" in r.error

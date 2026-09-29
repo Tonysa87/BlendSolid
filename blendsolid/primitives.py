@@ -153,12 +153,64 @@ def arrows(feature, values):
     return out
 
 
-def blend_spec(references, size, chamfer=False):
+def _call_args(text, name):
+    """The top-level arguments of `text` if it is a call `name(...)`, else None."""
+    if not (text.startswith(name + "(") and text.endswith(")")):
+        return None
+    args, depth, start, quote = [], 0, len(name) + 1, None
+    for i, ch in enumerate(text[len(name) + 1:-1], len(name) + 1):
+        if quote:
+            quote = None if ch == quote else quote
+        elif ch in "\"'":
+            quote = ch
+        elif ch in "([":
+            depth += 1
+        elif ch in ")]":
+            depth -= 1
+        elif ch == "," and depth == 0:
+            args.append(text[start:i].strip())
+            start = i + 1
+    args.append(text[start:-1].strip())
+    return args
+
+
+def reference_faces(reference):
+    """The face references an edge reference text lies on: edge_between(A, B, ...) its two, edges_of(F) that
+    one; [] for others (nearest_edge(...))."""
+    args = _call_args(reference, "edge_between")
+    if args is not None and len(args) >= 2:
+        return [a for a in args[:2] if not a.startswith("near=")]
+    args = _call_args(reference, "edges_of")
+    return args[:1] if args else []
+
+
+def common_faces(references):
+    """The face references every one of `references` lies on, in the first one's order: where a two-distance or
+    distance-and-angle chamfer can measure its first length."""
+    common = None
+    for reference in references:
+        faces = reference_faces(reference)
+        common = faces if common is None else [f for f in common if f in faces]
+    return common or []
+
+
+def blend_spec(references, size, chamfer=False, length2=None, angle=None, side=None):
     """The Fillet tool's feature: a fillet (or chamfer) of `references` (reference texts: edge_between(...),
-    edges_of(face(...))), one call on their sum (build123d ShapeLists add up)."""
+    edges_of(face(...))), one call on their sum (build123d ShapeLists add up). A chamfer with `length2` (two
+    distances) or `angle` (degrees, distance and angle) measures `size` on the face `side` (a face reference
+    text)."""
     joined = " + ".join(references)
     if chamfer:
-        return FeatureSpec("chamfer", (("length", float(size)),), f"chamfer({joined}, length={{name}}_length)")
+        values, call = [("length", float(size))], f"chamfer({joined}, length={{name}}_length"
+        if length2 is not None:
+            values.append(("length2", float(length2)))
+            call += ", length2={name}_length2"
+        elif angle is not None:
+            values.append(("angle", float(angle)))
+            call += ", angle={name}_angle"
+        if side is not None and (length2 is not None or angle is not None):
+            call += f", reference={side}"
+        return FeatureSpec("chamfer", tuple(values), call + ")")
     return FeatureSpec("fillet", (("radius", float(size)),), f"fillet({joined}, radius={{name}}_radius)")
 
 
