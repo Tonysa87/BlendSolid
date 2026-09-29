@@ -10,8 +10,8 @@ Updated: 2026-09-29, session 11. Read this first when resuming, then "Next step"
 - **Milestone 2 (selectors from clicks):** done, signed off 2026-09-28 (GUI tests 1–5), merged into `main`
   (tag `m2`) — `docs/milestone-2-report.md` (what was built, criterion, history, known limits).
 - 283 unit + 236 Blender tests (`main`); `tools/gui_check.py` 21/21 on Linux and Windows (as of
-  session 9, not re-run since). The Windows portable Blender has the `chamfer-options` branch installed (last
-  commit a29ee9c, `MESH_FORMAT` 10, smoke PASS).
+  session 9, not re-run since). The Windows portable Blender has the code of `main` installed (built from
+  a29ee9c, same code as the merge; `MESH_FORMAT` 10, smoke PASS).
 - **Merged into `main` (session 10):** partial collars for curved runs of a flat face's loops, collars that shrink
   instead of cancelling, collar safety nets, planar cells of curved faces as quads (the maintainer's GUI review:
   a fillet of sliver triangles); `MESH_FORMAT` 10 — ADR 0008 and ADR 0010 addenda of 2026-09-29 (measured on a
