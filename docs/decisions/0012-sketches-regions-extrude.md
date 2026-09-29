@@ -52,3 +52,20 @@ inside `with BuildPart()` raises), `BuildSketch` fuses overlapping shapes (their
   polygons and slots are not built yet.
 - Sketches drawn across adjacent faces: one sketch per plane (every product does so); projecting/wrapping across
   faces is 3c.
+
+## Addendum (2026-09-29, session 11): paths and grooves
+
+The maintainer's first try: rectangles and circles duplicate Draw Solid and a single line did nothing. Research
+`docs/research/2026-09-29-sketch-drawing-ux.md` (CAD products, BoxCutter, Hard Ops): the sketch's value is the
+open path, which splits faces and carries a profile. So:
+- **Paths**: `sketch_1.path_1 = path((u, v), (u, v), arc_to((u, v)), ..., closed=True)` — lines and arcs tangent
+  to the path so far. The Sketch tool's default shape: click points, press-drag (or A) for an arc, click the first
+  point to close, Enter/right-click/double-click to end, Backspace removes the last point.
+- **A sketch on a face splits the face**: the face's edges bound its regions too (Onshape imprint, SketchUp), so a
+  line across a face gives two pieces for Extrude Sketch.
+- **Grooves and ribs**: `groove(sketch_1.path_1, width=, depth=, profile="rect"|"round"|"v"|"circle",
+  corners="mitre"|"round", mode=Mode.SUBTRACT|Mode.ADD)` sweeps the profile along any sketch curve, kept square to
+  the sketch plane (`MakePipeShell` binormal mode; RightCorner/RoundCorner transitions — build123d's default
+  Transformed gives invalid solids at sharp corners). A groove's profile reaches 0.5 mm above the face (no
+  coplanar boolean faces); a rib on a face sinks 0.5 mm into it. The Groove tool: press on a curve and drag into
+  the part (groove) or out (rib). Its faces all get the role `wall` for now (references need `near=`).

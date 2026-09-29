@@ -25,11 +25,11 @@ Updated: 2026-09-29, session 11 (milestone 3a started, branch `m3a`). Read this 
 
 ## Milestone 3a in progress (branch `m3a`, session 11)
 - Research: `docs/research/2026-09-29-milestone-3a-sketch-extrude-io.md`; decision: ADR 0012.
-- Built (worker + tools, 319 unit + 242 Blender tests, `gui_check.py` step 22 PASS on Linux and on the Windows
-  portable with the installed build): **Sketch** tool (rectangle, circle, line on a flat face, on a sketch or on
+- Built (worker + tools, 330 unit + 244 Blender tests, `gui_check.py` step 22 PASS on Linux and on the Windows
+  portable with the installed build): **Sketch** tool (paths with tangent arcs, rectangle, circle on a flat face, on a sketch or on
   the 3D cursor's plane; snaps to sketch points, Ctrl grid), **Extrude Sketch** (drag a region: out joins, in
   cuts; Adjust Last Operation: operation, up to next/last, symmetric, taper), **Revolve Sketch** (region, then a
-  sketch line). The three tools sit in the Draw Solid toolbar group. Installed in the Windows portable Blender.
+  sketch line), **Groove** (a profile along a sketch curve: groove or rib; ADR 0012 addendum). The tools sit in the Draw Solid toolbar group. Installed in the Windows portable Blender.
 
 ## Next step — resume exactly here
 1. **Maintainer's GUI test of the sketch tools** (short steps, see the chat of session 11), then fixes.
