@@ -48,7 +48,7 @@ def test_sketch_plane_origin_is_the_part_origin_projected():
 def test_cut_up_to_last_goes_through():
     r = run(BOX + '    with sketch(on_face(face("box_1", "+Z"))) as sketch_1:  # feature: sketch_1\n'
                   '        sketch_1.c = Circle(5.0)\n'
-                  '    extrude(regions(sketch_1, (0.0, 0.0)), amount=-1, until=Until.LAST, mode=Mode.SUBTRACT)'
+                  '    extrude(regions(sketch_1, (0.0, 0.0)), dir=-sketch_1.plane.z_dir, until=Until.LAST, mode=Mode.SUBTRACT)'
                   '  # feature: hole_1\n')
     assert abs(r.volume - (40 * 30 * 20 - math.pi * 25 * 20)) < 1e-6
     assert any(t == 'face("hole_1", "c")' for t in r.face_refs)
@@ -173,3 +173,80 @@ def test_on_face_refuses_a_curved_face():
               "result = part.part\n")
     r = runner.run_script(source)
     assert not r.ok and "flat face" in r.error and r.line == 3
+
+
+def test_lines_meeting_at_rounded_ends_close_an_area():
+    # a triangle whose corner is 6-decimal rounded differently on its two lines (4e-7 mm apart)
+    r = run('    with sketch(Plane.XY) as sketch_1:  # feature: sketch_1\n'
+            '        sketch_1.a = Line((0.0, 0.0), (10.0, 0.0))\n'
+            '        sketch_1.b = Line((10.0, 0.0), (3.333333, 6.666667))\n'
+            '        sketch_1.c = Line((3.3333334, 6.6666666), (0.0, 0.0))\n'
+            '    extrude(regions(sketch_1, (4.0, 2.0)), amount=1.0)  # feature: extrude_1\n')
+    assert abs(r.volume - 0.5 * 10 * 6.666667) < 1e-4
+    points = r.sketches[0]["points"]
+    assert [0.0, 0.0] in points and [10.0, 0.0] in points
+
+
+def test_new_sketch_script_runs():
+    from blendsolid import script_model as sm
+    source, _, _ = sm.new_sketch_script("Plane.XY", sm.EntitySpec(
+        "circle", (("radius", 3.0),), "Pos(1.0, 2.0) * Circle({name}_radius)"))
+    source, _ = sm.append_feature(source, sm.FeatureSpec(
+        "extrude", (("amount", 4.0),), "extrude(regions(sketch_1, (1.0, 2.0)), amount={name}_amount)"))
+    r = runner.run_script(source)
+    assert r.ok, r.error
+    assert abs(r.volume - math.pi * 9 * 4) < 1e-6 and r.sketches[0]["used"] is True
+    assert [1.0, 2.0] in r.sketches[0]["points"]
+
+
+STACK = ('    Box(40, 30, 10, align=(Align.CENTER, Align.CENTER, Align.MIN))  # feature: low_1\n'
+         '    with Locations(Location((0.0, 0.0, 20.0), (0.0, 0.0, 0.0))):  # feature: high_1\n'
+         '        Box(40, 30, 5, align=(Align.CENTER, Align.CENTER, Align.MIN))\n')
+STACK_VOLUME = 40 * 30 * 15
+
+
+def _stack_until(face, until, mode, down):
+    direction = ", dir=-sketch_1.plane.z_dir" if down else ""
+    return run(STACK + f'    with sketch(on_face(face("{face}", "+Z"))) as sketch_1:  # feature: sketch_1\n'
+                       '        sketch_1.r = Rectangle(10.0, 10.0)\n'
+                       f'    extrude(regions(sketch_1, (1.0, 1.0)){direction}, until=Until.{until}, mode=Mode.{mode})'
+                       '  # feature: extrude_1\n')
+
+
+def test_union_up_to_next_fills_the_gap():
+    assert abs(_stack_until("low_1", "NEXT", "ADD", False).volume - (STACK_VOLUME + 100 * 10)) < 1e-6
+
+
+def test_union_up_to_last_reaches_the_farthest_face():
+    assert abs(_stack_until("low_1", "LAST", "ADD", False).volume - (STACK_VOLUME + 100 * 10)) < 1e-6
+
+
+def test_cut_up_to_next_cuts_the_first_stretch_only():
+    assert abs(_stack_until("high_1", "NEXT", "SUBTRACT", True).volume - (STACK_VOLUME - 100 * 5)) < 1e-6
+
+
+def test_cut_up_to_last_cuts_through_everything():
+    assert abs(_stack_until("high_1", "LAST", "SUBTRACT", True).volume - (STACK_VOLUME - 100 * 15)) < 1e-6
+
+
+def test_union_up_to_next_with_nothing_ahead_is_an_error():
+    source = ("with BuildPart() as part:\n" + STACK +
+              '    with sketch(on_face(face("high_1", "+Z"))) as sketch_1:  # feature: sketch_1\n'
+              '        sketch_1.r = Rectangle(10.0, 10.0)\n'
+              '    extrude(regions(sketch_1, (1.0, 1.0)), until=Until.NEXT)  # feature: extrude_1\n'
+              "result = part.part\n")
+    r = runner.run_script(source)
+    assert not r.ok and "nothing ahead" in r.error and r.line == 7
+
+
+def test_union_up_to_a_slanted_face_is_exact():
+    r = run('    with Locations(Location((0.0, 0.0, 0.0), (0.0, 0.0, 0.0))):  # feature: base_1\n'
+            '        Box(40, 30, 5, align=(Align.CENTER, Align.CENTER, Align.MIN))\n'
+            '    with Locations(Location((0.0, 0.0, 20.0), (0.0, 10.0, 0.0))):  # feature: roof_1\n'
+            '        Box(60, 40, 2, align=(Align.CENTER, Align.CENTER, Align.MIN))\n'
+            '    with sketch(on_face(face("base_1", "+Z"))) as sketch_1:  # feature: sketch_1\n'
+            '        sketch_1.r = Rectangle(10.0, 10.0)\n'
+            '    extrude(regions(sketch_1, (0.0, 0.0)), until=Until.NEXT)  # feature: extrude_1\n')
+    base = 40 * 30 * 5 + 60 * 40 * 2
+    # the roof's lower plane passes through (0, 0, 20) tilted 10° about Y: z = 20 - x tan(10°) under the column
+    assert abs(r.volume - base - 10 * 10 * 15) < 1e-6

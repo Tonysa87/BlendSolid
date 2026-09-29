@@ -181,10 +181,24 @@ def _refs(node):
     return tuple(out)
 
 
+def _sketch_target(stmt):
+    """The variable of a sketch feature `with sketch(<plane>) as <name>:`, or None."""
+    if isinstance(stmt, ast.With) and len(stmt.items) == 1:
+        item = stmt.items[0]
+        call = item.context_expr
+        if (isinstance(call, ast.Call) and isinstance(call.func, ast.Name) and call.func.id == "sketch"
+                and isinstance(item.optional_vars, ast.Name)):
+            return item.optional_vars.id
+    return None
+
+
 def _feature(stmt, lines):
     match = _MARKER.search(lines[stmt.lineno - 1])
     if match is None:
         raise NotCanonical(f"line {stmt.lineno} is not a feature (no `# feature: <name>` marker)")
+    if _sketch_target(stmt) is not None:
+        return Feature(match.group(1), "sketch", "ADD", None, None, None, _refs(stmt), stmt.lineno,
+                       stmt.end_lineno)
     call, location, rotation = _placement(stmt)
     kind, mode, align = "other", "ADD", None
     if call is not None:
@@ -300,5 +314,129 @@ def remove_feature(source, name):
     drop = set(range(feature.lineno - 1, feature.end_lineno))
     for p in params.parse_params(source):
         if p.name.startswith(f"{name}_"):
+            drop.add(p.lineno - 1)
+    return "\n".join(line for i, line in enumerate(lines) if i not in drop)
+
+
+# -- sketches (milestone 3a): `with sketch(<plane>) as sketch_1:` and one `sketch_1.<entity> = ...` line per entity --
+
+@dataclass(frozen=True)
+class EntitySpec:
+    """A sketch entity to add: `code` is its build123d expression in the sketch plane's coordinates, with `{name}`
+    where its parameters' prefix goes (`<sketch>_<entity>`); `params` are (suffix, value) pairs."""
+    prefix: str
+    params: tuple[tuple[str, float], ...]
+    code: str
+
+
+@dataclass(frozen=True)
+class Entity:
+    name: str
+    code: str       # the expression as written
+    lineno: int
+
+
+def sketch_entities(source, sketch):
+    """The entities of sketch feature `sketch`, in order. Raises NotCanonical or ValueError (no such sketch)."""
+    _, with_node, lines = _structure(source)
+    stmt = _sketch_statement(with_node, lines, sketch)
+    out = []
+    for sub in stmt.body:
+        target = sub.targets[0] if isinstance(sub, ast.Assign) and len(sub.targets) == 1 else None
+        if (isinstance(target, ast.Attribute) and isinstance(target.value, ast.Name) and target.value.id == sketch):
+            out.append(Entity(target.attr, ast.get_source_segment(source, sub.value), sub.lineno))
+    return out
+
+
+def _sketch_statement(with_node, lines, sketch):
+    for stmt in with_node.body:
+        match = _MARKER.search(lines[stmt.lineno - 1])
+        if match is not None and match.group(1) == sketch and _sketch_target(stmt) == sketch:
+            return stmt
+    raise ValueError(f"there is no sketch named '{sketch}'")
+
+
+def _entity_line(sketch, spec, entity, indent):
+    return f"{indent}{sketch}.{entity} = {spec.code.replace('{name}', f'{sketch}_{entity}')}"
+
+
+def _add_params(source, lines, tree, with_node, new_params):
+    """Insert parameter lines at the end of the parameter block (or before the part when there is none)."""
+    if not new_params:
+        return
+    param_lines = {p.lineno for p in params.parse_params(source)}
+    ends = [n.end_lineno for n in tree.body if n.lineno in param_lines]
+    if ends:
+        at = max(ends)
+    else:
+        at = with_node.lineno - 1
+        new_params = new_params + [""]
+    lines[at:at] = new_params
+
+
+def _entity_params(sketch, spec, entity, taken):
+    out = []
+    for suffix, value in spec.params:
+        pname = f"{sketch}_{entity}_{suffix}"
+        if pname in taken:
+            raise NotCanonical(f"the parameter '{pname}' already exists")
+        out.append(f"{pname} = {fmt(value)}")
+    return out
+
+
+def new_sketch_script(plane_code, spec):
+    """(source, sketch name, entity name) of a new part whose only feature is a sketch on `plane_code` (e.g.
+    "Plane.XY") with one entity."""
+    sketch, entity = "sketch_1", f"{spec.prefix}_1"
+    lines = [HEADER, *_entity_params(sketch, spec, entity, set()), "", "with BuildPart() as part:",
+             f"    with sketch({plane_code}) as {sketch}:  # feature: {sketch}",
+             _entity_line(sketch, spec, entity, " " * 8), "", "result = part.part", ""]
+    return "\n".join(lines), sketch, entity
+
+
+def append_sketch(source, plane_code, spec):
+    """(source, sketch name, entity name) with a new sketch on `plane_code` holding one entity, as the last
+    feature. Raises NotCanonical."""
+    existing = features(source)
+    tree, with_node, lines = _structure(source)
+    taken = {p.name for p in params.parse_params(source)}
+    sketch = next_name([f.name for f in existing] + list(taken), "sketch")
+    entity = f"{spec.prefix}_1"
+    indent = " " * with_node.body[0].col_offset
+    body_end = with_node.body[-1].end_lineno
+    lines[body_end:body_end] = [f"{indent}with sketch({plane_code}) as {sketch}:  # feature: {sketch}",
+                                _entity_line(sketch, spec, entity, indent + "    ")]
+    _add_params(source, lines, tree, with_node, _entity_params(sketch, spec, entity, taken))
+    return "\n".join(lines) + "\n", sketch, entity
+
+
+def add_entity(source, sketch, spec):
+    """(source, entity name) with `spec` added as the last entity of sketch `sketch`. Raises NotCanonical or
+    ValueError (no such sketch)."""
+    features(source)
+    tree, with_node, lines = _structure(source)
+    stmt = _sketch_statement(with_node, lines, sketch)
+    taken = {p.name for p in params.parse_params(source)}
+    names = [e.name for e in sketch_entities(source, sketch)]
+    entity = next_name(names + [n[len(sketch) + 1:] for n in taken if n.startswith(sketch + "_")], spec.prefix)
+    indent = " " * stmt.body[0].col_offset
+    lines[stmt.end_lineno:stmt.end_lineno] = [_entity_line(sketch, spec, entity, indent)]
+    _add_params(source, lines, tree, with_node, _entity_params(sketch, spec, entity, taken))
+    return "\n".join(lines) + "\n", entity
+
+
+def remove_entity(source, sketch, entity):
+    """`source` without entity `entity` of sketch `sketch` and its parameters. ValueError when it is the sketch's
+    only entity (remove the sketch feature instead) or doesn't exist."""
+    entities = sketch_entities(source, sketch)
+    found = [e for e in entities if e.name == entity]
+    if not found:
+        raise ValueError(f"the sketch {sketch} has no entity '{entity}'")
+    if len(entities) == 1:
+        raise ValueError("a sketch keeps at least one entity")
+    lines = source.split("\n")
+    drop = {found[0].lineno - 1}
+    for p in params.parse_params(source):
+        if p.name.startswith(f"{sketch}_{entity}_"):
             drop.add(p.lineno - 1)
     return "\n".join(line for i, line in enumerate(lines) if i not in drop)

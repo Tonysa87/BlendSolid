@@ -145,3 +145,52 @@ def test_remove_feature_drops_its_lines_and_parameters():
         sm.remove_feature(sm.new_script(BOX)[0], "box_1")  # a part keeps at least one feature
     with pytest.raises(ValueError):
         sm.remove_feature(source, "nope")
+
+
+# -- sketches ---------------------------------------------------------------------------------------------------------
+
+RECT = sm.EntitySpec("rect", (("width", 10.0), ("height", 6.0)), "Pos(5.0, 0.0) * Rectangle({name}_width, {name}_height)")
+CIRCLE = sm.EntitySpec("circle", (("radius", 3.0),), "Pos(-4.0, 2.0) * Circle({name}_radius)")
+
+
+def test_new_sketch_script_layout():
+    source, sketch, entity = sm.new_sketch_script("Plane.XY", RECT)
+    assert (sketch, entity) == ("sketch_1", "rect_1")
+    assert source == (
+        "# BlendSolid part. The numbers below are its parameters (millimetres).\n"
+        "sketch_1_rect_1_width = 10.0\n"
+        "sketch_1_rect_1_height = 6.0\n"
+        "\n"
+        "with BuildPart() as part:\n"
+        "    with sketch(Plane.XY) as sketch_1:  # feature: sketch_1\n"
+        "        sketch_1.rect_1 = Pos(5.0, 0.0) * Rectangle(sketch_1_rect_1_width, sketch_1_rect_1_height)\n"
+        "\n"
+        "result = part.part\n")
+    (f,) = sm.features(source)
+    assert (f.name, f.kind, f.lineno, f.end_lineno) == ("sketch_1", "sketch", 6, 7)
+
+
+def test_append_sketch_and_entities():
+    source, _ = sm.new_script(BOX)
+    source, sketch, entity = sm.append_sketch(source, 'on_face(face("box_1", "+Z"))', RECT)
+    assert (sketch, entity) == ("sketch_1", "rect_1")
+    source, second = sm.add_entity(source, "sketch_1", CIRCLE)
+    source, third = sm.add_entity(source, "sketch_1", RECT)
+    assert (second, third) == ("circle_1", "rect_2")
+    assert [e.name for e in sm.sketch_entities(source, "sketch_1")] == ["rect_1", "circle_1", "rect_2"]
+    assert [f.kind for f in sm.features(source)] == ["box", "sketch"]
+    assert "sketch_1_rect_2_width = 10.0" in source
+    source = sm.remove_entity(source, "sketch_1", "rect_1")
+    assert [e.name for e in sm.sketch_entities(source, "sketch_1")] == ["circle_1", "rect_2"]
+    assert "sketch_1_rect_1_width" not in source and sm.is_canonical(source)
+    with pytest.raises(ValueError):
+        sm.add_entity(source, "sketch_9", CIRCLE)
+
+
+def test_features_appended_after_a_sketch_go_after_its_block():
+    source, _, _ = sm.new_sketch_script("Plane.XY", RECT)
+    source, name = sm.append_feature(source, sm.FeatureSpec(
+        "extrude", (("amount", 5.0),), "extrude(regions(sketch_1, (5.0, 0.0)), amount={name}_amount)"))
+    assert name == "extrude_1"
+    assert [f.name for f in sm.features(source)] == ["sketch_1", "extrude_1"]
+    assert source.splitlines()[-3].strip().startswith("extrude(regions(sketch_1")

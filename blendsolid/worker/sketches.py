@@ -25,6 +25,7 @@ HOOK_FEATURE = "__bs_sketch__"
 ON_EDGE_MM = 1e-4       # a seed this close to a region's boundary is doubtful (warning)
 ON_FACE_MM = 1e-4       # a sketch edge this close to a solid's face swept it
 AXIS_SNAP = 1e-4        # a face normal this close to a part axis is that axis (drawing.plane_on_part_face)
+FUZZY_MM = 1e-5         # curve ends this close meet (scripts write 6 decimals: ends snapped to a rounded corner)
 CURVE_DEG = 5.0         # display: one polyline segment per this many degrees of arc
 MAX_SEGMENTS = 256
 
@@ -196,8 +197,24 @@ class Sketch:
         for face in self.regions_local():
             loops = [_polyline(w, closed=True) for w in [face.outer_wire(), *face.inner_wires()]]
             regions.append({"loops": loops, "area": face.area, "inside": _inside_point(face)})
-        return {"name": self.name, "used": self.used,
-                "plane": [list(_vec(v)) for v in (o, x, y, z)], "curves": curves, "regions": regions}
+        return {"name": self.name, "used": self.used, "plane": [list(_vec(v)) for v in (o, x, y, z)],
+                "curves": curves, "regions": regions, "points": _snap_points(self.entities)}
+
+
+def _snap_points(entities):
+    """Points a click snaps to, in plane coordinates: every curve's ends and every arc's or circle's centre."""
+    from build123d import GeomType
+    out = []
+    for edges in entities.values():
+        for e in edges:
+            points = [e.position_at(0), e.position_at(1)]
+            if e.geom_type == GeomType.CIRCLE:
+                points.append(e.arc_center)
+            for p in points:
+                q = [p.X + 0.0, p.Y + 0.0]
+                if all(abs(q[0] - r[0]) + abs(q[1] - r[1]) > 1e-9 for r in out):
+                    out.append(q)
+    return out
 
 
 def _uv(uv):
@@ -226,6 +243,7 @@ def _split(edges):
     splitter = BRepAlgoAPI_Splitter()
     splitter.SetArguments(args)
     splitter.SetTools(tools)
+    splitter.SetFuzzyValue(FUZZY_MM)
     splitter.Build()
     if not splitter.IsDone():
         raise SketchError("the sketch's curves could not be split into areas")
@@ -393,14 +411,14 @@ def helpers(tracker):
                 raise SketchError("a taper angle can't be combined with up to next/last yet")
             if both:
                 raise SketchError("a symmetric extrude can't go up to next/last")
-            if amount is not None and amount < 0:
-                n = -n
             if target is None:
                 context = bd.BuildPart._get_context("extrude")
                 target = context.part_local if context is not None else None
             if target is None:
                 raise SketchError("up to next/last needs a solid to reach: there is none before this line")
-            solids = [bd.Solid.extrude_until(f, target=target, direction=n, until=until) for f in to_extrude]
+            if until not in (bd.Until.NEXT, bd.Until.LAST):
+                raise SketchError("an extrude goes up to Until.NEXT or Until.LAST")
+            solids = [s for f in to_extrude for s in _until(f, target, n, until, mode)]
             direction = n
         else:
             if amount is None or amount == 0:
@@ -419,6 +437,9 @@ def helpers(tracker):
         for s in solids:
             _cap_roles(s, sk, direction, roles)
             _side_roles(s, sk, to_extrude._bs_local, roles)
+            for f in s.faces():  # up to next/last: the faces on the target's surfaces
+                if f.wrapped not in roles:
+                    roles[f.wrapped] = "end"
         return _add(solids, clean, mode)
 
     def revolve(profiles=None, axis=bd.Axis.Z, revolution_arc=360.0, clean=True, mode=bd.Mode.ADD):
@@ -444,6 +465,53 @@ def helpers(tracker):
         return _add(solids, clean, mode)
 
     return {"sketch": sketch, "on_face": on_face, "regions": regions, "extrude": extrude, "revolve": revolve}
+
+
+def _until(face, target, n, until, mode):
+    """The extrusion of `face` along unit `n` up to the next or last surface of `target`, exact on those
+    surfaces (build123d's extrude_until stops at the face the sketch lies on). What "next" means depends on the
+    boolean, as in other CAD: a union grows through the empty space in front of the profile up to where material
+    starts; a cut or an intersection takes the first stretch of material (from the profile if it starts on the
+    part, else the first one ahead). "Last" is the whole way through: a union up to the farthest surface, a cut
+    every stretch of material. An extrusion that finds nothing to stop at is an error, never a partial solid."""
+    from build123d import Mode, Solid, Vector
+    box = target.bounding_box()
+    far = (box.max - box.min).length + (face.center() - box.center()).length + 1.0
+    prism = Solid.extrude(face, Vector(n) * far)
+    end_cap = face.moved(_translation(Vector(n) * far))
+    touch = ON_FACE_MM * 10
+
+    def pieces(shape):
+        return [] if shape is None else list(shape.solids())
+
+    if mode == Mode.ADD:
+        gaps = pieces(prism - target)
+        if until == _until_next():
+            found = [g for g in gaps if g.distance_to(face) < touch]
+            if not found:
+                raise SketchError("the area starts inside the part: up to next adds nothing (try the other "
+                                  "direction, or a cut)")
+            if any(g.distance_to(end_cap) < touch for g in found):
+                raise SketchError("up to next: nothing ahead of the area to stop at")
+            return found
+        beyond = [g for g in gaps if g.distance_to(end_cap) < touch]
+        if len(beyond) == len(gaps) and not pieces(prism & target):
+            raise SketchError("up to last: nothing ahead of the area to stop at")
+        return pieces(prism - beyond) if beyond else [prism]
+    material = sorted(pieces(prism & target), key=lambda m: m.distance_to(face))
+    if not material:
+        raise SketchError("the area's extrusion doesn't meet the part")
+    return material[:1] if until == _until_next() else material
+
+
+def _until_next():
+    from build123d import Until
+    return Until.NEXT
+
+
+def _translation(v):
+    from build123d import Location
+    return Location(v)
 
 
 def _prism(face, direction, sk, taper):

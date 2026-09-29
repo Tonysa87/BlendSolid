@@ -52,7 +52,7 @@ SKETCHED = """with BuildPart() as part:
         sketch_1.rect_1 = Pos(-8.0, 0.0) * Rectangle(12.0, 8.0)
         sketch_1.circle_1 = Pos(10.0, 4.0) * Circle(3.0)
     extrude(regions(sketch_1, (-8.0, 0.0)), amount=6.0, taper=4.0)  # feature: extrude_1
-    extrude(regions(sketch_1, (10.0, 4.0)), amount=-1, until=Until.LAST, mode=Mode.SUBTRACT)  # feature: hole_1
+    extrude(regions(sketch_1, (10.0, 4.0)), dir=-sketch_1.plane.z_dir, until=Until.LAST, mode=Mode.SUBTRACT)  # feature: hole_1
     with sketch(on_face(face("box_1", "-X"))) as sketch_2:  # feature: sketch_2
         sketch_2.slot_1 = Pos(0.0, 10.0) * SlotCenterToCenter(10.0, 4.0)
     extrude(regions(sketch_2), amount=-3.0, mode=Mode.SUBTRACT)  # feature: pocket_1

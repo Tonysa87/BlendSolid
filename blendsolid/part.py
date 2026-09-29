@@ -4,6 +4,7 @@ The script is the source of truth; the mesh is a cache tagged with the hash of t
 and of the unit factor it was converted with (ADR 0003: scripts are in millimetres, meshes in Blender units).
 """
 import hashlib
+import json
 import math
 import os
 import uuid
@@ -18,6 +19,7 @@ EDGE_ATTR = "brep_edge_id"  # per mesh edge: the BRep edge it lies on, -1 inside
 HASH_KEY = "bs_source_hash"
 KEPT_KEY = "bs_kept"  # on a part's Text: given a fake user because a part uses it (see keep_used_scripts())
 LAST_KEY = "bs_ref_last"  # on a part's Text: {cutter part id: {"name", "matrices"}} last seen (remember_cutters())
+SKETCHES_KEY = "bs_sketches"  # JSON: the worker's sketches.Sketch.display() of each sketch (plane, curves, regions)
 FACE_REFS_KEY = "bs_face_refs"  # per BRep face: the reference a click writes, e.g. 'face("box_1", "+Z")'
 EDGE_REFS_KEY = "bs_edge_refs"  # per BRep edge: the same, e.g. 'edge_between(face(...), face(...))'
 WARNINGS_KEY = "bs_warnings"  # the last result's doubtful references: ["<line>\t<message>", ...] (ADR 0009)
@@ -125,6 +127,11 @@ def apply_result(obj, event, factor):
             obj.data[key] = list(refs)
         elif key in obj.data:
             del obj.data[key]
+    sketches = event.get("sketches")
+    if sketches:
+        obj.data[SKETCHES_KEY] = json.dumps(sketches, separators=(",", ":"))
+    elif SKETCHES_KEY in obj.data:
+        del obj.data[SKETCHES_KEY]
     warnings = [f"{line or 0}\t{text}" for line, text in event.get("warnings") or ()]
     if warnings:
         obj.data[WARNINGS_KEY] = warnings
