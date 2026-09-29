@@ -105,3 +105,60 @@ fillet arc and a collar side folds under Bevel 2 mm (limiting the rule to polygo
 instead and made it worse). On test2's three holed flat faces, polygons with a corner under 10°: 18/21/49 at
 20°, 11/7/38 at 10°. What remains is fans from arc notches in the outer loop (a boss or hole cutting a corner or
 an edge) and thin strips next to edges: next step, partial collars for arcs of the outer loop.
+
+## Addendum (2026-09-29, session 10): partial collars, collars that shrink, a STEP corpus
+
+Measured first on a corpus the maintainer collected (18 STEP files: Adafruit boards and parts, bd_warehouse
+fasteners; copied to `/mnt/e/bs_debug/step_corpus`, not in the repository) with
+`spike/m3_outer_arcs/measure.py` (flat faces of more than one polygon; a *sliver* is a polygon with a corner under
+5°), plus test2.blend and four small parts (`spike/m3_outer_arcs/notch_parts.py`). Before: 87 of 163 such faces
+had slivers, 3773 slivers. Where they came from: a face whose collars overlapped anywhere dropped *all* its
+collars (42% of the slivers, boards with hundreds of holes); faces whose curved runs bend away from the face in
+the outer loop (test2's notches); faces with only small polygonal holes, BRepMesh-fallback faces and faces whose
+constraint recovery ran out of budget (left for later, below).
+
+1. **Collars shrink instead of cancelling.** Holes are collared biggest first; each collar grows at most half its
+   gap to the rectangles already placed (`_room`), so collars never overlap.
+2. **Partial collars** (`_reflex_runs`, `_arc_collar`, `_arc_outline`): a run of ≥ 4 segments of a loop that
+   curves away from the face (reflex nodes, each turning < 45°) — a boss or hole cutting a face's corner or
+   edge, a concave fillet — gets the pieces of a whole collar cut where the arc meets the rest of the loop. Its
+   straight sides are square to the face frame's axes where the arc comes within 10° of them (as a hole's
+   rectangle: an L at a corner, three sides around a notch), else square to the middle of the arc's part in each
+   quadrant (a gentle arc gets one side along its chord); both are tried, then the margin is halved (4 levels).
+   Each piece is [arc node i, arc node i + 1, side node i + 1, (corners), side node i], so every arc node has a
+   side node, the run's end nodes included. No vertex may be added on the BRep edges at the run's ends, so the
+   side polyline's ends are pulled in along it until they stand a margin away from those edges' lines: an
+   interior node at distance d from a bevelled edge's line clamps Bevel to d (research note, section 4).
+   A run that isn't one circle's arc is split at its BRep vertices (a slot's cap and its long side), not at a
+   vertex inside one circle (a cylinder's seam splits a notch's arc). Margin: 35% of the arc's clearance to
+   the other loops and to collars placed before (the loop's segments at the run's ends excluded), at most half
+   the arc's extent. Validity: convex pieces, side nodes at least half a margin from every obstacle, no crossing,
+   no obstacle inside the collar. This is the "polygons that radiate out from trim edges" MoI's author describes
+   for sub-d meshing, and the modelers' circle-in-a-square applied to a notch
+   (`docs/research/2026-09-28-planar-faces-with-holes.md`).
+3. **Safety nets**, found on the corpus once collars stopped cancelling: a hole's rectangle can reach past a
+   rounded outer corner, or cut a loop, while keeping a positive distance to every loop (a speaker frame whose
+   cone's hole nearly touches it: pieces overlapped and outside the face). `_collar` now requires its outline
+   inside the face and crossing no loop; `_collared` requires the pieces' area to equal the face's (1e-6), else
+   the caller merges the triangles as before.
+
+Measured after: faces with slivers 87 → 68, slivers 3773 → 3318 (speaker 180 → 16, NEMA-17 180 → 32, arcade button
+123 → 80, toggle switch 30 → 4, joystick 258 → 197, bearing 12 → 0; Metro M4 1250 → 1264 and the rotary encoder
+324 → 330, a few merges moved); Catmull–Clark folds (`spike/m3_outer_arcs/folds.py`, all faces) 24507 → 23793.
+Smallest corner on the notched test parts: corner notch 2.7° → 7.7°, boss over a corner 2.0° → 7.7°, concave
+fillet 1.8° → 4.0°, notch in an edge 1.7° → 2.1° (its collar shares a gap with a hole's and is thin; a sliver
+joins its end to the far corner). test2's two notches no longer fan out. Bevel 1 mm by weight removes the same
+volume with Clamp Overlap on and off on the notched parts; at 2–3 mm the clamp limit is unchanged from before
+(corner notch 197 vs 175 mm³, edge notch 144 vs 154). Fuzz 3 × 150 random parts: no fallback, closed, ≤ 0.31 s.
+`part.MESH_FORMAT` 9.
+
+Known limits:
+- Past the clamp limit Bevel stops the arc's nodes at the thinnest collar's side and its quads collapse; Blender's
+  clamp is approximate, so one ended 0.02 mm past it (0.025 mm², the notch in an edge at 2 mm). The Blender test
+  accepts collapsed polygons, not turned-over ones with visible area.
+- A face with no hole stays one polygon, concave or not (ADR 0008's rule): a boss over a corner leaves a 270°
+  sector as one n-gon, which folds one Catmull–Clark child.
+- Not addressed (corpus): small holes in a big hole's rectangle corners (NEMA-17's screw holes) get no collar;
+  holes with fewer than 8 nodes (square pads) are merged triangles; two board faces fall back to BRepMesh
+  (`meshing` can't mesh them) and two more exceed `meshing._recover`'s budget (a linear scan per flip): boards
+  with ~200 holes. Thin strips between a collar and a straight edge still fan to the edge's ends.

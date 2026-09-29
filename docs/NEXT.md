@@ -1,6 +1,6 @@
 # Where we are / what's next (bookmark)
 
-Updated: 2026-09-28, session 9. Read this first when resuming, then "Next step".
+Updated: 2026-09-29, session 10. Read this first when resuming, then "Next step".
 
 ## State
 - **Milestone 0 (spike):** done — `SPIKE_REPORT.md`.
@@ -9,15 +9,18 @@ Updated: 2026-09-28, session 9. Read this first when resuming, then "Next step".
   (SDD ledger and GUI check report archived in `docs/milestone-1.5/`).
 - **Milestone 2 (selectors from clicks):** done, signed off 2026-09-28 (GUI tests 1–5), merged into `main`
   (tag `m2`) — `docs/milestone-2-report.md` (what was built, criterion, history, known limits).
-- 276 unit + 227 Blender tests; `tools/gui_check.py` 21/21 on Linux and Windows. The Windows portable Blender has
-  `main` as of the session 9 consolidation installed (`MESH_FORMAT` 8, smoke PASS).
+- 281 unit + 229 Blender tests; `tools/gui_check.py` 21/21 on Linux and Windows (as of session 9). The Windows
+  portable Blender has `main` as of the session 9 consolidation installed (`MESH_FORMAT` 8, smoke PASS).
+- **Branch `outer-arc-collars`** (session 10, not merged): partial collars for curved runs of a flat face's loops,
+  collars that shrink instead of cancelling, collar safety nets; `MESH_FORMAT` 9 — ADR 0008 addendum of
+  2026-09-29 (measured on a STEP corpus in `/mnt/e/bs_debug/step_corpus`, scratch tools `spike/m3_outer_arcs/`).
 
 ## Next step — resume exactly here
-1. **Partial collars for arcs in a face's outer loop** (a boss or hole cutting a corner or an edge: test2.blend's
-   top and side faces fan from the arc to one far point). Research first (products + literature, e.g. template
-   meshing around boundary arcs, medial-axis decomposition), then extend `tessellate._collared`; measure on
-   test2's part (`/mnt/e/bs_debug/test2.blend`, script `.Box.py.001`) with the scratch tools
-   `spike/m2_flat_faces/plot_face.py` / `metrics.py`; Bevel tests must stay green; bump `part.MESH_FORMAT`.
+1. **GUI check of the partial collars** with the maintainer (build + install the branch in the portable Blender,
+   open `/mnt/e/bs_debug/test2.blend`, look at the top face's two notches, Bevel/Subdivision), then merge
+   `outer-arc-collars` into `main`. Open corpus findings (ADR 0008 addendum, known limits): BRepMesh-fallback
+   board faces, `meshing._recover`'s budget on faces with ~200 holes (a linear scan per flip), small holes in a
+   big hole's rectangle corners, polygonal holes.
 2. **Complete the chamfer** in the Fillet tool: two distances or distance + angle, choice of side. The spec
    schedules it in 3b; done now as a small exception because it is UI only (`worker/blends.chamfer` already
    accepts `length2`/`angle`/`reference`).

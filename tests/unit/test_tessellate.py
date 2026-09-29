@@ -290,6 +290,17 @@ def _corner_angles(loop):
     return np.degrees(np.arccos(np.clip(cos, -1, 1)))
 
 
+_BOTTOM = (bd.Align.CENTER, bd.Align.CENTER, bd.Align.MIN)
+
+
+def _plate():
+    return bd.Box(60, 40, 10, align=_BOTTOM)
+
+
+def _post(r, x, y):
+    return bd.Pos(x, y, 0) * bd.Cylinder(r, 10, align=_BOTTOM)
+
+
 COLLARED = {  # (part, smallest polygon corner in degrees on its holed faces; before the collars 0.13-1.16)
     "plate_small_hole": (lambda: bd.Box(200, 200, 5) - bd.Cylinder(3, 20), 40),
     "washer": (lambda: bd.Cylinder(20, 5) - bd.Cylinder(8, 20), 40),
@@ -300,6 +311,17 @@ COLLARED = {  # (part, smallest polygon corner in degrees on its holed faces; be
                                                     for x in (-25, 25)], 0.1),
     "bolt_circle": (lambda: bd.Cylinder(50, 5) - [bd.Pos(35 * math.cos(a), 35 * math.sin(a), 0) * bd.Cylinder(4, 20)
                                                    for a in np.arange(6) * math.pi / 3], 30),
+    # partial collars: a curved run of the outer loop bending away from the face (before them 2.7, 2.0, 1.7,
+    # 1.8 degrees: the run's nodes fanned out to a far corner)
+    "corner_notch": (lambda: _plate() - _post(6, 0, 0) - _post(10, 30, 20), 7),
+    "corner_boss": (lambda: _plate() - _post(6, 0, 0) + bd.Pos(-30, 20, 10) * bd.Cylinder(8, 5, align=_BOTTOM), 7),
+    # the notch's collar is thin (it shares its gap with the hole's): a sliver joins its end to the far corner
+    "edge_notch": (lambda: _plate() - _post(6, 10, 0) - _post(8, -10, -20), 2),
+    "fillet_inside": (lambda: bd.fillet((_plate() - bd.Pos(20, 10, 0) * bd.Box(20, 20, 10, align=bd.Align.MIN)).edges()
+                                        .filter_by(bd.Axis.Z).sort_by_distance((20, 10, 5))[0], 8) - _post(5, -10, 0), 3.5),
+    # a hole nearly touching a frame with rounded corners: its rectangle's corners lie outside the face, so it
+    # takes no collar (it took one, overlapping the frame, once overlapping collars stopped cancelling all)
+    "rounded_frame": (lambda: bd.fillet(bd.Box(80, 80, 5).edges().filter_by(bd.Axis.Z), 10) - bd.Cylinder(39, 10), 0),
 }
 
 

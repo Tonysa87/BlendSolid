@@ -718,11 +718,22 @@ def _segment_distance(points, loop):
     return float(meshing._distance_to(points, np.stack([loop, np.roll(loop, -1, axis=0)], axis=1)).min())
 
 
-def _collar(hole, others, lo, hi):
+def _room(lo, hi, taken):
+    """How far the rectangle [lo, hi] may grow before it overlaps one of the `taken` rectangles (lo, hi): half
+    the gap to the nearest (the other half is that one's side), or 0 where they already overlap."""
+    room = math.inf
+    for tlo, thi in taken:
+        gap = float(max(np.max(tlo - hi), np.max(lo - thi)))
+        room = min(room, 0.5 * gap if gap > 0 else 0.0)
+    return room
+
+
+def _collar(hole, others, lo, hi, taken=()):
     """Radial pieces around a curved hole (2D, the hole in the face's winding: clockwise), out to its bounding
-    rectangle [lo, hi] grown by a share of the rectangle's clearance to the `others` loops. Returns (collar
-    polygon CCW, pieces as lists of indices: < len(hole) a hole node, else collar node - len(hole)), or None
-    if the hole isn't star-shaped from its centroid or a piece isn't convex."""
+    rectangle [lo, hi] grown by a share of the rectangle's clearance to the `others` loops, and by at most half
+    its gap to the `taken` rectangles (collars already placed). Returns (collar polygon CCW, pieces as lists of
+    indices: < len(hole) a hole node, else collar node - len(hole)), or None if the hole isn't star-shaped from
+    its centroid or a piece isn't convex."""
     centre = hole.mean(axis=0)
     rel = hole - centre
     if not np.all(np.linalg.norm(rel, axis=1) > 0):
@@ -736,7 +747,7 @@ def _collar(hole, others, lo, hi):
     for o in others:  # a loop reaching inside the rectangle's edges from outside (no rectangle corner near it)
         clearance = min(clearance, float(meshing._distance_to(o, np.stack([rect, np.roll(rect, -1, axis=0)],
                                                                            axis=1)).min()))
-    margin = min(_COLLAR_SHARE * clearance, 0.5 * float(np.max(hi - lo)))
+    margin = min(_COLLAR_SHARE * clearance, 0.5 * float(np.max(hi - lo)), _room(lo, hi, taken))
     if not margin > 1e-6:
         return None
     lo, hi = lo - margin, hi + margin
@@ -790,7 +801,239 @@ def _collar(hole, others, lo, hi):
         pieces.append(piece)
     # the collar's outline, counter-clockwise: ray points and unused corners by angle around the centre
     outline = sorted(range(len(nodes)), key=lambda k: math.atan2(*(nodes[k] - centre)[::-1]))
+    # inside the face: a rectangle's corner can lie beyond a rounded outer corner, or its side cut a loop,
+    # at a positive distance from every loop (measured: a speaker's frame, its cone's hole nearly touching it)
+    if others:
+        segs = np.concatenate([np.stack([o, np.roll(o, -1, axis=0)], axis=1) for o in others])
+        ring = nodes[outline]
+        if not meshing._inside(ring, segs).all() or any(
+                _segments_cross(p0, p1, segs) for p0, p1 in zip(ring, np.roll(ring, -1, axis=0))):
+            return None
     return nodes[outline], outline, pieces, lo, hi
+
+
+_ARC_MIN_SEGMENTS = 4  # a run of a loop curving away from the face this long takes a partial collar
+_ARC_TURN = math.radians(45)  # at most this turn per node: a curved edge's discretization, not a corner
+_ARC_SIDE_MIN = math.radians(15)  # a partial collar's side spanning less of the arc joins its neighbour
+_AXIS_TOL = math.radians(10)  # an arc ending this close to a frame axis gets a side square to it (as a hole's rectangle)
+
+
+def _reflex_runs(p, ends=()):
+    """Where a loop (2D, the face on its left) curves away from the face: (a, b) indices of the nodes before and
+    after each maximal run of reflex nodes turning less than _ARC_TURN, at least _ARC_MIN_SEGMENTS segments
+    from a to b. A run that isn't one circle's arc is split at its nodes in `ends` (BRep vertices: a slot's cap
+    and its long side), not at a vertex inside one circle (a cylinder's seam). A loop reflex all round (a hole)
+    has no run: it is a whole collar's job."""
+    n = len(p)
+    d = np.roll(p, -1, axis=0) - p
+    din = np.roll(d, 1, axis=0)
+    turn = np.arctan2(din[:, 0] * d[:, 1] - din[:, 1] * d[:, 0], np.einsum("ij,ij->i", din, d))
+    reflex = (turn < -1e-9) & (turn > -_ARC_TURN)
+    if reflex.all() or not reflex.any():
+        return []
+    start = int(np.argmin(reflex))
+    runs, run = [], []
+    for s in range(1, n + 1):
+        i = (start + s) % n
+        if reflex[i]:
+            run.append(i)
+            continue
+        if len(run):
+            runs.append(((run[0] - 1) % n, (run[-1] + 1) % n))
+        run = []
+    ends, out = set(ends), []
+    while runs:
+        a, b = runs.pop()
+        idx = [(a + i) % n for i in range((b - a) % n + 1)]
+        if len(idx) - 1 < _ARC_MIN_SEGMENTS or a == b:
+            continue
+        centre, radius = _circle(p[idx])
+        cut = [i for i in idx[1:-1] if i in ends]
+        if cut and np.abs(np.linalg.norm(p[idx] - centre, axis=1) - radius).max() > 1e-3 * radius:
+            bounds = [a] + cut + [b]
+            runs.extend(zip(bounds[:-1], bounds[1:]))
+        else:
+            out.append((a, b))
+    return out
+
+
+def _circle(p):
+    """Least-squares circle through 2D points `p`: (centre, radius)."""
+    m = np.column_stack([2 * p, np.ones(len(p))])
+    sol, *_ = np.linalg.lstsq(m, (p ** 2).sum(axis=1), rcond=None)
+    centre = sol[:2]
+    return centre, math.sqrt(max(0.0, float(sol[2] + centre @ centre)))
+
+
+def _arc_sides(phi_lo, phi_hi, tol=_AXIS_TOL):
+    """A partial collar's straight sides for an arc spanning the angles [phi_lo, phi_hi] around its centre: one
+    per quadrant the arc crosses (quadrants centred on the face frame's axes, as a whole collar's rectangle), its
+    normal along the axis where the arc reaches it, else along the middle of the arc's part in that quadrant
+    (a gentle arc gets one side parallel to its chord). Parts narrower than _ARC_SIDE_MIN join a neighbour.
+    Returns the sides' normal angles, counter-clockwise."""
+    k0 = math.floor((phi_lo + math.pi / 4) / (math.pi / 2))
+    k1 = math.floor((phi_hi + math.pi / 4) / (math.pi / 2))
+    parts = []
+    for k in range(k0, k1 + 1):
+        lo, hi = max(phi_lo, k * math.pi / 2 - math.pi / 4), min(phi_hi, k * math.pi / 2 + math.pi / 4)
+        if hi > lo:
+            parts.append([lo, hi, k])
+    while len(parts) > 1:
+        widths = [hi - lo for lo, hi, _ in parts]
+        i = int(np.argmin(widths))
+        if widths[i] >= _ARC_SIDE_MIN:
+            break
+        j = i + 1 if i == 0 else i - 1 if i == len(parts) - 1 else (i - 1 if widths[i - 1] < widths[i + 1] else i + 1)
+        lo, hi = min(parts[i][0], parts[j][0]), max(parts[i][1], parts[j][1])
+        keep = parts[j][2] if lo - tol <= parts[j][2] * math.pi / 2 <= hi + tol else parts[i][2]
+        parts[min(i, j)] = [lo, hi, keep]
+        del parts[max(i, j)]
+    return [k * math.pi / 2 if lo - tol <= k * math.pi / 2 <= hi + tol else (lo + hi) / 2 for lo, hi, k in parts]
+
+
+def _polyline_at(poly, cum, s):
+    k = min(int(np.searchsorted(cum, s, side="right")) - 1, len(poly) - 2)
+    k = max(k, 0)
+    seg = cum[k + 1] - cum[k]
+    return poly[k] + (poly[k + 1] - poly[k]) * ((s - cum[k]) / seg if seg > 0 else 0.0)
+
+
+def _segments_cross(p0, p1, segs):
+    """Does the segment p0-p1 properly cross any of `segs` ((m, 2, 2))?"""
+    if not len(segs):
+        return False
+    a, b = segs[:, 0], segs[:, 1]
+
+    def orient(x, y, z):
+        return (y[..., 0] - x[..., 0]) * (z[..., 1] - x[..., 1]) - (y[..., 1] - x[..., 1]) * (z[..., 0] - x[..., 0])
+    d1, d2 = orient(a, b, p0), orient(a, b, p1)
+    d3, d4 = orient(p0, p1, a), orient(p0, p1, b)
+    return bool(np.any((d1 * d2 < 0) & (d3 * d4 < 0)))
+
+
+def _arc_collar(loop, a, b, obstacles):
+    """Radial pieces between a curved run of a loop (2D, the face on its left; nodes a..b, both ends kept on the
+    loop) and a polyline of straight sides a margin away from it: a whole collar's pieces, cut where the arc
+    meets the rest of the loop. The polyline's ends are pulled in along it until they stand a margin away from
+    the loop's segments at a and b (no vertex may be added on a BRep edge, and a collar node next to a bevelled
+    edge would clamp Blender's Bevel to its distance). `obstacles`: segments ((m, 2, 2)) the collar must keep
+    clear of (other loops, collars placed before). Returns (polyline nodes, pieces: indices < number of arc
+    nodes are arc nodes a.., others polyline nodes offset by it, the collar's side segments a..b) or None."""
+    n = len(loop)
+    idx = [(a + i) % n for i in range((b - a) % n + 1)]
+    arc = loop[idx]
+    centre, radius = _circle(arc)
+    rel = arc - centre
+    if not (radius > 0 and np.all(np.linalg.norm(rel, axis=1) > 0)):
+        return None
+    phi = np.unwrap(np.arctan2(rel[:, 1], rel[:, 0]))
+    if not (np.all(np.diff(phi) < 0) and phi[0] - phi[-1] < 2 * math.pi - 1e-6):
+        return None  # not clockwise once around the centre: not star-shaped from it
+    lines = [(loop[(a - 1) % n], loop[a]), (loop[b], loop[(b + 1) % n])]  # the loop's segments at the ends
+    # the clearance, apart from the loop's segments at the arc's ends (the arc's first nodes are a chord from them)
+    far = obstacles[~np.any([np.all(np.isclose(obstacles[:, e], x), axis=1) for e in (0, 1) for x in (arc[0], arc[-1])],
+                           axis=0)] if len(obstacles) else obstacles
+    clearance = float(meshing._distance_to(arc[1:-1], far).min()) if len(far) else math.inf
+    margin = min(_COLLAR_SHARE * clearance, 0.5 * float(np.max(np.ptp(arc, axis=0))))
+    # sides square to the frame's axes where the arc nearly reaches them, else (if those don't fit) square to
+    # the arc's parts in each quadrant
+    side_sets = [_arc_sides(float(phi[-1]), float(phi[0]), tol) for tol in (_AXIS_TOL, 0.0)]
+    side_sets = [np.array([[math.cos(x), math.sin(x)] for x in normals]) for normals in side_sets]
+    for attempt in range(8):
+        margin_now = margin * 0.5 ** (attempt // 2)
+        nvec = side_sets[attempt % 2]
+        if not margin_now > 1e-6:
+            return None
+        reach = (rel @ nvec.T).max(axis=0)  # every arc node inside every side by the margin
+        out = _arc_outline(centre, rel, nvec, reach + margin_now, lines, margin_now)
+        if out is not None:
+            poly, pieces = out
+            nodes = np.concatenate([arc, poly])
+            ok = all(_convex2d(nodes[piece]) for piece in pieces)
+            path = np.concatenate([arc[:1], poly, arc[-1:]])
+            segs = np.stack([path[:-1], path[1:]], axis=1)
+            if ok and len(obstacles):
+                ok = float(meshing._distance_to(poly, obstacles).min()) >= 0.5 * margin_now
+                for p0, p1 in zip(path[:-1], path[1:]):
+                    ok = ok and not _segments_cross(p0, p1, obstacles)
+                # nothing inside the collar (a small hole between the arc and a side's corner)
+                region = np.concatenate([segs, np.stack([arc[::-1][:-1], arc[::-1][1:]], axis=1)])
+                ends = obstacles.reshape(-1, 2)
+                ends = ends[(np.abs(ends - arc[0]).max(axis=1) > 1e-9) & (np.abs(ends - arc[-1]).max(axis=1) > 1e-9)]
+                ok = ok and not meshing._inside(ends, region).any()
+            if ok:
+                return poly, pieces, segs
+    return None
+
+
+def _arc_outline(centre, rel, nvec, dist, lines, margin):
+    """_arc_collar's polyline at one margin: (nodes, pieces) or None."""
+    k = len(rel)
+    # each arc node's ray from the centre onto the nearest side
+    hits, side_of = [], []
+    for d in rel / np.linalg.norm(rel, axis=1)[:, None]:
+        c = nvec @ d
+        s = np.where(c > 1e-9, dist / np.where(c > 1e-9, c, 1.0), np.inf)
+        j = int(np.argmin(s))
+        hits.append(centre + s[j] * d)
+        side_of.append(j)
+    # the polyline from the first node's hit to the last's, through the corners of the sides in between
+    poly, params = [hits[0]], [0.0]
+    for j in range(side_of[0], side_of[-1], -1 if side_of[-1] < side_of[0] else 1):
+        jn = j - 1 if side_of[-1] < side_of[0] else j + 1
+        m = np.array([nvec[j], nvec[jn]])
+        if abs(np.linalg.det(m)) < 1e-12:
+            return None
+        poly.append(centre + np.linalg.solve(m, [dist[j], dist[jn]]))
+    poly.append(hits[-1])
+    poly = np.asarray(poly)
+    cum = np.concatenate([[0.0], np.cumsum(np.linalg.norm(np.diff(poly, axis=0), axis=1))])
+    total = float(cum[-1])
+    if not total > 0:
+        return None
+
+    def param(p, side):
+        # the corner index before the side the ray hit: corners follow the sides in order
+        seg = abs(side - side_of[0])
+        return float(cum[seg] + np.linalg.norm(p - poly[seg]))
+    t = np.array([param(h, j) for h, j in zip(hits, side_of)])
+    # pull the ends in until they stand `margin` away from the loop's segments at the arc's ends
+    samples = np.linspace(0.0, total, 257)
+
+    def pull(line, order):
+        p0, p1 = line
+        u = (p1 - p0) / max(np.linalg.norm(p1 - p0), 1e-300)
+        for s in order:
+            q = _polyline_at(poly, cum, s) - p0
+            if abs(q[0] * u[1] - q[1] * u[0]) >= margin:
+                return s
+        return None
+    s0, s1 = pull(lines[0], samples), pull(lines[1], samples[::-1])
+    if s0 is None or s1 is None or not s1 - s0 > 1e-9 * total:
+        return None
+    t = s0 + (t - t[0]) * (s1 - s0) / (t[-1] - t[0])
+    pts = [_polyline_at(poly, cum, s) for s in t]
+    corners = [(float(cum[i]), poly[i]) for i in range(1, len(poly) - 1)]
+    # a node landing close to a corner moves onto it (no stub side next to the corner)
+    near = 0.2 * (s1 - s0) / max(k - 1, 1)
+    snapped = set()
+    for ci, (cs, cp) in enumerate(corners):
+        i = int(np.argmin(np.abs(t - cs)))
+        if abs(t[i] - cs) <= near and 0 < i < k - 1:
+            pts[i], t[i] = cp.copy(), cs
+            snapped.add(ci)
+    nodes, pieces, at = [], [], []
+    for i in range(k):
+        at.append(len(nodes))
+        nodes.append(pts[i])
+        if i < k - 1:
+            for ci, (cs, cp) in enumerate(corners):
+                if ci not in snapped and t[i] < cs < t[i + 1]:
+                    nodes.append(cp)
+    for i in range(k - 1):
+        between = list(range(at[i] + 1, at[i + 1]))
+        pieces.append([i, i + 1, k + at[i + 1]] + [k + x for x in between[::-1]] + [k + at[i]])
+    return np.asarray(nodes), pieces
 
 
 def _collared(t, verts, normal, keep=()):
@@ -817,38 +1060,69 @@ def _collared(t, verts, normal, keep=()):
     ey = np.cross(ez, ex)
     origin = oc[0]
     flat = [np.column_stack([(pts3[c] - origin) @ ex, (pts3[c] - origin) @ ey]) for c in cycles]
-    collars = {}
-    for k, (cyc, p) in enumerate(zip(cycles, flat)):
-        if k == outer or len(cyc) < _COLLAR_MIN_NODES:
-            continue
+    # Biggest holes first; each collar takes a share of its clearance to the loops and at most half its gap to
+    # the collars placed before it, so collars never overlap (a pair of overlapping collars used to drop every
+    # collar of the face: 42% of the slivers of a STEP corpus of boards and parts, 2026-09-29).
+    holes = sorted((k for k, cyc in enumerate(cycles) if k != outer and len(cyc) >= _COLLAR_MIN_NODES),
+                   key=lambda k: -float(np.max(np.ptp(flat[k], axis=0))))
+    collars, taken = {}, []
+    for k in holes:
+        p = flat[k]
         others = [q for j, q in enumerate(flat) if j != k]
-        out = _collar(p, others, p.min(axis=0), p.max(axis=0))
+        out = _collar(p, others, p.min(axis=0), p.max(axis=0), taken)
         if out is not None:
             collars[k] = out
-    if not collars:
+            taken.append((out[3], out[4]))
+    # partial collars on the other loops' curved runs that bend away from the face (a boss or a hole cutting
+    # the face's edge or corner): without them the run's nodes fan out to one far corner
+    obstacles = [np.stack([p, np.roll(p, -1, axis=0)], axis=1) for k, p in enumerate(flat) if k not in collars]
+    obstacles += [np.stack([c[0], np.roll(c[0], -1, axis=0)], axis=1) for c in collars.values()]
+    arcs = {}
+    for k, p in enumerate(flat):
+        if k in collars:
+            continue
+        for a, b in _reflex_runs(p, [i for i, v in enumerate(cycles[k]) if v in keep]):
+            n = len(p)
+            own = {(a + i) % n for i in range((b - a) % n)}  # the run's own segments (i -> i + 1)
+            segs = np.concatenate(obstacles)
+            mask = np.ones(len(segs), dtype=bool)
+            mask[[sum(len(q) for j, q in enumerate(flat) if j < k and j not in collars) + i for i in own]] = False
+            out = _arc_collar(p, a, b, segs[mask])
+            if out is not None:
+                arcs.setdefault(k, []).append((a, b) + out)
+                obstacles.append(out[2])
+    if not collars and not arcs:
         return None
-    # collars may not overlap one another (each took its share of their gap, but only against the holes' loops)
-    ks = list(collars)
-    for a in range(len(ks)):
-        for b in range(a + 1, len(ks)):
-            la, ha = collars[ks[a]][3], collars[ks[a]][4]
-            lb, hb = collars[ks[b]][3], collars[ks[b]][4]
-            if np.all(la < hb) and np.all(lb < ha):
-                return None
     # nodes: the face's own, then each collar's
     q, index, extra = [], [], []
-    for k, (cyc, p) in enumerate(zip(cycles, flat)):
-        if k not in collars:
-            q.extend(p)
-            index.extend(cyc)
-    polys = []
-    region = [k for k in range(len(cycles)) if k not in collars]
+    polys, segs = [], []
     base = len(verts)
-    segs, offset = [], 0
-    for k in region:  # the region outside the collars: the face's other loops, and the collars' outlines
-        n = len(cycles[k])
-        segs.extend((offset + i, offset + (i + 1) % n) for i in range(n))
-        offset += n
+    for k, (cyc, p) in enumerate(zip(cycles, flat)):  # the region's loops, curved runs replaced by collar sides
+        if k in collars:
+            continue
+        runs = {a: (b, poly, pieces) for a, b, poly, pieces, _ in arcs.get(k, [])}
+        start, n = len(q), len(cyc)
+        # walk the loop from a node inside no run, jumping from each run's first node to its last
+        i0 = next(j for j in range(n) if not any(0 < (j - a) % n < (b - a) % n for a, (b, _, _) in runs.items()))
+        i = i0
+        while True:
+            q.append(p[i])
+            index.append(cyc[i])
+            if i in runs:
+                b, poly, pieces = runs[i]
+                first = base + len(extra)
+                extra.extend(poly)
+                q.extend(poly)
+                index.extend(range(first, first + len(poly)))
+                m = (b - i) % n + 1
+                for piece in pieces:
+                    polys.append([cyc[(i + x) % n] if x < m else first + x - m for x in piece])
+                i = b
+            else:
+                i = (i + 1) % n
+            if i == i0:
+                break
+        segs.extend((start + j, start + (j + 1) % (len(q) - start)) for j in range(len(q) - start))
     for k, (outline, order, pieces, lo, hi) in collars.items():
         nodes_start = base + len(extra)
         # the collar's own nodes, in the order _collar numbered them
@@ -887,7 +1161,15 @@ def _collared(t, verts, normal, keep=()):
     local_keep = {k for k, g in enumerate(index.tolist()) if g in keep}
     region_polys = _merge_convex(tri, np.column_stack([q, np.zeros(len(q))]), local_keep)
     polys.extend([int(index[v]) for v in piece] for piece in region_polys)
-    extra3 = np.array([origin + x * ex + y * ey for x, y in extra], dtype=np.float64)
+    extra3 = np.array([origin + x * ex + y * ey for x, y in extra], dtype=np.float64).reshape(-1, 3)
+    # the pieces tile the face exactly once (a safety net: an overlapping piece would show as a dark fold)
+    allp = np.concatenate([pts3, extra3])
+    area = sum(float(np.dot(np.cross(allp[piece], np.roll(allp[piece], -1, axis=0)).sum(axis=0), ez)) / 2
+               for piece in polys)
+    tri = pts3[t]
+    expected = float(np.dot(np.cross(tri[:, 1] - tri[:, 0], tri[:, 2] - tri[:, 0]).sum(axis=0), ez)) / 2
+    if not abs(area - expected) <= 1e-6 * abs(expected):
+        return None
     return polys, extra3
 
 

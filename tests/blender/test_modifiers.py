@@ -202,3 +202,47 @@ def test_bevel_folds_nothing(default_part, width):
     mesh.polygons.foreach_get("normal", normals)
     top = face_ids(mesh) == top_face_id(default_part)
     assert (normals.reshape(-1, 3)[top, 2] > 0).all()
+
+
+NOTCHED = {  # flat faces whose outer loop has a curved run bending away from them: partial collars (tessellate)
+    "corner_notch": "Box(60, 40, 10, align=(Align.CENTER, Align.CENTER, Align.MIN))\n"
+                    "    Cylinder(6, 10, align=(Align.CENTER, Align.CENTER, Align.MIN), mode=Mode.SUBTRACT)\n"
+                    "    with Locations((30, 20, 0)):\n"
+                    "        Cylinder(10, 10, align=(Align.CENTER, Align.CENTER, Align.MIN), mode=Mode.SUBTRACT)",
+    "edge_notch": "Box(60, 40, 10, align=(Align.CENTER, Align.CENTER, Align.MIN))\n"
+                  "    with Locations((10, 0, 0)):\n"
+                  "        Cylinder(6, 10, align=(Align.CENTER, Align.CENTER, Align.MIN), mode=Mode.SUBTRACT)\n"
+                  "    with Locations((-10, -20, 0)):\n"
+                  "        Cylinder(8, 10, align=(Align.CENTER, Align.CENTER, Align.MIN), mode=Mode.SUBTRACT)",
+}
+
+
+@pytest.mark.parametrize("name", sorted(NOTCHED))
+def test_bevel_on_notched_faces_is_not_clamped(clean, name):
+    # A partial collar's ends stand a margin away from the straight edges at the arc's ends: Bevel's Clamp
+    # Overlap limits the bevel to that distance, so a 1 mm bevel must still equal the unclamped one.
+    obj = part.new_part(bpy.context, "with BuildPart() as part:\n    " + NOTCHED[name] + "\nresult = part.part\n")
+    wait_for(lambda: up_to_date(obj))
+    _, before = stats(obj)
+    removed = {}
+    for clamp in (True, False):
+        mod = add(obj, "BEVEL", limit_method="WEIGHT", width=1 * F, segments=3, use_clamp_overlap=clamp)
+        holes, after = stats(obj)
+        assert holes == 0
+        removed[clamp] = before - after
+        obj.modifiers.remove(mod)
+    assert removed[True] == pytest.approx(removed[False], rel=0.02)
+    planes = np.asarray(obj.data[part.PLANES_KEY]).reshape(-1, 4)
+    top = int(np.nonzero(np.all(np.abs(planes - (0, 0, 1, 10)) < 1e-9, axis=1))[0][0])
+    for width in (0.5, 1.0, 2.0):
+        # No polygon of the top face (the collars' face) turns over. Past the clamp limit (2 mm here) Bevel stops
+        # the arc's nodes at the collar's side, and the thinnest collar's quads collapse: Blender's clamp is
+        # approximate ("This is not perfect", bmesh_bevel.cc), so one may end 0.02 mm past it (0.025 mm²).
+        mod = add(obj, "BEVEL", limit_method="WEIGHT", width=width * F, segments=2)
+        mesh = evaluated(obj)
+        normals, areas = np.empty(3 * len(mesh.polygons)), np.empty(len(mesh.polygons))
+        mesh.polygons.foreach_get("normal", normals)
+        mesh.polygons.foreach_get("area", areas)
+        flipped = (face_ids(mesh) == top) & (normals.reshape(-1, 3)[:, 2] <= 0)
+        assert (areas[flipped] < 0.1 * F ** 2).all(), width
+        obj.modifiers.remove(mod)
