@@ -1189,12 +1189,57 @@ def _brep_vertices(face, verts, t):
     return out
 
 
+_QUAD_PLANAR = math.radians(0.5)  # two triangles of a curved face's grid cell this close to coplanar: one quad
+_QUAD_MIN_CORNER = math.radians(45)  # a grid cell, not any two triangles of a Delaunay patch (odd quads folded)
+
+
+def _cell_quads(t, pts):
+    """A curved face's triangles `t` as polygons: two triangles sharing an edge become one quad where they are
+    coplanar within _QUAD_PLANAR and the quad is convex, longest shared edges first (a grid cell's diagonal is
+    its longest edge); the rest stay triangles. A cylinder, cone or extrusion is ruled: its cells between two
+    generators are planar strips, which split into two triangles showed as long slivers (a fillet along an 86 mm
+    edge: 0.37° corners, the diagonals reading as a fan in wireframe; test2.blend, 2026-09-29). Doubly curved
+    cells (spheres, a fillet's corner patch) stay triangles, as Blender would split them anyway. Returns the
+    polygons as vertex lists in the triangles' winding."""
+    p = pts[t].astype(np.float64)
+    n = np.cross(p[:, 1] - p[:, 0], p[:, 2] - p[:, 0])
+    norm = np.linalg.norm(n, axis=1)
+    n = n / np.where(norm > 0, norm, 1.0)[:, None]
+    owner = {}
+    for i, tri in enumerate(t.tolist()):
+        for k in range(3):
+            owner[(tri[k], tri[(k + 1) % 3])] = i
+    cos_limit = math.cos(_QUAD_PLANAR)
+    shared = [(a, b, i, owner[(b, a)]) for (a, b), i in owner.items() if (b, a) in owner and a < b]
+    shared = [(a, b, i, j) for a, b, i, j in shared if norm[i] > 0 and norm[j] > 0 and float(n[i] @ n[j]) >= cos_limit]
+    shared.sort(key=lambda e: -float(np.linalg.norm(pts[e[0]].astype(np.float64) - pts[e[1]])))
+    polys, used = [], set()
+    for a, b, i, j in shared:
+        if i in used or j in used:
+            continue
+        ti, tj = t[i].tolist(), t[j].tolist()
+        if ti.index(b) != (ti.index(a) + 1) % 3:  # triangle i runs a -> b; j runs b -> a
+            i, j, ti, tj = j, i, tj, ti
+        c = ti[(ti.index(b) + 1) % 3]
+        d = tj[(tj.index(a) + 1) % 3]
+        quad = [b, c, a, d]
+        q = pts[quad].astype(np.float64)
+        turns = np.cross(q - np.roll(q, 1, axis=0), np.roll(q, -1, axis=0) - q) @ (n[i] + n[j])
+        e0, e1 = np.roll(q, 1, axis=0) - q, np.roll(q, -1, axis=0) - q
+        cos = np.einsum("ij,ij->i", e0, e1) / np.maximum(1e-300, np.linalg.norm(e0, axis=1) * np.linalg.norm(e1, axis=1))
+        if (turns > 0).all() and cos.max() <= math.cos(_QUAD_MIN_CORNER):
+            polys.append(quad)
+            used.update((i, j))
+    polys.extend(tri for i, tri in enumerate(t.tolist()) if i not in used)
+    return polys
+
+
 def _polygons(shape, verts, normals, tris, tri_face):
     """(loops, poly_sizes, poly_face, verts, normals): a flat face whose triangles have one boundary cycle
     becomes that one polygon (Blender's Bevel clamps to the shortest chord of a triangulated cap; Blender's own
     primitives have n-gon caps); a flat face with holes becomes convex polygons, curved holes wrapped in collars
     of radial quads (_collared, whose new vertices are appended) or else merged triangles (_merge_convex);
-    curved faces keep their triangles."""
+    curved faces keep their triangles, but a grid cell's two coplanar triangles make a quad (_cell_quads)."""
     loops, sizes, faces = [], [], []
     new_verts, new_normals, count = [], [], len(verts)
     for fid, face in enumerate(face_map(shape)):
@@ -1223,9 +1268,10 @@ def _polygons(shape, verts, normals, tris, tri_face):
                 sizes.append(len(piece))
                 faces.append(fid)
         else:
-            loops.append(t.ravel().astype(np.int64))
-            sizes.extend([3] * len(t))
-            faces.extend([fid] * len(t))
+            for piece in _cell_quads(t, verts):
+                loops.append(np.array(piece, dtype=np.int64))
+                sizes.append(len(piece))
+                faces.append(fid)
     if new_verts:
         verts = np.concatenate([verts, np.concatenate(new_verts).astype(verts.dtype)])
         normals = np.concatenate([normals, np.concatenate(new_normals)])

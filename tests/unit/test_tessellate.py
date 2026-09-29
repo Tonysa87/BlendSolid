@@ -252,7 +252,8 @@ def test_flat_faces_without_holes_are_one_polygon():
             if BRepAdaptor_Surface(face).GetType() == GeomAbs_Plane]
     for fid in flat:
         assert (cyl.poly_face == fid).sum() == 1 and cyl.poly_sizes[cyl.poly_face == fid][0] > 8
-    assert (cyl.poly_sizes[~np.isin(cyl.poly_face, flat)] == 3).all()
+    # the side: strips between generators, planar, so quads (_cell_quads), not pairs of sliver triangles
+    assert (cyl.poly_sizes[~np.isin(cyl.poly_face, flat)] == 4).all()
     shape, holed = display("box_with_hole")  # top and bottom have a hole: convex polygons, a collar around it
     per_face = np.bincount(holed.poly_face)
     assert sum(1 for c in per_face if c == 1) == 4  # the four sides

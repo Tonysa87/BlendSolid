@@ -112,3 +112,21 @@ After the fixes: over 1,000 random parts, none over 1.5 s (tessellation of a who
 broken fillet result reports the error above. Known trade-offs: a curvature spike is meshed at the face's typical curvature, so the
 tolerance can be exceeded locally on such corner patches; and the worker still has no per-job time budget (the
 client kills a job after 120 s).
+
+## Addendum (2026-09-29, session 10): planar cells as quads
+
+The maintainer's GUI review of test2.blend: a fillet along an 86 mm edge showed as long, useless slivers. Measured:
+17 nodes on each end arc, 16 strips between generators, each split into two triangles (32 triangles, 86 × 0.56
+mm, 0.37° corners); in wireframe their diagonals read as a fan. A strip between two generators of a cylinder,
+cone or extrusion is planar, so it is one quad, as MoI's and Plasticity's "quads & triangles" outputs give.
+
+`tessellate._cell_quads`: on curved faces, two triangles sharing an edge become one quad where their normals are
+within 0.5° (`_QUAD_PLANAR`), the quad is convex and none of its corners is under 45° (`_QUAD_MIN_CORNER`),
+longest shared edges first (a cell's diagonal). The corner rule keeps it to grid cells: without it, pairs of
+nearly flat Delaunay triangles on a large B-spline face became odd quads (the arcade button's dome: 67 → 2757
+children folded by one Catmull–Clark step). Doubly curved cells stay triangles. test2's fillet: 16 quads, no
+polygon corner under 3°. Corpus (`spike/m3_outer_arcs/folds.py`): Catmull–Clark folds 23793 → 24193, up on
+some boards' parts, down on others (Metro M4's board 4553 → 491); Subdivision is "convert to quads"' concern
+(ADR 0008 addendum of 2026-09-28). `part.curved_face_normal` interpolates the corner normals across the fan
+triangle of a polygon that holds the point, so Draw Solid's hover on a cone still turns smoothly.
+`part.MESH_FORMAT` 10.
