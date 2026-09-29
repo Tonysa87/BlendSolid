@@ -96,8 +96,9 @@ def nearest_point(points, p, radius):
 
 
 def bounds(sketch):
-    """(umin, vmin, umax, vmax) of a sketch's curves."""
+    """(umin, vmin, umax, vmax) of a sketch's curves and regions (on a face: the face's pieces too)."""
     pts = [p for curves in sketch["curves"].values() for curve in curves for p in curve]
+    pts += [p for region in sketch["regions"] for loop in region["loops"] for p in loop]
     if not pts:
         return None
     return (min(p[0] for p in pts), min(p[1] for p in pts), max(p[0] for p in pts), max(p[1] for p in pts))
@@ -166,3 +167,101 @@ def entity_at(sketch, p, radius, names=None):
                 if d <= best:
                     best, found = d, name
     return found
+
+
+# -- paths (polylines with tangent arcs) and the grooves/ribs swept along them -------------------------------------------
+
+def path_spec(points, closed=False):
+    """A path through `points` [(u, v, is_arc)] (the first point's flag is ignored: a segment ends at each later
+    point, as an arc tangent to the path so far when flagged)."""
+    def xy(p):
+        return f"({fmt(p[0])}, {fmt(p[1])})"
+    parts = [xy(points[0])]
+    for p in points[1:]:
+        parts.append(f"arc_to({xy(p)})" if p[2] else xy(p))
+    if closed:
+        parts.append("closed=True")
+    return EntitySpec("path", (), f"path({', '.join(parts)})")
+
+
+def _unit(v):
+    length = math.hypot(v[0], v[1])
+    return (v[0] / length, v[1] / length) if length > 0 else (0.0, 0.0)
+
+
+def end_tangent(points, upto=None):
+    """The path's direction at its last point (of the first `upto` points), or None with fewer than two points."""
+    pts = points if upto is None else points[:upto]
+    if len(pts) < 2:
+        return None
+    t = None
+    for a, b in zip(pts, pts[1:]):
+        chord = _unit((b[0] - a[0], b[1] - a[1]))
+        if b[2] and t is not None:
+            dot = t[0] * chord[0] + t[1] * chord[1]
+            t = (2 * dot * chord[0] - t[0], 2 * dot * chord[1] - t[1])  # the start tangent reflected about the chord
+        else:
+            t = chord
+    return t
+
+
+def tangent_arc(p0, t, p1, segments=24):
+    """Points of the arc from `p0` with tangent `t` to `p1` (a straight line when `t` points along the chord)."""
+    dx, dy = p1[0] - p0[0], p1[1] - p0[1]
+    cross = t[0] * dy - t[1] * dx
+    if abs(cross) < 1e-12:
+        return [tuple(p0[:2]), tuple(p1[:2])]
+    # centre on the normal to t through p0, equidistant from p0 and p1
+    nx, ny = -t[1], t[0]
+    r = (dx * dx + dy * dy) / (2 * (nx * dx + ny * dy))
+    cx, cy = p0[0] + nx * r, p0[1] + ny * r
+    a0, a1 = math.atan2(p0[1] - cy, p0[0] - cx), math.atan2(p1[1] - cy, p1[0] - cx)
+    sweep = a1 - a0
+    if r > 0:  # counter-clockwise about the centre
+        sweep = sweep % (2 * math.pi)
+    else:
+        sweep = -((-sweep) % (2 * math.pi))
+    radius = abs(r)
+    return [(cx + radius * math.cos(a0 + sweep * k / segments), cy + radius * math.sin(a0 + sweep * k / segments))
+            for k in range(segments + 1)]
+
+
+def path_polyline(points, closed=False):
+    """The drawn path as plane points (arcs sampled), for the preview."""
+    if not points:
+        return []
+    out = [tuple(points[0][:2])]
+    for i in range(1, len(points)):
+        p = points[i]
+        t = end_tangent(points, i)
+        if p[2] and t is not None:
+            out += tangent_arc(points[i - 1], t, p)[1:]
+        else:
+            out.append(tuple(p[:2]))
+    if closed:
+        out.append(tuple(points[0][:2]))
+    return out
+
+
+GROOVE_PROFILES = ("rect", "round", "v", "circle")
+GROOVE_CORNERS = ("mitre", "round")
+
+
+def groove_spec(sketch, entity, width, depth, profile="rect", corners="mitre", operation="SUBTRACT"):
+    """The Groove tool's feature: `profile` swept along path `entity` of `sketch`, cut `depth` mm into the part
+    (SUBTRACT) or standing `depth` mm out of the sketch's plane (ADD, a rib)."""
+    values = [("width", float(width))]
+    call = f"groove({sketch}.{entity}, width={{name}}_width"
+    if profile == "circle":
+        call += ", depth=0.0"
+    else:
+        values.append(("depth", float(depth)))
+        call += ", depth={name}_depth"
+    if profile != "rect":
+        call += f', profile="{profile}"'
+    if corners != "mitre":
+        call += f', corners="{corners}"'
+    if operation != "SUBTRACT":
+        call += f", mode=Mode.{operation}"
+    prefix = "groove" if operation == "SUBTRACT" else "rib"
+    return FeatureSpec(prefix, tuple(values), call + ")")

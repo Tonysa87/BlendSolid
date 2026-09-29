@@ -1367,10 +1367,39 @@ def _drag(start_mm, end_mm, press_mods=None, **mods):
     yield 0.3
 
 
+def _path(points_mm, arcs=(), close=False):
+    """Click the points of a path (a drag into the points whose index is in `arcs`), then Enter (or click the
+    first point again with `close`)."""
+    xy = [px(p) for p in points_mm]
+    for i, b in enumerate(xy):
+        a = xy[i - 1] if i else b
+        if i in arcs:  # press on the last point, drag to this one: a tangent arc
+            yield from move(a, a, 1, ctrl=True)
+            ev("LEFTMOUSE", "PRESS", a, ctrl=True)
+            yield 0.1
+            yield from move(a, b, ctrl=True)
+            ev("LEFTMOUSE", "RELEASE", b, ctrl=True)
+        else:
+            yield from move(a, b, ctrl=True)
+            ev("LEFTMOUSE", "PRESS", b, ctrl=True)
+            yield 0.1
+            ev("LEFTMOUSE", "RELEASE", b, ctrl=True)
+        yield 0.3
+    if close:
+        yield from move(xy[-1], xy[0], ctrl=True)
+        ev("LEFTMOUSE", "PRESS", xy[0], ctrl=True)
+        yield 0.1
+        ev("LEFTMOUSE", "RELEASE", xy[0], ctrl=True)
+    else:
+        yield from key("RET", xy[-1])
+    yield 0.3
+
+
 def step22():
-    """Milestone 3a: the Sketch tool draws a rectangle and a circle on a box's top face (one sketch), the Extrude
-    Sketch tool drags the circle up (join) and the rectangle's remaining area down (cut), and the Revolve Sketch
-    tool turns a sketch drawn on the 3D cursor's plane about one of its lines; one undo step each."""
+    """Milestone 3a: the Sketch tool draws a path (line, tangent arc by a drag, line) and a line across a box's top
+    face; the Groove tool cuts a groove along the path; Extrude Sketch pushes the face piece past the line down (a
+    step); the Revolve Sketch tool turns a sketch drawn on the 3D cursor's plane about one of its lines; one undo
+    step each."""
     if not SIM:
         return "SKIP: needs --enable-event-simulate"
     deselect()
@@ -1383,40 +1412,47 @@ def step22():
     with override():
         bpy.ops.wm.tool_set_by_id(name="blendsolid.sketch_tool")
     yield from warm_up((30, 830, 0))
-    bpy.context.scene.blendsolid_sketch_shape = "RECTANGLE"
-    yield from _drag((-15, 790, 20), (5, 805, 20), ctrl=True)
-    bpy.context.scene.blendsolid_sketch_shape = "CIRCLE"
-    yield from _drag((-5, 797, 20), (-1, 797, 20), ctrl=True)
+    bpy.context.scene.blendsolid_sketch_shape = "PATH"
+    # on the top face (z 20): line, tangent arc (a drag), line; then a line across the face at x = 12
+    yield from _path([(-15, 795, 20), (5, 795, 20), (5, 805, 20), (-15, 805, 20)], arcs=(2,))
+    yield from _path([(12, 780, 20), (12, 820, 20)])
     source = bs.part.source_of(ob(name))
     entities = [e.name for e in bs.script_model.sketch_entities(source, "sketch_1")]
-    expect(entities == ["rect_1", "circle_1"], f"sketch entities {entities}")
+    expect(entities == ["path_1", "path_2"], f"sketch entities {entities}")
+    expect("sketch_1.path_1 = path((-15.0, -5.0), (5.0, -5.0), arc_to((5.0, 5.0)), (-15.0, 5.0))" in source,
+           "the first path isn't line, arc, line on the top face")
     expect('with sketch(on_face(face("box_1", "+Z"))) as sketch_1:' in source, "the sketch is not on the top face")
     yield from settled(name)
-    screenshot("sketch-on-face")
+    screenshot("paths-on-face")
     import json
     drawn = json.loads(ob(name).data["bs_sketches"])[0]
-    expect(len(drawn["regions"]) == 2, f"{len(drawn['regions'])} regions")
+    expect(len(drawn["regions"]) == 2, f"{len(drawn['regions'])} regions (the line should split the face in two)")
     v0 = mm3(ob(name))
+    bpy.context.scene.blendsolid_groove_profile = "rect"
+    bpy.context.scene.blendsolid_groove_width = 2.0
+    with override():
+        bpy.ops.wm.tool_set_by_id(name="blendsolid.groove_tool")
+    yield from frames(3)
+    yield from _drag((-5, 795, 20), (-5, 795, 18), ctrl=True, shift=True)   # press on the path, drag in: groove
+    yield from settled(name)
     with override():
         bpy.ops.wm.tool_set_by_id(name="blendsolid.extrude_tool")
     yield from frames(3)
-    yield from _drag((-5, 797, 20), (-5, 797, 30), ctrl=True)       # the circle, up: join
-    yield from settled(name)
-    yield from _drag((-12, 792, 20), (-12, 792, 15), ctrl=True)     # the rectangle around it, down: cut
+    yield from _drag((16, 800, 20), (16, 800, 15), ctrl=True)               # the face piece past the line: step
     yield from settled(name)
     feats = [n for n, _ in features(ob(name))]
-    expect(feats == ["box_1", "sketch_1", "extrude_1", "cut_1"], f"features {feats}")
+    expect(feats == ["box_1", "sketch_1", "groove_1", "cut_1"], f"features {feats}")
     expect(ob(name).blendsolid_error == "", f"error {ob(name).blendsolid_error!r}")
     values = {p.name: p.value for p in ob(name).blendsolid_params}
-    expect(abs(values["extrude_1_amount"] - 10) < 1.01 and abs(values["cut_1_amount"] - 5) < 1.01,
-           f"amounts {values.get('extrude_1_amount')}, {values.get('cut_1_amount')}")
-    r = 4.0
-    want = v0 + math.pi * r * r * values["extrude_1_amount"] - (300 - math.pi * r * r) * values["cut_1_amount"]
+    expect(abs(values["groove_1_depth"] - 2) < 0.11 and abs(values["cut_1_amount"] - 5) < 1.01,
+           f"depth {values.get('groove_1_depth')}, step {values.get('cut_1_amount')}")
+    length = 40 + 5 * math.pi
+    want = v0 - 2 * values["groove_1_depth"] * length - 8 * 30 * values["cut_1_amount"]
     expect(close(mm3(ob(name)), want, 0.01), f"volume {mm3(ob(name)):.1f}, expected {want:.1f}")
-    screenshot("extruded")
+    screenshot("groove-and-step")
     op(bpy.ops.ed.undo)
     yield from settled(name)
-    expect([n for n, _ in features(ob(name))] == ["box_1", "sketch_1", "extrude_1"], "one undo doesn't undo the cut")
+    expect([n for n, _ in features(ob(name))] == ["box_1", "sketch_1", "groove_1"], "one undo doesn't undo the step")
     # revolve: a sketch on the cursor plane (a new part), a rectangle and an axis line, then Revolve Sketch
     deselect()
     cursor((200, 900, 0), (90, 0, 0))
@@ -1429,11 +1465,11 @@ def step22():
     bpy.context.scene.blendsolid_sketch_shape = "RECTANGLE"
     yield from _drag((215, 900, 0), (219, 900, 10), ctrl=True)
     sketch_part = active().name
-    bpy.context.scene.blendsolid_sketch_shape = "LINE"
-    yield from _drag((200, 900, -20), (200, 900, 20), ctrl=True)
+    bpy.context.scene.blendsolid_sketch_shape = "PATH"
+    yield from _path([(200, 900, -20), (200, 900, 20)])
     yield from settled(sketch_part)
     entities = [e.name for e in bs.script_model.sketch_entities(bs.part.source_of(ob(sketch_part)), "sketch_1")]
-    expect(entities == ["rect_1", "line_1"], f"cursor sketch entities {entities}")
+    expect(entities == ["rect_1", "path_1"], f"cursor sketch entities {entities}")
     with override():
         bpy.ops.wm.tool_set_by_id(name="blendsolid.revolve_tool")
     yield from frames(3)
@@ -1456,7 +1492,7 @@ def step22():
     expect(close(mm3(ob(sketch_part)), ring, 0.02), f"revolved {mm3(ob(sketch_part)):.1f}, expected {ring:.1f}")
     screenshot("revolved")
     cursor()
-    return (f"sketch rect+circle on top face, join circle {values['extrude_1_amount']:g} mm, cut ring "
+    return (f"path with an arc + a line across the top face, groove {values['groove_1_depth']:g} mm, step "
             f"{values['cut_1_amount']:g} mm, undo; revolve {mm3(ob(sketch_part)):.0f} mm³")
 
 

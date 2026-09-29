@@ -1,5 +1,6 @@
-"""Tool 6: Sketch. Drag rectangles, circles and lines on a part's flat face, on a sketch already there, or on the
-3D cursor's plane (a new part). Each drag is one entity in a sketch feature of the part script (milestone 3a):
+"""Tool 6: Sketch. Draw paths (lines and tangent arcs), rectangles and circles on a part's flat face, on a sketch
+already there, or on the 3D cursor's plane (a new part). Each is one entity in a sketch feature of the part script
+(milestone 3a, ADR 0012):
 
     with sketch(on_face(face("box_1", "+Z"))) as sketch_1:  # feature: sketch_1
         sketch_1.rect_1 = Pos(5.0, 0.0) * Rectangle(sketch_1_rect_1_width, sketch_1_rect_1_height)
@@ -13,15 +14,18 @@ import json
 import math
 
 import bpy
-from bpy.props import EnumProperty, FloatVectorProperty, StringProperty
+from bpy.props import BoolProperty, EnumProperty, FloatVectorProperty, StringProperty
 from mathutils import Matrix, Vector, geometry
 
 from . import drawing, focus, part, script_model, sketching, trust
 
-SHAPES = [("RECTANGLE", "Rectangle", "Drag the opposite corners of a rectangle", "MESH_PLANE", 0),
-          ("CIRCLE", "Circle", "Drag from the centre of a circle to its rim", "MESH_CIRCLE", 1),
-          ("LINE", "Line", "Drag a straight line; ends snap to other curves' ends", "IPO_LINEAR", 2)]
-SKETCH_TOOLS = {"blendsolid.sketch_tool", "blendsolid.extrude_tool", "blendsolid.revolve_tool"}
+SHAPES = [("PATH", "Path", "Click points of a path of lines; drag while clicking (or A) for an arc tangent to it; "
+                           "click the first point to close it, Enter or right-click to end it", "IPO_LINEAR", 3),
+          ("RECTANGLE", "Rectangle", "Drag the opposite corners of a rectangle", "MESH_PLANE", 0),
+          ("CIRCLE", "Circle", "Drag from the centre of a circle to its rim", "MESH_CIRCLE", 1)]
+DRAG_PX = 6  # a press moved this far before its release is a drag (an arc), not a click
+SKETCH_TOOLS = {"blendsolid.sketch_tool", "blendsolid.groove_tool", "blendsolid.extrude_tool",
+                "blendsolid.revolve_tool"}
 CURVE_COLOUR = (1.0, 0.75, 0.2, 1.0)
 USED_COLOUR = (0.8, 0.8, 0.8, 0.6)
 REGION_COLOUR = (1.0, 0.75, 0.2, 0.12)
@@ -212,13 +216,13 @@ def _face_under(context, origin, direction, near):
 # -- the operator: one entity -----------------------------------------------------------------------------------------
 
 class BLENDSOLID_OT_sketch_entity(bpy.types.Operator):
-    """Add a rectangle, circle or line to a sketch (a new sketch on a face, or a new part on the 3D cursor's
+    """Add a path, rectangle or circle to a sketch (a new sketch on a face, or a new part on the 3D cursor's
     plane)"""
     bl_idname = "blendsolid.sketch_entity"
     bl_label = "Sketch"
     bl_options = {"REGISTER", "UNDO"}
 
-    shape: EnumProperty(name="Shape", items=SHAPES, default="RECTANGLE")
+    shape: EnumProperty(name="Shape", items=SHAPES, default="PATH")
     target: StringProperty(name="Part", options={"SKIP_SAVE"},
                            description="The part the sketch belongs to (empty: a new part)")
     sketch: StringProperty(name="Sketch", options={"SKIP_SAVE"},
@@ -229,12 +233,18 @@ class BLENDSOLID_OT_sketch_entity(bpy.types.Operator):
                                description="First corner, centre or line start, millimetres in the sketch's plane")
     end: FloatVectorProperty(name="End", size=2, precision=3,
                              description="Opposite corner, point on the circle or line end, millimetres")
+    points: StringProperty(name="Points", options={"SKIP_SAVE"},
+                           description="A path's points as JSON [[u, v, is_arc], ...], millimetres")
+    closed: BoolProperty(name="Closed", options={"SKIP_SAVE"}, description="The path ends where it starts")
     matrix: FloatVectorProperty(size=16, options={"HIDDEN"})  # a new part's placement (the cursor plane)
     exact: StringProperty(options={"HIDDEN", "SKIP_SAVE"})  # float64 start/end while the float32 ones match
 
     def draw(self, context):
         layout = self.layout
         layout.use_property_split = True
+        if self.shape == "PATH":
+            layout.prop(self, "closed")
+            return
         layout.prop(self, "shape")
         layout.label(text="Millimetres, in the sketch's plane")
         layout.prop(self, "start")
@@ -253,8 +263,18 @@ class BLENDSOLID_OT_sketch_entity(bpy.types.Operator):
 
     def execute(self, context):
         from . import ui
-        a, b = self._points()
-        spec = sketching.entity_spec(self.shape, a, b)
+        if self.shape == "PATH":
+            try:
+                points = [(float(u), float(v), bool(arc)) for u, v, arc in json.loads(self.points)]
+            except (ValueError, TypeError):
+                points = []
+            if len(points) < 2:
+                self.report({"ERROR"}, "A path needs at least two points")
+                return {"CANCELLED"}
+            spec = sketching.path_spec(points, self.closed)
+        else:
+            a, b = self._points()
+            spec = sketching.entity_spec(self.shape, a, b)
         if spec is None:
             self.report({"ERROR"}, "The drag is too short to draw anything")
             return {"CANCELLED"}
@@ -310,6 +330,9 @@ class BLENDSOLID_OT_sketch_entity(bpy.types.Operator):
         if p is None:
             return {"CANCELLED"}
         self._a = self._b = p
+        self._path, self._press, self._arc_mode = [], None, False
+        if self.shape == "PATH":
+            self._press = ((event.mouse_region_x, event.mouse_region_y), p)
         self._handles = [bpy.types.SpaceView3D.draw_handler_add(_draw_drag, (self,), "WINDOW", "POST_VIEW"),
                          bpy.types.SpaceView3D.draw_handler_add(_draw_drag_label, (self,), "WINDOW", "POST_PIXEL")]
         _dragging.add(id(self))
@@ -329,8 +352,9 @@ class BLENDSOLID_OT_sketch_entity(bpy.types.Operator):
         self._snap = (step / 10 if event.shift else step) if event.ctrl else 0.0
         at = self._target.plane @ Vector((uv[0] * self._factor, uv[1] * self._factor, 0))
         pixel = ops_draw._pixel_size(context.region, context.region_data, at)
-        if pixel is not None and self._target.points:
-            snapped = sketching.nearest_point(self._target.points, uv,
+        points = list(self._target.points) + [p[:2] for p in getattr(self, "_path", [])]
+        if pixel is not None and points:
+            snapped = sketching.nearest_point(points, uv,
                                               sketching.SNAP_PX * ops_draw.ui_scale(context) * pixel / self._factor)
             if snapped is not None:
                 return tuple(snapped)
@@ -339,6 +363,8 @@ class BLENDSOLID_OT_sketch_entity(bpy.types.Operator):
         return tuple(round(c, 6) + 0.0 for c in uv)
 
     def modal(self, context, event):
+        if self.shape == "PATH":
+            return self._path_modal(context, event)
         from . import ops_draw
         if event.type in ops_draw.WHEEL and event.ctrl and event.value == "PRESS":
             ops_draw.change_step(context.scene, ops_draw.WHEEL[event.type])
@@ -372,6 +398,92 @@ class BLENDSOLID_OT_sketch_entity(bpy.types.Operator):
             f"{ops_draw.step_mm(context.scene):g} mm | Esc/right-click: cancel")
         context.area.tag_redraw()
         return {"RUNNING_MODAL"}
+
+    # -- the path: click, click, ...; a drag makes an arc -------------------------------------------------------
+
+    def _path_modal(self, context, event):
+        from . import ops_draw
+        if event.type in ops_draw.WHEEL and event.ctrl and event.value == "PRESS":
+            ops_draw.change_step(context.scene, ops_draw.WHEEL[event.type])
+            return {"RUNNING_MODAL"}
+        if event.type in ops_draw.NAV_EVENTS:
+            return {"PASS_THROUGH"}
+        if event.value == "PRESS" and event.type == "ESC":
+            return self._end(context, {"CANCELLED"})
+        if event.value == "PRESS" and event.type in {"RET", "NUMPAD_ENTER", "SPACE", "RIGHTMOUSE"}:
+            return self._finish_path(context, closed=False)
+        if event.value == "DOUBLE_CLICK" and event.type == "LEFTMOUSE":
+            return self._finish_path(context, closed=False)
+        if event.value == "PRESS" and event.type == "BACK_SPACE":
+            if self._path:
+                self._path.pop()
+            if not self._path:
+                return self._end(context, {"CANCELLED"})
+        elif event.value == "PRESS" and event.type == "A":
+            self._arc_mode = not self._arc_mode
+        elif event.type == "LEFTMOUSE" and event.value == "PRESS":
+            p = self._uv(context, event)
+            if p is not None:
+                self._press = ((event.mouse_region_x, event.mouse_region_y), p)
+        elif event.type == "LEFTMOUSE" and event.value == "RELEASE" and self._press is not None:
+            p = self._uv(context, event)
+            (x0, y0), start = self._press
+            self._press = None
+            dragged = math.hypot(event.mouse_region_x - x0, event.mouse_region_y - y0) > \
+                DRAG_PX * ops_draw.ui_scale(context)
+            if p is None:
+                return {"RUNNING_MODAL"}
+            if not self._path:
+                self._path.append((start[0], start[1], False))
+                if not dragged:
+                    self._b = p
+                    return self._status(context)
+            if p == self._path[-1][:2]:
+                return self._status(context)  # a click on the last point: nothing to add
+            arc = (dragged or self._arc_mode) and len(self._path) >= 2
+            if p == self._path[0][:2] and len(self._path) >= 2:
+                if arc:
+                    self._path.append((p[0], p[1], True))
+                    self._path_closed_by_arc = True
+                return self._finish_path(context, closed=True)
+            self._path.append((p[0], p[1], arc))
+            self._arc_mode = False
+        if event.type in {"MOUSEMOVE", "LEFT_CTRL", "RIGHT_CTRL", "LEFT_SHIFT", "RIGHT_SHIFT"}:
+            p = self._uv(context, event)
+            if p is not None:
+                self._b = p
+        return self._status(context)
+
+    def _status(self, context):
+        from . import ops_draw
+        mode = "arc" if self._arc_mode else "line (drag: arc)"
+        context.area.header_text_set(
+            f"Path: click the next point, {mode} | A: arc | first point: close | Enter/right-click/double-click: "
+            f"end | Backspace: remove the last point | Ctrl: grid {ops_draw.step_mm(context.scene):g} mm | Esc: cancel")
+        context.area.tag_redraw()
+        return {"RUNNING_MODAL"}
+
+    def preview_points(self):
+        """The path drawn so far plus the segment to the mouse, as plane points (for the preview)."""
+        pts = list(self._path)
+        if pts and self._b != pts[-1][:2]:
+            dragging = self._press is not None
+            pts.append((self._b[0], self._b[1], (self._arc_mode or dragging) and len(pts) >= 2))
+        return sketching.path_polyline(pts)
+
+    def _finish_path(self, context, closed):
+        self._end(context, None)
+        if len(self._path) < 2:
+            return {"CANCELLED"}
+        t = self._target
+        self.target = t.obj.name if t.obj is not None else ""
+        self.sketch = t.sketch or ""
+        self.plane = t.plane_code
+        self.points = json.dumps([list(p) for p in self._path])
+        self.closed = closed and not getattr(self, "_path_closed_by_arc", False)
+        if t.obj is None:
+            self.matrix = [v for row in t.plane for v in row]
+        return self.execute(context)
 
     def _end(self, context, result):
         for handle in getattr(self, "_handles", []):
@@ -413,7 +525,12 @@ def _draw_drag(op):
         return
     at = lambda p: plane @ Vector((p[0] * factor, p[1] * factor, 0.0))
     colour = (1.0, 0.85, 0.3, 1.0)
-    lines = [(at(p), at(q), colour, colour) for p, q in entity_lines(shape, a, b)]
+    if shape == "PATH":
+        pts = op.preview_points()
+        segments = list(zip(pts, pts[1:]))
+    else:
+        segments = entity_lines(shape, a, b)
+    lines = [(at(p), at(q), colour, colour) for p, q in segments]
     ui = ops_draw.ui_scale(bpy.context)
     ops_draw._draw_segments(bpy.context.region, lines, 2.5 * ui)
     if op._snap:
@@ -431,7 +548,10 @@ def _draw_drag_label(op):
         plane, factor, a, b, shape = op._target.plane, op._factor, op._a, op._b, op.shape
     except (ReferenceError, AttributeError):
         return
-    if shape == "RECTANGLE":
+    if shape == "PATH":
+        last = op._path[-1] if op._path else a
+        text = f"{drawing.mm(math.hypot(b[0] - last[0], b[1] - last[1]))} mm"
+    elif shape == "RECTANGLE":
         text = f"{drawing.mm(abs(b[0] - a[0]))} × {drawing.mm(abs(b[1] - a[1]))} mm"
     elif shape == "CIRCLE":
         text = f"R {drawing.mm(math.hypot(b[0] - a[0], b[1] - a[1]))} mm"
@@ -543,8 +663,9 @@ class SketchTool(bpy.types.WorkSpaceTool):
     bl_context_mode = "OBJECT"
     bl_idname = "blendsolid.sketch_tool"
     bl_label = "Sketch"
-    bl_description = ("Drag rectangles, circles and lines on a part's flat face, on a sketch, or on the 3D cursor's "
-                      "plane (a new part); ends snap to the sketch's points, Ctrl to the grid")
+    bl_description = ("Draw paths (click points; drag for a tangent arc), rectangles and circles on a part's flat "
+                      "face, on a sketch, or on the 3D cursor's plane (a new part); points snap to the sketch's, "
+                      "Ctrl to the grid. Paths guide grooves and ribs, and split the face they cross")
     bl_icon = "ops.gpencil.primitive_box"
     bl_widget = "BLENDSOLID_GGT_sketch_hover"
     bl_keymap = (
@@ -568,7 +689,7 @@ def register():
     global _overlay
     for cls in CLASSES:
         bpy.utils.register_class(cls)
-    bpy.types.Scene.blendsolid_sketch_shape = EnumProperty(name="Shape", items=SHAPES, default="RECTANGLE",
+    bpy.types.Scene.blendsolid_sketch_shape = EnumProperty(name="Shape", items=SHAPES, default="PATH",
                                                            description="What the Sketch tool draws")
     bpy.utils.register_tool(SketchTool, after={"blendsolid.push_pull_tool"})
     _overlay = bpy.types.SpaceView3D.draw_handler_add(_draw_sketches, (), "WINDOW", "POST_VIEW")

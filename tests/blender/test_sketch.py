@@ -1,4 +1,5 @@
 """Milestone 3a: the Sketch, Extrude and Revolve tools' operators (the drags end by calling them)."""
+import json
 import math
 
 import bpy
@@ -9,8 +10,12 @@ from blendsolid import ops_extrude, ops_sketch, part, script_model
 from conftest import mm3, up_to_date, wait_for
 
 
-def sketch(shape, start, end, target="", sketch_name="", plane="", matrix=None):
+def sketch(shape, start, end, target="", sketch_name="", plane="", matrix=None, points=None, closed=False):
     kwargs = dict(shape=shape, start=start, end=end, target=target, sketch=sketch_name, plane=plane)
+    if shape == "LINE":  # a two-point path
+        kwargs.update(shape="PATH", points=json.dumps([[*start, False], [*end, False]]))
+    if points is not None:
+        kwargs.update(points=json.dumps(points), closed=closed)
     if matrix is not None:
         kwargs["matrix"] = [v for row in matrix for v in row]
     return bpy.ops.blendsolid.sketch_entity("EXEC_DEFAULT", True, **kwargs)
@@ -52,7 +57,7 @@ def test_sketch_on_a_face_then_cut_through_and_undo(box):
     assert [e.name for e in script_model.sketch_entities(source, "sketch_1")] == ["circle_1", "rect_1"]
     wait_for(lambda: up_to_date(box))
     (drawn,) = ops_sketch.sketches_of(box)
-    assert len(drawn["regions"]) == 2 and drawn["plane"][0] == [0.0, 0.0, 20.0]
+    assert len(drawn["regions"]) == 3 and drawn["plane"][0] == [0.0, 0.0, 20.0]  # and the rest of the face
     assert bpy.ops.blendsolid.extrude("EXEC_DEFAULT", True, target=box.name, sketch="sketch_1", seed=(5.0, 0.0),
                                       amount=-1.0, operation="SUBTRACT", extent="LAST") == {"FINISHED"}
     wait_for(lambda: up_to_date(box))
@@ -79,9 +84,10 @@ def test_revolve_about_a_sketch_line(clean):
     sketch("RECTANGLE", (15.0, 0.0), (19.0, 10.0), matrix=Matrix.Identity(4))
     obj = bpy.context.object
     sketch("LINE", (0.0, -20.0), (0.0, 20.0), target=obj.name, sketch_name="sketch_1")
-    wait_for(lambda: up_to_date(obj))
+    wait_for(lambda: up_to_date(obj) or obj.blendsolid_error)
+    assert obj.blendsolid_error == ""
     assert bpy.ops.blendsolid.revolve("EXEC_DEFAULT", True, target=obj.name, sketch="sketch_1", seed=(17.0, 5.0),
-                                      axis="line_1", angle=360.0) == {"FINISHED"}
+                                      axis="path_1", angle=360.0) == {"FINISHED"}
     wait_for(lambda: up_to_date(obj))
     assert obj.blendsolid_error == "" and mm3(obj) == pytest.approx(2 * math.pi * 17 * 40, rel=1e-2)
 
@@ -106,3 +112,32 @@ def test_sketch_on_a_curved_face_is_refused_by_the_worker(clean):
     sketch("CIRCLE", (0.0, 0.0), (1.0, 0.0), target=obj.name, plane='on_face(face("cylinder_1", "side"))')
     wait_for(lambda: obj.blendsolid_error != "")
     assert "flat face" in obj.blendsolid_error
+
+
+def test_a_path_with_an_arc_then_a_groove_and_a_rib(box):
+    points = [[-15.0, -5.0, False], [5.0, -5.0, False], [5.0, 5.0, True], [-15.0, 5.0, False]]
+    assert sketch("PATH", (0, 0), (0, 0), target=box.name, plane='on_face(face("box_1", "+Z"))', points=points) \
+        == {"FINISHED"}
+    assert "sketch_1.path_1 = path((-15.0, -5.0), (5.0, -5.0), arc_to((5.0, 5.0)), (-15.0, 5.0))" \
+        in part.source_of(box)
+    wait_for(lambda: up_to_date(box))
+    length = 40 + 5 * math.pi
+    assert bpy.ops.blendsolid.groove("EXEC_DEFAULT", True, target=box.name, sketch="sketch_1", entity="path_1",
+                                     width=2.0, depth=1.5, operation="SUBTRACT") == {"FINISHED"}
+    wait_for(lambda: up_to_date(box))
+    assert box.blendsolid_error == "" and mm3(box) == pytest.approx(24000 - 3 * length, rel=1e-4)
+    assert bpy.ops.blendsolid.groove("EXEC_DEFAULT", True, target=box.name, sketch="sketch_1", entity="path_1",
+                                     width=2.0, depth=2.0, profile="v", operation="SUBTRACT") == {"FINISHED"}
+    wait_for(lambda: up_to_date(box))
+    assert box.blendsolid_error == ""
+
+
+def test_a_line_across_a_face_splits_it(box):
+    sketch("LINE", (0.0, -20.0), (0.0, 20.0), target=box.name, plane='on_face(face("box_1", "+Z"))')
+    wait_for(lambda: up_to_date(box))
+    (drawn,) = ops_sketch.sketches_of(box)
+    assert sorted(round(r["area"], 6) for r in drawn["regions"]) == [600.0, 600.0]
+    bpy.ops.blendsolid.extrude("EXEC_DEFAULT", True, target=box.name, sketch="sketch_1", seed=(10.0, 0.0),
+                               amount=-5.0, operation="SUBTRACT")
+    wait_for(lambda: up_to_date(box))
+    assert mm3(box) == pytest.approx(24000 - 600 * 5, rel=1e-6)

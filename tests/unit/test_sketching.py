@@ -1,6 +1,8 @@
 """The Sketch/Extrude tools' pure geometry and the script text they write, run through the worker."""
 import math
 
+import pytest
+
 import runner
 from blendsolid import script_model as sm, sketching
 
@@ -87,3 +89,28 @@ def test_region_at_and_entity_at_on_worker_display():
     assert i is not None and display["regions"][i]["area"] < 200
     assert sketching.entity_at(display, (8.0, 0.0), 0.1) == "circle_1"
     assert sketching.nearest_point(display["points"], (19.9, 5.1), 0.5) == [20.0, 5.0]
+
+
+def test_path_spec_and_preview():
+    pts = [(0.0, 0.0, False), (10.0, 0.0, False), (10.0, 10.0, True)]
+    assert sketching.path_spec(pts).code == "path((0.0, 0.0), (10.0, 0.0), arc_to((10.0, 10.0)))"
+    assert sketching.path_spec(pts, closed=True).code.endswith(", closed=True)")
+    # the arc from (10, 0) leaving along +X to (10, 10): a half circle of radius 5 bulging to x = 15
+    line = sketching.path_polyline(pts)
+    assert max(p[0] for p in line) == pytest.approx(15.0, abs=1e-6)
+    assert sketching.end_tangent(pts) == pytest.approx((-1.0, 0.0))
+
+
+def test_groove_specs_build():
+    source, _ = sm.new_script(sm.FeatureSpec("box", (("length", 40.0), ("width", 20.0), ("height", 10.0)),
+                                             "Box({name}_length, {name}_width, {name}_height, "
+                                             "align=(Align.CENTER, Align.CENTER, Align.MIN))"))
+    pts = [(-15.0, -5.0, False), (5.0, -5.0, False), (5.0, 5.0, True), (-15.0, 5.0, False)]
+    source, sketch, entity = sm.append_sketch(source, 'on_face(face("box_1", "+Z"))', sketching.path_spec(pts))
+    assert entity == "path_1"
+    length = 40 + 5 * math.pi
+    for kwargs, delta in [(dict(), -4 * length), (dict(profile="v"), -2 * length),
+                          (dict(operation="ADD", depth=3.0), 6 * length)]:
+        spec = sketching.groove_spec(sketch, entity, 2.0, kwargs.pop("depth", 2.0), **kwargs)
+        built, name = sm.append_feature(source, spec)
+        assert _run(built).volume - 8000 == pytest.approx(delta, abs=1e-3), spec.call
