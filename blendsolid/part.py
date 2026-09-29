@@ -58,9 +58,11 @@ def unit_factor(scene=None):
 
 
 DEFAULT_TOLERANCE = 1.0  # millimetres
-MESH_FORMAT = 8  # part of every tag: bumping it recomputes saved meshes (2: face planes, 3: exact normals, 4: welded,
+MESH_FORMAT = 10  # part of every tag: bumping it recomputes saved meshes (2: face planes, 3: exact normals, 4: welded,
 #                 5: trimmed curved faces re-triangulated, ADR 0005 addendum; 6: edge-first grids, ADR 0010;
-#                 7: collars around curved holes in flat faces, ADR 0008 addendum; 8: face-point rule 10°)
+#                 7: collars around curved holes in flat faces, ADR 0008 addendum; 8: face-point rule 10°;
+#                 9: partial collars on the outer loop's curved runs, collars shrink instead of cancelling;
+#                 10: coplanar triangle pairs of curved faces as quads)
 
 
 def tolerance(scene=None):
@@ -265,21 +267,28 @@ def is_curved_face(obj, fid):
 def curved_face_normal(obj, mesh, polygon_index, location):
     """The surface's world normal at world `location` on polygon `polygon_index` of `mesh` (obj's evaluated
     mesh), if that polygon belongs to a curved BRep face: the corner normals (the worker's exact ones, or what
-    the modifiers made of them) interpolated across the triangle — the polygon's own normal jumps from triangle
-    to triangle. None on a flat face, or on a polygon that isn't a triangle (a modifier's quads)."""
+    the modifiers made of them) interpolated across the triangle of the polygon's fan that holds the point (a
+    curved face's polygons are triangles and planar quads) — the polygon's own normal jumps from polygon to
+    polygon. None on a flat face."""
     if not is_curved_face(obj, face_id(mesh, polygon_index)):
         return None
     poly = mesh.polygons[polygon_index]
-    if poly.loop_total != 3:
-        return None
     from mathutils import Vector, geometry
-    loops = range(poly.loop_start, poly.loop_start + 3)
-    corners = [mesh.vertices[mesh.loops[k].vertex_index].co for k in loops]
     p = obj.matrix_world.inverted_safe() @ Vector(location)
-    area = geometry.area_tri(*corners)
-    if area <= 0.0:
+    best = None
+    for i in range(1, poly.loop_total - 1):
+        loops = (poly.loop_start, poly.loop_start + i, poly.loop_start + i + 1)
+        corners = [mesh.vertices[mesh.loops[k].vertex_index].co for k in loops]
+        area = geometry.area_tri(*corners)
+        if area <= 0.0:
+            continue
+        weights = [geometry.area_tri(p, corners[(k + 1) % 3], corners[(k + 2) % 3]) / area for k in range(3)]
+        excess = sum(weights) - 1.0  # 0 inside the triangle, > 0 outside
+        if best is None or excess < best[0]:
+            best = (excess, loops, weights)
+    if best is None:
         return None
-    weights = [geometry.area_tri(p, corners[(k + 1) % 3], corners[(k + 2) % 3]) / area for k in range(3)]
+    _, loops, weights = best
     n = sum((Vector(mesh.corner_normals[k].vector) * w for k, w in zip(loops, weights)), Vector())
     if n.length == 0.0:
         return None

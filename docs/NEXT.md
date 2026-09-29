@@ -1,6 +1,6 @@
 # Where we are / what's next (bookmark)
 
-Updated: 2026-09-28, session 9. Read this first when resuming, then "Next step".
+Updated: 2026-09-29, session 10. Read this first when resuming, then "Next step".
 
 ## State
 - **Milestone 0 (spike):** done — `SPIKE_REPORT.md`.
@@ -9,15 +9,19 @@ Updated: 2026-09-28, session 9. Read this first when resuming, then "Next step".
   (SDD ledger and GUI check report archived in `docs/milestone-1.5/`).
 - **Milestone 2 (selectors from clicks):** done, signed off 2026-09-28 (GUI tests 1–5), merged into `main`
   (tag `m2`) — `docs/milestone-2-report.md` (what was built, criterion, history, known limits).
-- 276 unit + 227 Blender tests; `tools/gui_check.py` 21/21 on Linux and Windows. The Windows portable Blender has
-  `main` as of the session 9 consolidation installed (`MESH_FORMAT` 8, smoke PASS).
+- 281 unit + 229 Blender tests; `tools/gui_check.py` 21/21 on Linux and Windows (as of session 9). The Windows
+  portable Blender has the `outer-arc-collars` branch installed (session 10, `MESH_FORMAT` 10, smoke PASS).
+- **Branch `outer-arc-collars`** (session 10, GUI-checked by the maintainer and merged into `main`): partial collars for curved runs of a flat face's loops,
+  collars that shrink instead of cancelling, collar safety nets, planar cells of curved faces as quads (the
+  maintainer's GUI review: a fillet of sliver triangles); `MESH_FORMAT` 10 — ADR 0008 and ADR 0010 addenda of
+  2026-09-29 (measured on a STEP corpus in `/mnt/e/bs_debug/step_corpus`, scratch tools `spike/m3_outer_arcs/`).
 
 ## Next step — resume exactly here
-1. **Partial collars for arcs in a face's outer loop** (a boss or hole cutting a corner or an edge: test2.blend's
-   top and side faces fan from the arc to one far point). Research first (products + literature, e.g. template
-   meshing around boundary arcs, medial-axis decomposition), then extend `tessellate._collared`; measure on
-   test2's part (`/mnt/e/bs_debug/test2.blend`, script `.Box.py.001`) with the scratch tools
-   `spike/m2_flat_faces/plot_face.py` / `metrics.py`; Bevel tests must stay green; bump `part.MESH_FORMAT`.
+1. Open corpus findings on flat faces (ADR 0008 addendum of 2026-09-29, known limits): BRepMesh-fallback
+   board faces, `meshing._recover`'s budget on faces with ~200 holes (a linear scan per flip), small holes in a
+   big hole's rectangle corners, polygonal holes; and the maintainer's GUI note (2026-09-29, accepted for now):
+   the thin strip between a hole's collar and a straight edge fans out to the point where the edge turns into a
+   rounded corner (visible wedges; a part like test2's with a vertical fillet at a corner).
 2. **Complete the chamfer** in the Fillet tool: two distances or distance + angle, choice of side. The spec
    schedules it in 3b; done now as a small exception because it is UI only (`worker/blends.chamfer` already
    accepts `length2`/`angle`/`reference`).
