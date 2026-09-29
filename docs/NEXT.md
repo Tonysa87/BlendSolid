@@ -32,7 +32,13 @@ Updated: 2026-09-29, session 11 (milestone 3a started, branch `m3a`). Read this 
   sketch line), **Groove** (a profile along a sketch curve: groove or rib; ADR 0012 addendum). The tools sit in the Draw Solid toolbar group. Installed in the Windows portable Blender.
 
 ## Next step — resume exactly here
-1. **Maintainer's GUI test of the sketch tools** (short steps, see the chat of session 11), then fixes.
+1. **Fix first (maintainer's GUI test, 2026-09-29, steps 1-4 fine up to the face split):** a path that starts
+   just outside a face can't be drawn on that face: the first click misses the part, so the path goes on the 3D
+   cursor's plane (the ground, behind the box) and Extrude Sketch has no face piece to push. Planned fix (as
+   Shapr3D/Plasticity: the plane is chosen by hover before the first click, points off the face are projected on
+   it): the drawing plane **sticks to the last flat face hovered** while the mouse leaves it (until another face
+   or empty space far from it is hovered), the hover marker/grid shows that plane, and a key (Space) locks/unlocks
+   it. Then resume the maintainer's test at step 5 (Extrude Sketch on a face piece) and step 6 (Groove rib, Circle).
 2. Rest of 3a: STEP/IGES/BREP import/export (research section 7: embedded compressed BRep blobs, one part per
    leaf solid, invalid solids as warnings); up to a picked face; New Part / Cutter operations for extrudes; arcs,
    polygon, slot; editing/deleting sketch entities from the viewport; the 3a acceptance criterion (research,
