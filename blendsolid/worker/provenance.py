@@ -129,6 +129,9 @@ class Tracker:
         self.warnings = []        # (script line or None, message): references that resolved, but doubtfully
         self.filename = None      # the script's compiled filename: warnings take their line from its frame
         self._pending = []        # (faces, (line, message)) waiting to see whether edge_between() takes them
+        import sketches
+        self.roles = sketches._Roles()  # brought-in faces whose role their feature knows (extrudes of sketches)
+        self.sketches = []        # sketches.Sketch objects in script order (their features name them)
 
     def warn(self, message):
         """Record a warning on the script line being run (the innermost frame of the part script)."""
@@ -170,6 +173,12 @@ class Tracker:
         self.flush()
         part = builder.part
         self.features.append(feature)
+        for sk in self.sketches:
+            if sk.name is None:
+                sk.name = feature
+        if part is None:  # nothing solid yet (a part that starts with a sketch)
+            self.history[feature] = []
+            return
         if self._shape is not None and part.wrapped.IsSame(self._shape):  # the statement didn't change the part
             self.history[feature] = self.labels()
             return
@@ -195,11 +204,17 @@ class Tracker:
         if before.modified_from.IsBound(f):
             return self.label_of(before.modified_from.Find(f)) or (feature, "new")
         if brought.untouched.Contains(f):
+            known = self.roles.get(f)
+            if known is not None:
+                return feature, known
             # the role of the face as it is in the feature's solid: a cut's untouched wall is reversed in the part,
             # and computing its role there swapped +X and -X whenever OCCT left the wall untouched (vs modified)
             i = own.FindIndex(f)
             return feature, _role(TopoDS.Face(own.FindKey(i)) if i > 0 else f, rotation)
         if brought.modified_from.IsBound(f):
+            known = self.roles.get(brought.modified_from.Find(f))
+            if known is not None:
+                return feature, known
             return feature, _role(TopoDS.Face(brought.modified_from.Find(f)), rotation)
         if before.generated_from.IsBound(f):
             return feature, "blend"
@@ -363,6 +378,8 @@ def namespace(tracker):
     ns["fillet"], ns["chamfer"] = blends.fillet, blends.chamfer  # errors that give the largest working size
     ns[HOOK] = tracker.step
     ns.update(_helpers(tracker))
+    import sketches
+    ns.update(sketches.helpers(tracker))
     return ns
 
 

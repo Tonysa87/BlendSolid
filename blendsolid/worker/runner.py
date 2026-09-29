@@ -75,6 +75,7 @@ class RunResult:
     face_refs: list | None = None  # per BRep face: the reference text a click writes (provenance.reference_texts)
     edge_refs: list | None = None  # per BRep edge: the same
     warnings: list = field(default_factory=list)  # [(script line or None, message)]: doubtful references
+    sketches: list = field(default_factory=list)  # sketches.Sketch.display() of each sketch, in script order
     timing: dict = field(default_factory=dict)
 
 
@@ -139,10 +140,12 @@ def _make_ref(deps, cache, depth):
     return ref
 
 
-def _result_shape(ns):
+def _result_shape(ns, tracker=None):
     if "result" not in ns:
         raise ResultError("the script must assign the final shape to `result`")
     shape = ns["result"]
+    if shape is None and tracker is not None and tracker.sketches:
+        return None  # only sketches so far: nothing solid to show yet
     if not hasattr(shape, "wrapped") and hasattr(shape, "part"):  # a BuildPart builder
         shape = shape.part
     if getattr(shape, "wrapped", None) is None:
@@ -160,7 +163,11 @@ def _build(source, filename, deps, cache, depth=0, tracker=None):
     ns["ref"] = _make_ref(deps, cache, depth)
     exec(code, ns)
     tracker.flush()
-    return _result_shape(ns)
+    return _result_shape(ns, tracker)
+
+
+def _sketch_display(tracker):
+    return [sk.display() for sk in tracker.sketches if sk.name is not None]
 
 
 def run_script(source, lin_defl=0.1, ang_defl=0.3, deps=(), tag=None, cache=None):
@@ -184,6 +191,17 @@ def run_script(source, lin_defl=0.1, ang_defl=0.3, deps=(), tag=None, cache=None
     t1 = time.perf_counter()
 
     try:
+        sketches = _sketch_display(tracker)
+    except Exception as e:
+        return RunResult(False, f"the sketches could not be drawn: {type(e).__name__}: {e}")
+    if shape is None:
+        empty = np.zeros(0, np.int32)
+        return RunResult(True, verts=np.zeros((0, 3), np.float32), loops=empty, poly_sizes=empty, poly_face=empty,
+                         planes=np.zeros((0, 4)), corner_normals=np.zeros((0, 3), np.float32),
+                         edges=np.zeros((0, 2), np.int32), edge_ids=empty, edge_sharp=empty, face_refs=[],
+                         edge_refs=[], warnings=list(tracker.warnings), sketches=sketches,
+                         timing={"script": t1 - t0, "tessellate": 0.0})
+    try:
         wrapped = shape.wrapped
         info = tessellate.check(wrapped)
         if info["solids"] == 0:
@@ -200,7 +218,7 @@ def run_script(source, lin_defl=0.1, ang_defl=0.3, deps=(), tag=None, cache=None
                          poly_sizes=mesh.poly_sizes, poly_face=mesh.poly_face, planes=planes, corner_normals=mesh.corner_normals, edges=mesh.edges,
                          edge_ids=mesh.edge_ids, edge_sharp=mesh.edge_sharp,
                          face_refs=refs[0] if refs else None, edge_refs=refs[1] if refs else None,
-                         warnings=list(tracker.warnings),
+                         warnings=list(tracker.warnings), sketches=sketches,
                          timing={"script": t1 - t0, "tessellate": t2 - t1})
     except Exception as e:
         # tessellate.check/tessellate (and any OCCT call here) must never take down the worker process.

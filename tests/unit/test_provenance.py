@@ -46,6 +46,20 @@ result = part.part
 """
 
 
+SKETCHED = """with BuildPart() as part:
+    Box(40, 30, 20, align=(Align.CENTER, Align.CENTER, Align.MIN))  # feature: box_1
+    with sketch(on_face(face("box_1", "+Z"))) as sketch_1:  # feature: sketch_1
+        sketch_1.rect_1 = Pos(-8.0, 0.0) * Rectangle(12.0, 8.0)
+        sketch_1.circle_1 = Pos(10.0, 4.0) * Circle(3.0)
+    extrude(regions(sketch_1, (-8.0, 0.0)), amount=6.0, taper=4.0)  # feature: extrude_1
+    extrude(regions(sketch_1, (10.0, 4.0)), amount=-1, until=Until.LAST, mode=Mode.SUBTRACT)  # feature: hole_1
+    with sketch(on_face(face("box_1", "-X"))) as sketch_2:  # feature: sketch_2
+        sketch_2.slot_1 = Pos(0.0, 10.0) * SlotCenterToCenter(10.0, 4.0)
+    extrude(regions(sketch_2), amount=-3.0, mode=Mode.SUBTRACT)  # feature: pocket_1
+result = part.part
+"""
+
+
 def build(source):
     """(result shape, tracker) of a canonical script run through the instrumented build."""
     tracker = provenance.Tracker()
@@ -178,7 +192,8 @@ def test_nearest_face_in_a_script_without_features():
 
 # -- reference texts: what a click on a face or an edge writes -----------------------------------------------------
 
-@pytest.mark.parametrize("source", [DEFAULT, BRACKET, SLOT, ROTATED], ids=["default", "bracket", "slot", "rotated"])
+@pytest.mark.parametrize("source", [DEFAULT, BRACKET, SLOT, ROTATED, SKETCHED],
+                         ids=["default", "bracket", "slot", "rotated", "sketched"])
 def test_every_reference_text_resolves_to_its_own_entity(source):
     import tessellate
     shape, tracker = build(source)
