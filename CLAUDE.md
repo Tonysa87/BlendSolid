@@ -219,4 +219,10 @@ tools/test.sh           # unit tests (Blender's Python) + Blender tests (blender
   extent) are `SKIP_SAVE`.
 - New WorkSpaceTools after `blendsolid.push_pull_tool` join the Draw Solid group: `separator=True` there puts a
   `None` in the group (test_toolbar_groups_have_no_holes).
-
+- build123d's `sweep()` defaults to `Transition.TRANSFORMED` (invalid solids at sharp path corners) and its
+  `normal=` fixes the trihedron (zero-volume solid): grooves call `BRepOffsetAPI_MakePipeShell` with
+  `SetMode(gp_Dir(sketch normal))` and RightCorner/RoundCorner; the profile must sit on the path's start point,
+  square to the path.
+- Sketch curve ends rounded to 6 decimals miss each other by up to 5e-7 mm: the region splitter uses a 1e-5 mm
+  fuzzy value; snap points are rounded to 9 decimals (5.000000000000001 -> 5.0).
+- gui_check's `warm_up()` clicks at the world origin: steps whose view is elsewhere pass `warm_up(at=...)`.

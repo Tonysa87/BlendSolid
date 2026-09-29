@@ -9,9 +9,9 @@ Updated: 2026-09-29, session 11 (milestone 3a started, branch `m3a`). Read this 
   (SDD ledger and GUI check report archived in `docs/milestone-1.5/`).
 - **Milestone 2 (selectors from clicks):** done, signed off 2026-09-28 (GUI tests 1–5), merged into `main`
   (tag `m2`) — `docs/milestone-2-report.md` (what was built, criterion, history, known limits).
-- 283 unit + 236 Blender tests (`main`); `tools/gui_check.py` 21/21 (22 with step 22 on `m3a`) on Linux and Windows (as of
-  session 9, not re-run since). The Windows portable Blender has the code of `main` installed (built from
-  a29ee9c, same code as the merge; `MESH_FORMAT` 10, smoke PASS).
+- `main`: 283 unit + 236 Blender tests; `tools/gui_check.py` steps 1-21 PASS on Linux and Windows (as of session 9,
+  not re-run since). Branch `m3a`: 330 unit + 244 Blender tests, step 22 PASS (Linux and Windows).
+- **The Windows portable Blender has branch `m3a` installed** (built from 520c3bb; `MESH_FORMAT` 10, smoke PASS).
 - **Merged into `main` (session 10):** partial collars for curved runs of a flat face's loops, collars that shrink
   instead of cancelling, collar safety nets, planar cells of curved faces as quads (the maintainer's GUI review:
   a fillet of sliver triangles); `MESH_FORMAT` 10 — ADR 0008 and ADR 0010 addenda of 2026-09-29 (measured on a
@@ -23,13 +23,31 @@ Updated: 2026-09-29, session 11 (milestone 3a started, branch `m3a`). Read this 
   handler; test `test_undo_and_redo_panel_keep_showing_the_part`). Both checked in the GUI by the maintainer
   (2026-09-29: "tutto perfetto", no flash on Type changes, undo or redo).
 
-## Milestone 3a in progress (branch `m3a`, session 11)
-- Research: `docs/research/2026-09-29-milestone-3a-sketch-extrude-io.md`; decision: ADR 0012.
-- Built (worker + tools, 330 unit + 244 Blender tests, `gui_check.py` step 22 PASS on Linux and on the Windows
-  portable with the installed build): **Sketch** tool (paths with tangent arcs, rectangle, circle on a flat face, on a sketch or on
-  the 3D cursor's plane; snaps to sketch points, Ctrl grid), **Extrude Sketch** (drag a region: out joins, in
-  cuts; Adjust Last Operation: operation, up to next/last, symmetric, taper), **Revolve Sketch** (region, then a
-  sketch line), **Groove** (a profile along a sketch curve: groove or rib; ADR 0012 addendum). The tools sit in the Draw Solid toolbar group. Installed in the Windows portable Blender.
+## Milestone 3a in progress (branch `m3a`, session 11, not merged)
+- Research: `docs/research/2026-09-29-milestone-3a-sketch-extrude-io.md` (scope, data model, I/O) and
+  `docs/research/2026-09-29-sketch-drawing-ux.md` (drawing UX, BoxCutter/Hard Ops, sweep probes); decision: ADR 0012
+  and its addendum (paths and grooves).
+- **History of the design:** the first Sketch tool (rectangle, circle, single line; regions only from the sketch's
+  own curves) was rejected by the maintainer's GUI test: "forme come cubi e cerchi possiamo farli direttamente col
+  draw solid ... la linea ad oggi non fa nulla". What they want: draw a line, then use it to guide a cut or union
+  with a profile, "like Blender's curve + bevel profile". Reframed as "draw a path, then use it" (addendum).
+- **Built** (worker `blendsolid/worker/sketches.py`; Blender `ops_sketch.py`, `ops_extrude.py`, `sketching.py`):
+  - **Sketch** tool: shape **Path** (default: click points; press-drag or A for an arc tangent to the path; click
+    the first point to close; Enter/right-click/double-click ends; Backspace removes the last point), plus
+    Rectangle and Circle; on a flat face (a new sketch, or the unused sketch on that plane), on a sketch, or on the
+    3D cursor's plane (a new part that is only a sketch); snaps to sketch points, Ctrl to the grid.
+  - A sketch on a face **splits the face**: its edges bound the regions (a line across it gives two pieces).
+  - **Groove** tool: press on a sketch curve and drag into the part (groove) or out (rib); profile Rectangle /
+    Round / V / Circle, width, corners Sharp/Round in the tool header and Adjust Last Operation.
+  - **Extrude Sketch**: drag a region (out joins, in cuts); Adjust Last Operation: operation, up to next/last,
+    symmetric, taper (straight prism + draft, exact planes). **Revolve Sketch**: a region, then a straight sketch
+    curve as the axis.
+  - All the sketch tools sit in the Draw Solid toolbar group (hold for the menu), like Fillet and Push/Pull.
+- **Maintainer's GUI test of this version (2026-09-29), steps given in the chat:** 1 add a Box; 2 Sketch Path on
+  the top face (line, dragged arc, line, Enter); 3 Groove: drag down on the path, then change Profile (Round, V);
+  4 Sketch a line across the top face from just outside one edge to just outside the other; 5 Extrude Sketch: one
+  half highlights, drag it down (a step); 6 Groove dragged up with Profile Circle (a pipe rib). Steps 1-4 done;
+  **step 4 exposed the bug below**, so 5-6 are still to be seen.
 
 ## Next step — resume exactly here
 1. **Fix first (maintainer's GUI test, 2026-09-29, steps 1-4 fine up to the face split):** a path that starts
@@ -38,16 +56,28 @@ Updated: 2026-09-29, session 11 (milestone 3a started, branch `m3a`). Read this 
    Shapr3D/Plasticity: the plane is chosen by hover before the first click, points off the face are projected on
    it): the drawing plane **sticks to the last flat face hovered** while the mouse leaves it (until another face
    or empty space far from it is hovered), the hover marker/grid shows that plane, and a key (Space) locks/unlocks
-   it. Then resume the maintainer's test at step 5 (Extrude Sketch on a face piece) and step 6 (Groove rib, Circle).
-2. Rest of 3a: STEP/IGES/BREP import/export (research section 7: embedded compressed BRep blobs, one part per
+   it. Where: `ops_sketch.pick_target` (today: sketch under the ray, else `ops_draw.pick`'s face, else the
+   cursor plane) and the Sketch tool's hover gizmo (`BLENDSOLID_GT_sketch_hover`, which would keep the sticky
+   face). Test: a Blender test with rays just off a face after hovering it, and gui_check step 22 drawing the
+   line from outside the face (today it starts inside the margin of an existing sketch). Rebuild + install
+   (the maintainer closes Blender), then resume the maintainer's test at step 4-6.
+2. Next sketch features, in the research's order (`sketch-drawing-ux.md`, "Recommendation"): snaps to the part's
+   vertices, edge midpoints and edges projected on the sketch plane; 15° angle lock and horizontal/vertical;
+   typed segment length (Tab/digits); a corner radius per path vertex (`FilletPolyline`); slice a part by a path;
+   offset a path to a closed band. Also: the groove's faces all get role `wall` (references to them need `near=`):
+   name them (floor, walls by path segment, ends) in an ADR 0009 addendum.
+3. Rest of 3a: STEP/IGES/BREP import/export (research section 7: embedded compressed BRep blobs, one part per
    leaf solid, invalid solids as warnings); up to a picked face; New Part / Cutter operations for extrudes; arcs,
    polygon, slot; editing/deleting sketch entities from the viewport; the 3a acceptance criterion (research,
-   "Acceptance criteria").
-3. Open corpus findings on flat faces (ADR 0008 addendum of 2026-09-29, known limits): BRepMesh-fallback
+   "Acceptance criteria"); the usage checkpoint (the maintainer models 2-3 real objects); then merge `m3a`.
+   Known limits to keep in mind: Extrude Sketch's up-to options show the distance field as "Direction (sign)";
+   Revolve's axis is only a straight sketch curve; used sketches are hidden unless a sketch tool is active;
+   entities can't be moved/deleted from the viewport (script or undo only).
+4. Open corpus findings on flat faces (ADR 0008 addendum of 2026-09-29, known limits): BRepMesh-fallback
    board faces, `meshing._recover`'s budget on faces with ~200 holes, small holes in a big hole's rectangle
    corners, polygonal holes; the thin strip between a hole's collar and a straight edge (maintainer's GUI note).
-4. Consider: Draw Solid placements that follow the face they were drawn on (sketches do: `on_face`).
-5. Open M2 follow-ups (`docs/milestone-2-report.md`, "Known limits / follow-ups").
+5. Consider: Draw Solid placements that follow the face they were drawn on (sketches do: `on_face`).
+6. Open M2 follow-ups (`docs/milestone-2-report.md`, "Known limits / follow-ups").
 
 ## Working agreement with the maintainer
 - Repo content in English; chat in Italian.
