@@ -1,6 +1,6 @@
 # Where we are / what's next (bookmark)
 
-Updated: 2026-09-29, session 11. Read this first when resuming, then "Next step".
+Updated: 2026-09-29, session 11 (milestone 3a started, branch `m3a`). Read this first when resuming, then "Next step".
 
 ## State
 - **Milestone 0 (spike):** done — `SPIKE_REPORT.md`.
@@ -9,7 +9,7 @@ Updated: 2026-09-29, session 11. Read this first when resuming, then "Next step"
   (SDD ledger and GUI check report archived in `docs/milestone-1.5/`).
 - **Milestone 2 (selectors from clicks):** done, signed off 2026-09-28 (GUI tests 1–5), merged into `main`
   (tag `m2`) — `docs/milestone-2-report.md` (what was built, criterion, history, known limits).
-- 283 unit + 236 Blender tests (`main`); `tools/gui_check.py` 21/21 on Linux and Windows (as of
+- 283 unit + 236 Blender tests (`main`); `tools/gui_check.py` 21/21 (22 with step 22 on `m3a`) on Linux and Windows (as of
   session 9, not re-run since). The Windows portable Blender has the code of `main` installed (built from
   a29ee9c, same code as the merge; `MESH_FORMAT` 10, smoke PASS).
 - **Merged into `main` (session 10):** partial collars for curved runs of a flat face's loops, collars that shrink
@@ -23,15 +23,25 @@ Updated: 2026-09-29, session 11. Read this first when resuming, then "Next step"
   handler; test `test_undo_and_redo_panel_keep_showing_the_part`). Both checked in the GUI by the maintainer
   (2026-09-29: "tutto perfetto", no flash on Type changes, undo or redo).
 
+## Milestone 3a in progress (branch `m3a`, session 11)
+- Research: `docs/research/2026-09-29-milestone-3a-sketch-extrude-io.md`; decision: ADR 0012.
+- Built (worker + tools, 319 unit + 242 Blender tests, `gui_check.py` step 22 PASS on Linux and on the Windows
+  portable with the installed build): **Sketch** tool (rectangle, circle, line on a flat face, on a sketch or on
+  the 3D cursor's plane; snaps to sketch points, Ctrl grid), **Extrude Sketch** (drag a region: out joins, in
+  cuts; Adjust Last Operation: operation, up to next/last, symmetric, taper), **Revolve Sketch** (region, then a
+  sketch line). The three tools sit in the Draw Solid toolbar group. Installed in the Windows portable Blender.
+
 ## Next step — resume exactly here
-1. Open corpus findings on flat faces (ADR 0008 addendum of 2026-09-29, known limits): BRepMesh-fallback
-   board faces, `meshing._recover`'s budget on faces with ~200 holes (a linear scan per flip), small holes in a
-   big hole's rectangle corners, polygonal holes; and the maintainer's GUI note (2026-09-29, accepted for now):
-   the thin strip between a hole's collar and a straight edge fans out to the point where the edge turns into a
-   rounded corner (visible wedges; a part like test2's with a vertical fillet at a corner).
-2. **Resume here: plan 3a** (sketch 2D + extrude with taper/up-to-face + revolve + STEP/IGES/BREP I/O) from research.
-3. Consider: Draw Solid placements that follow the face they were drawn on (the maintainer hit the limit).
-4. Open M2 follow-ups (`docs/milestone-2-report.md`, "Known limits / follow-ups").
+1. **Maintainer's GUI test of the sketch tools** (short steps, see the chat of session 11), then fixes.
+2. Rest of 3a: STEP/IGES/BREP import/export (research section 7: embedded compressed BRep blobs, one part per
+   leaf solid, invalid solids as warnings); up to a picked face; New Part / Cutter operations for extrudes; arcs,
+   polygon, slot; editing/deleting sketch entities from the viewport; the 3a acceptance criterion (research,
+   "Acceptance criteria").
+3. Open corpus findings on flat faces (ADR 0008 addendum of 2026-09-29, known limits): BRepMesh-fallback
+   board faces, `meshing._recover`'s budget on faces with ~200 holes, small holes in a big hole's rectangle
+   corners, polygonal holes; the thin strip between a hole's collar and a straight edge (maintainer's GUI note).
+4. Consider: Draw Solid placements that follow the face they were drawn on (sketches do: `on_face`).
+5. Open M2 follow-ups (`docs/milestone-2-report.md`, "Known limits / follow-ups").
 
 ## Working agreement with the maintainer
 - Repo content in English; chat in Italian.

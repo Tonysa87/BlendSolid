@@ -204,3 +204,19 @@ tools/test.sh           # unit tests (Blender's Python) + Blender tests (blender
   ADR 0010 keeps that density (`seg_angle = ang_defl / 2`); tests on normals and fillet volumes depend on it.
 - **Any change to the display mesh must bump `part.MESH_FORMAT`** (part of every mesh tag), or saved files keep
   the old mesh (the 10° face-point change missed it at first).
+
+## Known pitfalls (milestone 3a)
+
+- build123d objects (`Rectangle`, `Circle`...) inside `with BuildPart()` raise "BuildPart doesn't have a Rectangle
+  object": the `sketch()` context manager clears `build_common._build_scope` for its body.
+- `BuildPart().part` is `None` until something solid is added: the provenance hook and the runner accept parts
+  that are only sketches (empty mesh; `fill_mesh` must handle 0 polygons).
+- build123d's `extrude_until` (`Until.NEXT`) stops at the face the profile lies on ("Extrusion is None"), and its
+  `taper` lofts B-spline sides for negative angles, holes or reversed directions: `worker/sketches.py` has its own.
+- `BRepAlgoAPI_Splitter` leaves dangling sketch lines inside faces as INTERNAL edges in an extra wire whose
+  `edges()` is empty: rebuild region faces from the outer wire and closed inner wires.
+- Operator properties persist between calls: options that each call must start without (extrude's taper,
+  extent) are `SKIP_SAVE`.
+- New WorkSpaceTools after `blendsolid.push_pull_tool` join the Draw Solid group: `separator=True` there puts a
+  `None` in the group (test_toolbar_groups_have_no_holes).
+

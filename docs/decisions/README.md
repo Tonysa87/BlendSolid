@@ -13,3 +13,4 @@
 | [0009](0009-references-to-faces-and-edges.md) | Naming faces and edges in part scripts | accepted (addendum: warnings, 2026-09-28) | 2026-09-27 |
 | [0010](0010-edge-first-grid-tessellation.md) | Edge-first, grid-based tessellation of trimmed faces | accepted (addenda: robustness; planar cells as quads, 2026-09-29) | 2026-09-28 |
 | [0011](0011-focused-handles-and-hidden-cutters.md) | Handles of one focused feature; cutters hidden in a collection | accepted, checked by the maintainer | 2026-09-28 |
+| [0012](0012-sketches-regions-extrude.md) | Sketches, regions and their extrude/revolve | accepted (GUI check pending) | 2026-09-29 |
