@@ -176,7 +176,23 @@ def pick_target(context, origin, direction, near=()):
             return Target(plane, obj, plane_code=f"on_face({reference})")
     if obj is not None and local is None:
         return None  # a curved face: sketches go on flat faces and planes
-    return Target(drawing.plane_at_cursor(context.scene.cursor.matrix))
+    plane = drawing.plane_at_cursor(context.scene.cursor.matrix)
+    # an unused sketch on the cursor's plane (e.g. the one this plane made a moment ago) gets the entity
+    for other in sketch_parts(context):
+        if not editable(other):
+            continue
+        for sketch in sketches_of(other):
+            if not sketch["used"] and _same_world_plane(plane_matrix(other, sketch, factor), plane):
+                return Target(plane_matrix(other, sketch, factor), other, sketch["name"], points=sketch["points"])
+    return Target(plane)
+
+
+def _same_world_plane(a, b, tolerance=1e-6):
+    """Do two world plane matrices lie on the same plane (same normal, same offset; Blender units)?"""
+    za, zb = a.col[2].xyz.normalized(), b.col[2].xyz.normalized()
+    if za.dot(zb) < 1 - 1e-6:
+        return False
+    return abs((b.translation - a.translation).dot(za)) < tolerance * max(1.0, a.translation.length)
 
 
 def _face_under(context, origin, direction, near):

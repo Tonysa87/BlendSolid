@@ -620,9 +620,9 @@ def draw_events(base_a, base_b, height_at, ctrl=False, shift=False, warm=True):
     yield 0.3
 
 
-def warm_up():
+def warm_up(at=(0, 0, 0)):
     """A throwaway click (the very first simulated press is only used to focus the window)."""
-    a = px((0, 0, 0))
+    a = px(at)
     ev("MOUSEMOVE", "NOTHING", a)
     yield 0.2
     ev("LEFTMOUSE", "PRESS", a)
@@ -1356,8 +1356,112 @@ def _focus_clicks(tool):
     return f"clicks focus {'; '.join(shown)}; empty-space click deselects, no arrows"
 
 
+def _drag(start_mm, end_mm, press_mods=None, **mods):
+    a, b = px(start_mm), px(end_mm)
+    yield from move(a, a, 1, **mods)
+    ev("LEFTMOUSE", "PRESS", a, **mods)
+    yield 0.1
+    yield from move(a, b, **mods)
+    yield 0.3
+    ev("LEFTMOUSE", "RELEASE", b, **mods)
+    yield 0.3
+
+
+def step22():
+    """Milestone 3a: the Sketch tool draws a rectangle and a circle on a box's top face (one sketch), the Extrude
+    Sketch tool drags the circle up (join) and the rectangle's remaining area down (cut), and the Revolve Sketch
+    tool turns a sketch drawn on the 3D cursor's plane about one of its lines; one undo step each."""
+    if not SIM:
+        return "SKIP: needs --enable-event-simulate"
+    deselect()
+    cursor((0, 800, 0))
+    with override():
+        bpy.ops.blendsolid.add_box("EXEC_DEFAULT", True)
+    name = active().name
+    yield from settled(name)
+    yield from set_view((0, 800, 10), rot_deg=(50, 0, 20), dist=0.16)
+    with override():
+        bpy.ops.wm.tool_set_by_id(name="blendsolid.sketch_tool")
+    yield from warm_up((30, 830, 0))
+    bpy.context.scene.blendsolid_sketch_shape = "RECTANGLE"
+    yield from _drag((-15, 790, 20), (5, 805, 20), ctrl=True)
+    bpy.context.scene.blendsolid_sketch_shape = "CIRCLE"
+    yield from _drag((-5, 797, 20), (-1, 797, 20), ctrl=True)
+    source = bs.part.source_of(ob(name))
+    entities = [e.name for e in bs.script_model.sketch_entities(source, "sketch_1")]
+    expect(entities == ["rect_1", "circle_1"], f"sketch entities {entities}")
+    expect('with sketch(on_face(face("box_1", "+Z"))) as sketch_1:' in source, "the sketch is not on the top face")
+    yield from settled(name)
+    screenshot("sketch-on-face")
+    import json
+    drawn = json.loads(ob(name).data["bs_sketches"])[0]
+    expect(len(drawn["regions"]) == 2, f"{len(drawn['regions'])} regions")
+    v0 = mm3(ob(name))
+    with override():
+        bpy.ops.wm.tool_set_by_id(name="blendsolid.extrude_tool")
+    yield from frames(3)
+    yield from _drag((-5, 797, 20), (-5, 797, 30), ctrl=True)       # the circle, up: join
+    yield from settled(name)
+    yield from _drag((-12, 792, 20), (-12, 792, 15), ctrl=True)     # the rectangle around it, down: cut
+    yield from settled(name)
+    feats = [n for n, _ in features(ob(name))]
+    expect(feats == ["box_1", "sketch_1", "extrude_1", "cut_1"], f"features {feats}")
+    expect(ob(name).blendsolid_error == "", f"error {ob(name).blendsolid_error!r}")
+    values = {p.name: p.value for p in ob(name).blendsolid_params}
+    expect(abs(values["extrude_1_amount"] - 10) < 1.01 and abs(values["cut_1_amount"] - 5) < 1.01,
+           f"amounts {values.get('extrude_1_amount')}, {values.get('cut_1_amount')}")
+    r = 4.0
+    want = v0 + math.pi * r * r * values["extrude_1_amount"] - (300 - math.pi * r * r) * values["cut_1_amount"]
+    expect(close(mm3(ob(name)), want, 0.01), f"volume {mm3(ob(name)):.1f}, expected {want:.1f}")
+    screenshot("extruded")
+    op(bpy.ops.ed.undo)
+    yield from settled(name)
+    expect([n for n, _ in features(ob(name))] == ["box_1", "sketch_1", "extrude_1"], "one undo doesn't undo the cut")
+    # revolve: a sketch on the cursor plane (a new part), a rectangle and an axis line, then Revolve Sketch
+    deselect()
+    cursor((200, 900, 0), (90, 0, 0))
+    yield from set_view((200, 900, 0), rot_deg=(90, 0, 0), dist=0.2)
+    with override():
+        bpy.ops.wm.tool_set_by_id(name="builtin.select_box")
+    yield from warm_up((240, 900, 30))
+    with override():
+        bpy.ops.wm.tool_set_by_id(name="blendsolid.sketch_tool")
+    bpy.context.scene.blendsolid_sketch_shape = "RECTANGLE"
+    yield from _drag((215, 900, 0), (219, 900, 10), ctrl=True)
+    sketch_part = active().name
+    bpy.context.scene.blendsolid_sketch_shape = "LINE"
+    yield from _drag((200, 900, -20), (200, 900, 20), ctrl=True)
+    yield from settled(sketch_part)
+    entities = [e.name for e in bs.script_model.sketch_entities(bs.part.source_of(ob(sketch_part)), "sketch_1")]
+    expect(entities == ["rect_1", "line_1"], f"cursor sketch entities {entities}")
+    with override():
+        bpy.ops.wm.tool_set_by_id(name="blendsolid.revolve_tool")
+    yield from frames(3)
+    yield from key("ESC", px((240, 900, 30)))
+    a = px((217, 900, 5))
+    yield from move(a, a, 1)
+    ev("LEFTMOUSE", "PRESS", a)
+    yield 0.1
+    ev("LEFTMOUSE", "RELEASE", a)
+    yield 0.3
+    b = px((200, 900, 10))
+    yield from move(a, b)
+    ev("LEFTMOUSE", "PRESS", b)
+    yield 0.1
+    ev("LEFTMOUSE", "RELEASE", b)
+    yield 0.3
+    yield from settled(sketch_part)
+    expect(ob(sketch_part).blendsolid_error == "", f"error {ob(sketch_part).blendsolid_error!r}")
+    ring = 2 * math.pi * 17 * 40
+    expect(close(mm3(ob(sketch_part)), ring, 0.02), f"revolved {mm3(ob(sketch_part)):.1f}, expected {ring:.1f}")
+    screenshot("revolved")
+    cursor()
+    return (f"sketch rect+circle on top face, join circle {values['extrude_1_amount']:g} mm, cut ring "
+            f"{values['cut_1_amount']:g} mm, undo; revolve {mm3(ob(sketch_part)):.0f} mm³")
+
+
 STEPS = [step1, step2, step3, step4, step5, step6, step7, step8, step9, step10, step11, step12, step13, step14,
-         step15, step16, step17, step18, step19, step20, step21]
+         step15, step16, step17, step18, step19, step20, step21, step22]
 
 
 def scenario():
@@ -1372,7 +1476,8 @@ def scenario():
         if name is None:
             raise Fail("the blendsolid add-on is not enabled")
         for sub in ("part", "runtime", "gizmos", "ops_add", "ops_boolean", "ops_draw", "drawing", "primitives",
-                    "script_model", "params", "trust", "ui", "deps", "ops_fillet", "ops_pushpull", "picking", "focus"):
+                    "script_model", "params", "trust", "ui", "deps", "ops_fillet", "ops_pushpull", "picking", "focus",
+                    "ops_sketch", "ops_extrude", "sketching"):
             setattr(bs, sub, importlib.import_module(f"{name}.{sub}"))
         log(f"add-on {name} from {os.path.dirname(sys.modules[name].__file__)}; event simulation: {SIM}; out {OUT}")
         instrument()
