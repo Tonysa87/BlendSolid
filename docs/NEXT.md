@@ -62,9 +62,10 @@ Updated: 2026-09-30, session 12 (milestone 3a in progress, branch `m3a`). Read t
    gui_check step 22 draws its line from off the face first (FAILs without the fix). Not built: a key to lock the
    plane (Space was proposed; it is Blender's play key). **Installed** in the Windows portable Blender (smoke PASS).
    Next: the maintainer's GUI test from step 4 (line from just outside the top face), then 5-6.
-2. Next sketch features, in the research's order (`sketch-drawing-ux.md`, "Recommendation"): snaps to the part's
-   vertices, edge midpoints and edges projected on the sketch plane; 15° angle lock and horizontal/vertical;
-   typed segment length (Tab/digits); a corner radius per path vertex (`FilletPolyline`); slice a part by a path;
+2. **Done (session 12):** snaps to the part's exact vertices, edge midpoints and circle centres projected on the
+   sketch plane (worker `tessellate.snap_points`, `MESH_FORMAT` 11); Shift = 15° lock (H/V exact). Installed.
+   Next sketch features, in the research's order (`sketch-drawing-ux.md`, "Recommendation"): snaps to edges
+   (nearest point on a projected edge); typed segment length (Tab/digits); a corner radius per path vertex (`FilletPolyline`); slice a part by a path;
    offset a path to a closed band. Also: the groove's faces all get role `wall` (references to them need `near=`):
    name them (floor, walls by path segment, ends) in an ADR 0009 addendum.
 3. Rest of 3a: STEP/IGES/BREP import/export (research section 7: embedded compressed BRep blobs, one part per
