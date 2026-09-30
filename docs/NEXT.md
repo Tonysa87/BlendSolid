@@ -56,6 +56,11 @@ Updated: 2026-09-30, session 12 (milestone 3a in progress, branch `m3a`). Read t
    (Fillet/Push-Pull: real result as the only preview, Blender's native handle, fillet out / chamfer in). The
    **UI pass** (`docs/superpowers/plans/2026-09-30-ui-pass.md`) comes when 3a is stable and before the 3a usage
    checkpoint: first check the draft plan against the code, do its two cheap GUI checks, then implement.
+   **Session 12, built and installed for the maintainer's test:** the command pie (plan task 1) and its keys
+   (task 2, research `docs/research/2026-09-30-pie-key.md`): **E** (tap or hold) and a **right-button drag** in
+   Object Mode (a right-click without a drag re-opens Blender's Object context menu; checked on Windows, gui_check
+   step 23 + screenshot). Not built yet: tasks 3-8 (right-click entries by selection, sidebar = context, depth
+   highlights, real result as preview, native handle, tangent chain).
 1. **Done (session 12, 4f716fd):** the hovered face's plane sticks (`ops_sketch.hover_target`): a path started
    just off a face stays on its plane; released by another face, a curved face, empty space farther than 1.5 part
    radii, or a change to the part's script/placement. Test `test_the_hovered_face_plane_sticks_just_off_the_face`;

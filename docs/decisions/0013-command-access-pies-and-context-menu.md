@@ -1,7 +1,8 @@
 # ADR 0013: Commands from a two-level pie and a selection context menu; the sidebar shows context
 
-- **Status:** accepted (2026-09-30, decided by the maintainer); not built yet (UI pass, plan
-  `docs/superpowers/plans/2026-09-30-ui-pass.md`); the pie key is still open
+- **Status:** accepted (2026-09-30, decided by the maintainer); the pie and its keys built on 2026-09-30 for the
+  maintainer's GUI test (E + right-button drag, `docs/research/2026-09-30-pie-key.md`); the rest of the UI pass
+  (plan `docs/superpowers/plans/2026-09-30-ui-pass.md`) not built yet
 - **Date:** 2026-09-30
 - **Research:** `docs/research/2026-09-30-pie-menus-and-command-access.md`
 - **Design:** `docs/superpowers/specs/2026-09-30-pie-menus-design.md` (the full reasoning, options and command tree)

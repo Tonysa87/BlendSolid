@@ -1,0 +1,12 @@
+[gui-check     2.0] add-on bl_ext.user_default.blendsolid from E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid; event simulation: True; out E:\bs_debug\gui23
+STEP 22 OK path with an arc + a line across the top face, groove 2 mm, step 5 mm, undo; revolve 4258 mm³
+STEP 23 OK right-drag > Edit > Fillet; E > Sketch > Circle; right-click leaves the tool alone
+WORKER PID 31788
+SCREENSHOT E:\bs_debug\gui23\01-paths-on-face.png
+SCREENSHOT E:\bs_debug\gui23\02-groove-and-step.png
+SCREENSHOT E:\bs_debug\gui23\03-revolved.png
+SCREENSHOT E:\bs_debug\gui23\04-right-click-menu.png
+GUI CHECK PASS
+00:28.485  blend            | Saved session recovery to "C:\Users\Tony\AppData\Local\Temp\quit.blend"
+
+Blender quit
