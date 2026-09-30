@@ -1507,8 +1507,83 @@ def step22():
             f"{values['cut_1_amount']:g} mm, undo; revolve {mm3(ob(sketch_part)):.0f} mm³")
 
 
+
+def _active_tool():
+    with override():
+        return bpy.context.workspace.tools.from_space_view3d_mode("OBJECT").idname
+
+
+def step23():
+    """ADR 0013: the command pie. A right-button drag opens it (level 0); releasing over Edit (south) opens the
+    Edit pie; a click on Fillet / Chamfer (west) activates the Fillet tool. E then opens the pie as a tap: a click
+    on Sketch (east), then on Circle (south), activates the Sketch tool with the Circle shape. A right-click without a drag
+    doesn't open the pie (it opens Blender's context menu, closed with Esc)."""
+    if not SIM:
+        return "SKIP: needs --enable-event-simulate"
+    deselect()
+    yield from set_view((0, 0, 0), rot_deg=(60, 0, 30), dist=0.3)
+    with override():
+        bpy.ops.wm.tool_set_by_id(name="builtin.select_box")
+    yield from warm_up((0, 0, 0))
+    radius = bpy.context.preferences.view.pie_menu_radius * (bpy.context.preferences.system.ui_scale or 1.0)
+    c = px((0, 0, 0))
+    # a right-click, no drag: no pie, the tool doesn't change
+    ev("MOUSEMOVE", "NOTHING", c)
+    yield 0.2
+    ev("RIGHTMOUSE", "PRESS", c)
+    yield 0.1
+    ev("RIGHTMOUSE", "RELEASE", c)
+    yield 0.5
+    screenshot("right-click-menu")  # on Windows (a real window): Blender's Object context menu
+    yield from key("ESC", c)
+    expect(_active_tool() == "builtin.select_box", f"a right-click changed the tool to {_active_tool()}")
+    # right-drag down: level 0 opens, release over Edit (south) -> the Edit pie at the mouse
+    ev("RIGHTMOUSE", "PRESS", c)
+    yield 0.1
+    s = (c[0], c[1] - int(radius))
+    yield from move(c, s, 10)
+    yield 0.3
+    ev("RIGHTMOUSE", "RELEASE", s)
+    yield 0.6
+    w = (s[0] - int(radius), s[1])
+    yield from move(s, w, 10)
+    yield 0.3
+    ev("LEFTMOUSE", "PRESS", w)
+    yield 0.1
+    ev("LEFTMOUSE", "RELEASE", w)
+    yield 0.5
+    expect(_active_tool() == "blendsolid.fillet_tool", f"right-drag > Edit > Fillet gave {_active_tool()}")
+    # E tapped: the pie stays open; click Sketch (east), then Circle (south in the Sketch pie)
+    with override():
+        bpy.ops.wm.tool_set_by_id(name="builtin.select_box")
+    bpy.context.scene.blendsolid_sketch_shape = "PATH"
+    ev("MOUSEMOVE", "NOTHING", c)
+    yield 0.2
+    yield from key("E", c)
+    yield 0.4
+    e = (c[0] + int(radius), c[1])
+    yield from move(c, e, 10)
+    yield 0.3
+    ev("LEFTMOUSE", "PRESS", e)
+    yield 0.1
+    ev("LEFTMOUSE", "RELEASE", e)
+    yield 0.6
+    e2 = (e[0], e[1] - int(radius))  # the Sketch pie: Path W, Rectangle E, Circle S
+    yield from move(e, e2, 10)
+    yield 0.3
+    ev("LEFTMOUSE", "PRESS", e2)
+    yield 0.1
+    ev("LEFTMOUSE", "RELEASE", e2)
+    yield 0.5
+    shape = bpy.context.scene.blendsolid_sketch_shape
+    expect(_active_tool() == "blendsolid.sketch_tool" and shape == "CIRCLE",
+           f"E > Sketch > Circle gave {_active_tool()} / {shape}")
+    with override():
+        bpy.ops.wm.tool_set_by_id(name="builtin.select_box")
+    return "right-drag > Edit > Fillet; E > Sketch > Circle; right-click leaves the tool alone"
+
 STEPS = [step1, step2, step3, step4, step5, step6, step7, step8, step9, step10, step11, step12, step13, step14,
-         step15, step16, step17, step18, step19, step20, step21, step22]
+         step15, step16, step17, step18, step19, step20, step21, step22, step23]
 
 
 def scenario():
