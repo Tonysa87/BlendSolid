@@ -1,0 +1,19 @@
+[gui-check     2.0] add-on bl_ext.user_default.blendsolid from E:\blender-5.2.2-windows-x64\portable\extensions\user_default\blendsolid; event simulation: True; out E:\bs_debug\gui_s12
+STEP 18 OK 2 edges picked by reference, dragged radius 6.00 mm -> 729.0 mm³ less; one undo removes it
+STEP 22 OK path with an arc + a line across the top face, groove 2 mm, step 5 mm, undo; revolve 4258 mm³
+STEP 23 OK right-drag > Edit > Fillet; E > Sketch > Circle; right-click leaves the tool alone
+STEP 24 OK E > Add > Box: a 300 mm cube at the pie's point; Esc leaves nothing
+STEP 25 OK a long drag stopped at the largest radius that works: 14.999 mm, the part builds
+WORKER PID 6604
+SCREENSHOT E:\bs_debug\gui_s12\01-fillet-selected.png
+SCREENSHOT E:\bs_debug\gui_s12\02-fillet-dragging.png
+SCREENSHOT E:\bs_debug\gui_s12\03-fillet-done.png
+SCREENSHOT E:\bs_debug\gui_s12\04-paths-on-face.png
+SCREENSHOT E:\bs_debug\gui_s12\05-groove-and-step.png
+SCREENSHOT E:\bs_debug\gui_s12\06-revolved.png
+SCREENSHOT E:\bs_debug\gui_s12\07-right-click-menu.png
+SCREENSHOT E:\bs_debug\gui_s12\08-added-box.png
+GUI CHECK PASS
+00:51.484  blend            | Saved session recovery to "C:\Users\Tony\AppData\Local\Temp\quit.blend"
+
+Blender quit

@@ -273,13 +273,26 @@ def _draw_errors():
         if here is None:
             continue
         blf.size(0, size)
-        blf.enable(0, blf.SHADOW)
-        blf.shadow(0, 3, 0.0, 0.0, 0.0, 0.9)
+        step, pad = size * 1.35, size * 0.6
+        x, y = here.x + 12, here.y + 12
+        width = max(blf.dimensions(0, text)[0] for text in lines)
+        _backdrop(x - pad, y - step * (len(lines) - 1) - pad, x + width + pad, y + size + pad * 0.5)
         for i, text in enumerate(lines):
-            blf.color(0, *(colour if i < len(lines) - 1 else (0.85, 0.85, 0.85)), 1.0)
-            blf.position(0, here.x + 12, here.y + 12 - i * size * 1.35, 0)
+            blf.color(0, *(colour if i < len(lines) - 1 else (0.8, 0.8, 0.8)), 1.0)
+            blf.position(0, x, y - i * step, 0)
             blf.draw(0, text)
-        blf.disable(0, blf.SHADOW)
+
+
+def _backdrop(x0, y0, x1, y1):
+    """A dark translucent rectangle behind a label (region pixels), like Blender's own text info backdrops."""
+    import gpu
+    from gpu_extras.batch import batch_for_shader
+    shader = gpu.shader.from_builtin("UNIFORM_COLOR")
+    batch = batch_for_shader(shader, "TRIS", {"pos": [(x0, y0), (x1, y0), (x1, y1), (x0, y0), (x1, y1), (x0, y1)]})
+    gpu.state.blend_set("ALPHA")
+    shader.uniform_float("color", (0.05, 0.05, 0.05, 0.8))
+    batch.draw(shader)
+    gpu.state.blend_set("NONE")
 
 
 _error_overlay = None
