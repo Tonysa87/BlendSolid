@@ -105,6 +105,39 @@ def test_pick_sketch_and_region_by_ray(clean):
     assert target.obj == obj and target.sketch == "sketch_1"  # near the sketch: drawing adds to it
 
 
+def test_the_hovered_face_plane_sticks_just_off_the_face(box):
+    """The maintainer's GUI test (2026-09-29): a path started just outside the top face went on the cursor's plane.
+    After hovering the face, a ray just off it still draws on the face's plane; far away, or after the script
+    changes, the cursor's plane is back."""
+    factor = part.unit_factor()
+    down = Vector((0, 0, -1))
+
+    def ray(x_mm, y_mm):
+        return Vector((x_mm * factor, y_mm * factor, 1.0)), down
+
+    ops_sketch._sticky = None
+    assert ops_sketch.hover_target(bpy.context, *ray(25.0, 0.0)).obj is None  # never hovered the face: cursor plane
+    on_face = ops_sketch.hover_target(bpy.context, *ray(10.0, 0.0))
+    assert on_face.obj == box and on_face.plane_code == 'on_face(face("box_1", "+Z"))'
+    off = ops_sketch.hover_target(bpy.context, *ray(25.0, 0.0))  # 5 mm past the +X edge
+    assert off.obj == box and off.plane_code == on_face.plane_code
+    uv, _ = ops_sketch.ray_uv(off.plane, *ray(25.0, 3.0), factor)
+    assert uv == pytest.approx((25.0, 3.0), abs=1e-4)  # the point is on the face's plane, off the face
+    assert ops_sketch.hover_target(bpy.context, *ray(-25.0, 0.0)).obj == box  # the other side too
+    assert ops_sketch.hover_target(bpy.context, *ray(500.0, 0.0)).obj is None  # far away: released
+    assert ops_sketch.hover_target(bpy.context, *ray(25.0, 0.0)).obj is None  # and stays released
+    # a line drawn from outside one edge to outside the other splits the face (Extrude Sketch then has a piece)
+    ops_sketch.hover_target(bpy.context, *ray(10.0, 0.0))
+    target = ops_sketch.hover_target(bpy.context, *ray(-25.0, 0.0))
+    assert sketch("LINE", (-25.0, 0.0), (25.0, 0.0), target=box.name, plane=target.plane_code) == {"FINISHED"}
+    wait_for(lambda: up_to_date(box))
+    (drawn,) = ops_sketch.sketches_of(box)
+    assert sorted(r["area"] for r in drawn["regions"]) == pytest.approx([600.0, 600.0])
+    # the script changed: the stored "new sketch on the face" plane is dropped, the new sketch is found instead
+    assert ops_sketch.hover_target(bpy.context, *ray(25.0, 0.0)).sketch == "sketch_1"  # in the sketch's margin
+    assert ops_sketch.hover_target(bpy.context, *ray(10.0, 5.0)).sketch == "sketch_1"
+
+
 def test_sketch_on_a_curved_face_is_refused_by_the_worker(clean):
     bpy.ops.blendsolid.add_cylinder("EXEC_DEFAULT", True)
     obj = bpy.context.object

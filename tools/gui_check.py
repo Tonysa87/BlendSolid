@@ -1414,14 +1414,24 @@ def step22():
         bpy.ops.wm.tool_set_by_id(name="blendsolid.sketch_tool")
     yield from warm_up((30, 830, 0))
     bpy.context.scene.blendsolid_sketch_shape = "PATH"
-    # on the top face (z 20): line, tangent arc (a drag), line; then a line across the face at x = 12
+    # a line across the top face (z 20) at x = 12, started off the face on the far side, where the ray misses the
+    # box (the maintainer's 2026-09-29 test): hovering the face first keeps its plane; then on the face a path of a
+    # line, a tangent arc (a drag) and a line
+    start = px((12, 825, 20))
+    with override():
+        _, _, region = ctx()
+        at = (start[0] - region.x, start[1] - region.y)
+        bare = bs.ops_sketch.pick_target(bpy.context, *bs.ops_draw.mouse_ray(bpy.context, at),
+                                         bs.ops_draw._near_rays(bpy.context, at))
+    expect(bare is not None and bare.obj is None, "the line's start is not off the part (the case to check)")
+    yield from move(px((12, 810, 20)), start, 8)
+    yield from _path([(12, 825, 20), (12, 775, 20)])
     yield from _path([(-15, 795, 20), (5, 795, 20), (5, 805, 20), (-15, 805, 20)], arcs=(2,))
-    yield from _path([(12, 780, 20), (12, 820, 20)])
     source = bs.part.source_of(ob(name))
     entities = [e.name for e in bs.script_model.sketch_entities(source, "sketch_1")]
     expect(entities == ["path_1", "path_2"], f"sketch entities {entities}")
-    expect("sketch_1.path_1 = path((-15.0, -5.0), (5.0, -5.0), arc_to((5.0, 5.0)), (-15.0, 5.0))" in source,
-           "the first path isn't line, arc, line on the top face")
+    expect("sketch_1.path_2 = path((-15.0, -5.0), (5.0, -5.0), arc_to((5.0, 5.0)), (-15.0, 5.0))" in source,
+           "the second path isn't line, arc, line on the top face")
     expect('with sketch(on_face(face("box_1", "+Z"))) as sketch_1:' in source, "the sketch is not on the top face")
     yield from settled(name)
     screenshot("paths-on-face")

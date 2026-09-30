@@ -1,0 +1,10 @@
+[gui-check     2.0] add-on blendsolid from /home/tony/Projects/BlendSolid/blendsolid; event simulation: True; out /tmp/claude-1000/-home-tony-Projects-BlendSolid/61eaadc8-391d-4d04-b4f0-4d5582ed9139/scratchpad/g1
+STEP 22 OK path with an arc + a line across the top face, groove 2 mm, step 5 mm, undo; revolve 4258 mm³
+WORKER PID 8710
+SCREENSHOT /tmp/claude-1000/-home-tony-Projects-BlendSolid/61eaadc8-391d-4d04-b4f0-4d5582ed9139/scratchpad/g1/01-paths-on-face.png (offscreen viewport render)
+SCREENSHOT /tmp/claude-1000/-home-tony-Projects-BlendSolid/61eaadc8-391d-4d04-b4f0-4d5582ed9139/scratchpad/g1/02-groove-and-step.png (offscreen viewport render)
+SCREENSHOT /tmp/claude-1000/-home-tony-Projects-BlendSolid/61eaadc8-391d-4d04-b4f0-4d5582ed9139/scratchpad/g1/03-revolved.png (offscreen viewport render)
+GUI CHECK PASS
+00:26.360  blend            | Saved session recovery to "/tmp/quit.blend"
+
+Blender quit

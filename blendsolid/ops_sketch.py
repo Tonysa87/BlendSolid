@@ -191,6 +191,41 @@ def pick_target(context, origin, direction, near=()):
     return Target(plane)
 
 
+STICKY_REACH = 1.5  # the hovered face's plane stays the drawing plane within this many part radii of its centre
+_sticky = None  # the last part plane hovered: (part name, script, matrix_world, plane, sketch, plane code, points)
+
+
+def hover_target(context, origin, direction, near=()):
+    """pick_target, but the plane of the last part face (or sketch) hovered sticks while the mouse leaves it for
+    empty space near the part, so a path can start just off the face (Shapr3D and Plasticity pick the plane by
+    hover before the first click). Another face, a curved face, or empty space far from the part ends it; so does
+    any change to the part's script or placement."""
+    global _sticky
+    target = pick_target(context, origin, direction, near)
+    if target is None or target.obj is not None:
+        _sticky = None if target is None else (target.obj.name, part.source_of(target.obj),
+                                                target.obj.matrix_world.copy(), target.plane.copy(), target.sketch,
+                                                target.plane_code, target.points)
+        return target
+    if _sticky is None:
+        return target
+    name, source, matrix, plane, sketch, plane_code, points = _sticky
+    obj = part.local_part(name)
+    if obj is None or not editable(obj) or part.source_of(obj) != source or obj.matrix_world != matrix:
+        _sticky = None
+        return target
+    factor = part.unit_factor(context.scene)
+    found = ray_uv(plane, origin, direction, factor)
+    corners = [obj.matrix_world @ Vector(c) for c in obj.bound_box]
+    centre = sum(corners, Vector()) / 8
+    radius = max(max((c - centre).length for c in corners), 1.0 * factor)
+    if found is None or (plane @ Vector((found[0][0] * factor, found[0][1] * factor, 0.0)) - centre).length \
+            > STICKY_REACH * radius:
+        _sticky = None
+        return target
+    return Target(plane, obj, sketch, plane_code, points)
+
+
 def _same_world_plane(a, b, tolerance=1e-6):
     """Do two world plane matrices lie on the same plane (same normal, same offset; Blender units)?"""
     za, zb = a.col[2].xyz.normalized(), b.col[2].xyz.normalized()
@@ -320,7 +355,7 @@ class BLENDSOLID_OT_sketch_entity(bpy.types.Operator):
         self.shape = context.scene.blendsolid_sketch_shape
         origin, direction = ops_draw._mouse_ray(context, event)
         near = ops_draw._near_rays(context, (event.mouse_region_x, event.mouse_region_y))
-        self._target = pick_target(context, origin, direction, near)
+        self._target = hover_target(context, origin, direction, near)
         if self._target is None:
             self.report({"WARNING"}, "Sketches go on flat faces, sketches or the 3D cursor's plane")
             return {"CANCELLED"}
@@ -631,7 +666,7 @@ class BLENDSOLID_GT_sketch_hover(bpy.types.Gizmo):
         if self.mouse is None or context.region_data is None or _dragging:
             return
         origin, direction = ops_draw.mouse_ray(context, self.mouse)
-        target = pick_target(context, origin, direction, ops_draw._near_rays(context, self.mouse))
+        target = hover_target(context, origin, direction, ops_draw._near_rays(context, self.mouse))
         if target is None:
             return
         factor = part.unit_factor(context.scene)
