@@ -62,6 +62,21 @@ yet checked by the maintainer** (they couldn't test tonight). Resume with their 
    refused. Open question for the maintainer: were fillet_3-5 in test6 attempts to change fillet_2's radius (then
    a click on an existing fillet should show its radius arrow instead of adding a new fillet)?
 
+**Queue after that test (in order):**
+1. Fix what the maintainer's test finds (one fix at a time, rebuild + install, re-check only what changed).
+2. Editing an existing fillet from the viewport, if the maintainer confirms the intent (question above): a click on
+   a fillet face focuses its feature and shows a radius handle, instead of appending a new fillet.
+3. The rest of the UI pass (`docs/superpowers/plans/2026-09-30-ui-pass.md`, ADR 0013/0014): task 3 right-click
+   entries by selection kind; task 4 sidebar = context only, tools as one toolbar group; task 5 hover/selection
+   highlights with depth; task 6 the real result as the only preview (drop `preview_lines`); task 7 native
+   `GIZMO_GT_button_2d` handle for Fillet and Push/Pull, drag out = fillet / in = chamfer; task 8 tangent chain
+   shown before dragging.
+4. Sketch features still to do (item 2 below): snaps to edges, typed segment length, corner radius per vertex,
+   slice by path, offset to a band, named groove faces (ADR 0009 addendum).
+5. Rest of 3a (item 3 below): STEP/IGES/BREP import/export, up-to-face, New Part/Cutter for extrudes, arcs/polygon/
+   slot, editing sketch entities in the viewport; then the 3a acceptance criterion, the usage checkpoint, merge
+   `m3a` into `main`.
+
 0. **Merged into `m3a` (session 12):** the maintainer's morning research branch `research/ui-pass` (docs only:
    pie menus, fillet feedback, OCCT fillets after 8.0.1; `docs/handoff-2026-09-30.md`), decisions recorded as
    ADR 0013 (commands: two-level pie + selection context menu, sidebar = context; pie key still open) and ADR 0014
