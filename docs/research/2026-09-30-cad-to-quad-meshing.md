@@ -128,3 +128,25 @@ BlendSolid has the B-rep, not just triangles — each face has its **type and ro
 Measures for any of them: share of quads, irregular vertex count, minimum scaled Jacobian / angle, Hausdorff distance
 to the exact solid (the worker can compute it), time, and whether Blender's Subdivision modifier on the result stays
 close to the solid.
+
+## 6. Maintainer's decision (2026-09-30, evening)
+
+**Start with the classic methods, as Rhino and Plasticity do (families A and B); evaluate the others (C field-aligned,
+D coarse layouts, external engines) afterwards.** Concretely, what "classic" means here:
+
+- **A topology choice like Plasticity's export (*Tris / Quads / Ngons*)**: the same exact vertices, three ways of
+  grouping them. *Quads*: grid cells stay quads (fillet bands, cylinders, untrimmed and 4-sided faces), the trim
+  band next to trim curves is paired into quads where the pair is good and left as triangles elsewhere (family B,
+  e.g. Blossom-style matching or a greedy best-pair pass). *Ngons*: flat faces as one polygon or a few convex ones
+  (what the display mesh already does for Bevel, ADR 0008). *Tris*: everything triangulated.
+- **Rhino's rules as the reference for quality**: watertight quads come only from untrimmed faces; the refinement
+  keeps quads where it can ("the mesher tries to start with quads, but will triangulate in places where
+  necessary"); an aspect-ratio limit splits long thin cells (see the 2026-09-28 products note).
+- Exactness kept: no vertex moves, no vertex added (the pairing only removes diagonals), shared edge discretization
+  unchanged (ADR 0010), so the result stays conforming and the BRep ids and sharp/bevel-weight flags still apply.
+
+To settle when planned (Claude Code, with the maintainer): whether the topology is a **display setting** of the
+part (the Blender mesh itself is Tris/Quads/Ngons) or an **export/convert command** producing a copy; how it
+interacts with the Catmull–Clark rule of ADR 0008's addendum (`docs/NEXT.md`: reconsider it once convert-to-quads
+exists); the measures of section 5 (share of quads, worst angles, time) on the test parts. Scheduled in the spec at
+3e ("convert to quads") unless the maintainer moves it.
