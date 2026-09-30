@@ -150,3 +150,19 @@ part (the Blender mesh itself is Tris/Quads/Ngons) or an **export/convert comman
 interacts with the Catmull–Clark rule of ADR 0008's addendum (`docs/NEXT.md`: reconsider it once convert-to-quads
 exists); the measures of section 5 (share of quads, worst angles, time) on the test parts. Scheduled in the spec at
 3e ("convert to quads") unless the maintainer moves it.
+
+## 7. Maintainer's notes (2026-09-30, later): Gmsh next, deviation is not a gate
+
+- **To study next, after the classic methods: Gmsh's quasi-structured quad meshing** (§2 C; `Mesh.Algorithm = 11`
+  in the 2026-09-28 algorithms note). Facts gathered so far [verified]: the `gmsh` Python package is on PyPI
+  (4.15.2 at the time of writing) with prebuilt wheels (the Linux one is 40 MB); licence **GPLv2+** (wheel metadata),
+  compatible with BlendSolid's GPL-3.0. Gmsh embeds its own OpenCASCADE-based CAD kernel, so it could take the part's
+  exact B-rep (a `.brep` written by the worker) rather than a triangle mesh, and keep CAD features by construction.
+  Open questions for the study: which OCCT version the wheel bundles and whether it can share a `.brep` with ours
+  without format issues; run time on typical parts; running it in the worker process (no second Python); the
+  40 MB against the package size (ADR 0001); quality on fillet bands and trimmed faces with holes, compared with
+  the classic output.
+- **Distance from the exact solid is not a gate** (maintainer): CAD → mesh output is for rendering, kitbashing and
+  modelling, not precision work — precision work stays in CAD (STEP). When a remeshed result must hug the solid,
+  Blender's own tools fix it (Subdivision + Shrinkwrap onto the exact mesh). Keep the deviation as a reported
+  number, not a pass/fail criterion.
