@@ -47,6 +47,10 @@ class BLENDSOLID_OT_push_pull(bpy.types.Operator):
         if part.is_scaled(obj):
             self.report({"ERROR"}, part.scaled_message(obj))
             return {"CANCELLED"}
+        blocked = part.blocking_error(obj)
+        if blocked:
+            self.report({"ERROR"}, blocked)
+            return {"CANCELLED"}
         fid = face_id_of(obj, self.reference)
         if fid is not None and part.face_plane(obj, fid) is None:
             self.report({"ERROR"}, "Push/Pull works on flat faces only")
@@ -123,6 +127,10 @@ class BLENDSOLID_OT_push_pull_drag(bpy.types.Operator):
             return {"CANCELLED"}
         x_axis = Vector((1, 0, 0)) if abs(self._normal.x) < 0.9 else Vector((0, 1, 0))
         self._plane, self._start = drawing._frame(hit, x_axis, self._normal), hit
+        blocked = part.blocking_error(obj)
+        if blocked:
+            self.report({"ERROR"}, blocked)
+            return {"CANCELLED"}
         self._target, self._reference = obj, part.face_reference(obj, fid)
         self._source, self._amount, self._snap = part.source_of(obj), 0.0, 0.0
         self._outline = found.segments

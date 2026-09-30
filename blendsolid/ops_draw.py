@@ -98,6 +98,10 @@ class BLENDSOLID_OT_draw_solid(bpy.types.Operator):
         if reference is not None and part.is_scaled(reference):
             self.report({"ERROR"}, part.scaled_message(reference))
             return {"CANCELLED"}
+        blocked = part.blocking_error(reference) if self.mode != "NEW" else None
+        if blocked:
+            self.report({"ERROR"}, blocked)
+            return {"CANCELLED"}
         kind = KIND[self.shape]
         location, rotation, on_plane = self._placement()
         frame = drawing.frame_matrix(location, rotation, factor)

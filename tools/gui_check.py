@@ -1662,8 +1662,56 @@ def step24():
            "Esc left a part or script behind")
     return f"E > Add > Box: a {size:g} mm cube at the pie's point; Esc leaves nothing"
 
+
+def step25():
+    """ADR 0014 (test6.blend): a Fillet drag far past what the edges allow stops at the largest radius that works,
+    so the release leaves a part that builds; the fillet's radius is that limit."""
+    if not SIM:
+        return "SKIP: needs --enable-event-simulate"
+    deselect()
+    cursor((0, -3000, 0))
+    with override():
+        bpy.ops.blendsolid.add_box("EXEC_DEFAULT", True, length=40.0, width=30.0, height=20.0)
+    name = active().name
+    yield from settled(name)
+    op(bpy.ops.ed.undo_push, message="Part for step 25")
+    yield from set_view((0, -3000, 10), rot_deg=(60, 0, 20), dist=0.2)
+    with override():
+        bpy.ops.wm.tool_set_by_id(name="blendsolid.fillet_tool")
+    bs.ops_fillet.select(None)
+    yield from warm_up((70, -3000, 0))  # away from the face: a second press there would be a double click
+    yield 0.5
+    top = px((0, -3000, 20))  # the face's centre: the selected box's height arrow is hidden while the tool is active
+    yield from move(top, top, 1)
+    ev("LEFTMOUSE", "PRESS", top)
+    yield 0.1
+    ev("LEFTMOUSE", "RELEASE", top)
+    yield 0.4
+    _, refs = bs.ops_fillet.selection()
+    expect(len(refs) == 1 and refs[0].startswith("edges_of("), f"selection {refs}")
+    ev("LEFTMOUSE", "PRESS", top)
+    yield 0.1
+    here = top
+    for k in range(1, 13):  # drag up in steps, letting the worker answer each one
+        nxt = (top[0], top[1] + 25 * k)
+        yield from move(here, nxt, 3)
+        here = nxt
+        yield 0.5
+    ev("LEFTMOUSE", "RELEASE", here)
+    yield 0.3
+    for _ in range(40):
+        yield 0.5
+        if ob(name).blendsolid_error or up_to_date(ob(name)):
+            break
+    yield from settled(name)
+    values = {p.name: p.value for p in ob(name).blendsolid_params}
+    radius = values.get("fillet_1_radius")
+    expect(ob(name).blendsolid_error == "", f"error {ob(name).blendsolid_error!r}")
+    expect(radius is not None and 5 < radius < 15, f"radius {radius}")
+    return f"a long drag stopped at the largest radius that works: {radius:g} mm, the part builds"
+
 STEPS = [step1, step2, step3, step4, step5, step6, step7, step8, step9, step10, step11, step12, step13, step14,
-         step15, step16, step17, step18, step19, step20, step21, step22, step23, step24]
+         step15, step16, step17, step18, step19, step20, step21, step22, step23, step24, step25]
 
 
 def scenario():

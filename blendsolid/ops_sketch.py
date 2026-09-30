@@ -335,6 +335,10 @@ class BLENDSOLID_OT_sketch_entity(bpy.types.Operator):
         if part.is_scaled(obj):
             self.report({"ERROR"}, part.scaled_message(obj))
             return {"CANCELLED"}
+        blocked = part.blocking_error(obj)
+        if blocked:
+            self.report({"ERROR"}, blocked)
+            return {"CANCELLED"}
         try:
             if self.sketch:
                 source, _ = script_model.add_entity(part.source_of(obj), self.sketch, spec)
@@ -363,6 +367,10 @@ class BLENDSOLID_OT_sketch_entity(bpy.types.Operator):
         self._target = hover_target(context, origin, direction, near)
         if self._target is None:
             self.report({"WARNING"}, "Sketches go on flat faces, sketches or the 3D cursor's plane")
+            return {"CANCELLED"}
+        blocked = part.blocking_error(self._target.obj)
+        if blocked:
+            self.report({"ERROR"}, blocked)
             return {"CANCELLED"}
         self._factor = part.unit_factor(context.scene)
         self._snap, self._snapped = 0.0, ""

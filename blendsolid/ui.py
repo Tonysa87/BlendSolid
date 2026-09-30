@@ -1,6 +1,7 @@
 """Properties, operators and panel of BlendSolid."""
 import bpy
 from bpy.props import BoolProperty, CollectionProperty, FloatProperty, IntProperty, PointerProperty, StringProperty
+from mathutils import Vector
 
 from . import params, part, trust
 
@@ -232,9 +233,63 @@ def register():
         name="Tolerance (mm)", default=part.DEFAULT_TOLERANCE, min=0.001, soft_min=0.01, soft_max=10.0, precision=3,
         description="Largest distance between a part's mesh and its exact surface, in millimetres: smaller values "
                     "give smoother but heavier meshes (every part is rebuilt when it changes)")
+    global _error_overlay
+    _error_overlay = bpy.types.SpaceView3D.draw_handler_add(_draw_errors, (), "WINDOW", "POST_PIXEL")
+
+
+def error_label(obj):
+    """The lines shown in the viewport next to a part whose current script fails (ADR 0014: state is shown, never
+    hidden): its name and the failing feature, then the worker's message wrapped; [] when it builds."""
+    import textwrap
+    if not obj.blendsolid_error or part.error_tag(obj) != part.current_tag(obj):
+        return []
+    feature = part.failing_feature(obj)
+    head = f"{obj.name}: {feature} fails" if feature else f"{obj.name}: the script fails"
+    body = textwrap.wrap(obj.blendsolid_error.splitlines()[0], 70)[:4]
+    return [head] + body + ["(the part shows its last good result)"]
+
+
+def _draw_errors():
+    context = bpy.context
+    if context.region_data is None:
+        return
+    from bpy_extras import view3d_utils
+    import blf
+    try:
+        colour = tuple(context.preferences.themes[0].info.info_error)[:3]
+    except (AttributeError, IndexError):
+        colour = (0.9, 0.2, 0.2)
+    size = 13 * (context.preferences.system.ui_scale or 1.0)
+    for obj in context.visible_objects:
+        if obj.type != "MESH" or not part.is_local_part(obj):
+            continue
+        lines = error_label(obj)
+        if not lines:
+            continue
+        corners = [obj.matrix_world @ Vector(c) for c in obj.bound_box]
+        top = sum(corners, Vector()) / 8
+        top.z = max(c.z for c in corners)
+        here = view3d_utils.location_3d_to_region_2d(context.region, context.region_data, top)
+        if here is None:
+            continue
+        blf.size(0, size)
+        blf.enable(0, blf.SHADOW)
+        blf.shadow(0, 3, 0.0, 0.0, 0.0, 0.9)
+        for i, text in enumerate(lines):
+            blf.color(0, *(colour if i < len(lines) - 1 else (0.85, 0.85, 0.85)), 1.0)
+            blf.position(0, here.x + 12, here.y + 12 - i * size * 1.35, 0)
+            blf.draw(0, text)
+        blf.disable(0, blf.SHADOW)
+
+
+_error_overlay = None
 
 
 def unregister():
+    global _error_overlay
+    if _error_overlay is not None:
+        bpy.types.SpaceView3D.draw_handler_remove(_error_overlay, "WINDOW")
+        _error_overlay = None
     del bpy.types.Scene.blendsolid_tolerance
     for name in ("blendsolid_error_line", "blendsolid_error", "blendsolid_params", "blendsolid_script"):
         delattr(bpy.types.Object, name)

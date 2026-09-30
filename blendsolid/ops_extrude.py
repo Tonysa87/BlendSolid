@@ -34,6 +34,10 @@ def _check_part(op, name):
     if part.is_scaled(obj):
         op.report({"ERROR"}, part.scaled_message(obj))
         return None
+    blocked = part.blocking_error(obj)
+    if blocked:
+        op.report({"ERROR"}, blocked)
+        return None
     return obj
 
 
@@ -113,6 +117,10 @@ class BLENDSOLID_OT_extrude(bpy.types.Operator):
         if found is None:
             return {"PASS_THROUGH"}
         obj, sketch, uv, index = found
+        blocked = part.blocking_error(obj)
+        if blocked:
+            self.report({"ERROR"}, blocked)
+            return {"CANCELLED"}
         self._factor = part.unit_factor(context.scene)
         self._obj, self._sketch, self._uv = obj, sketch, uv
         plane = ops_sketch.plane_matrix(obj, sketch, self._factor)
@@ -441,6 +449,10 @@ class BLENDSOLID_OT_groove(bpy.types.Operator):
         if found is None:
             return {"PASS_THROUGH"}
         obj, sketch, name, uv = found
+        blocked = part.blocking_error(obj)
+        if blocked:
+            self.report({"ERROR"}, blocked)
+            return {"CANCELLED"}
         scene = context.scene
         self.profile, self.width, self.corners = (scene.blendsolid_groove_profile, scene.blendsolid_groove_width,
                                                   scene.blendsolid_groove_corners)

@@ -82,11 +82,17 @@ def arrow_set(obj_name, param, scale, offset):
     item.value = max(_minimum(param), offset / (scale * part.unit_factor()))  # -> ui._write_param
 
 
+EDITING_TOOLS = {"blendsolid.draw_solid_tool", "blendsolid.fillet_tool", "blendsolid.push_pull_tool",
+                 "blendsolid.sketch_tool", "blendsolid.groove_tool", "blendsolid.extrude_tool",
+                 "blendsolid.revolve_tool"}
+
+
 def _drawing_tool_active(context):
-    """While the Draw Solid tool is active a click must start a drawing, even over a selected part's arrows."""
+    """While a BlendSolid editing tool is active a click must reach it (a drawing, an edge, a face), even over a
+    selected part's arrows (the height arrow sits on the top face's centre: the Fillet tool missed that click)."""
     workspace = getattr(context, "workspace", None)
     tool = workspace.tools.from_space_view3d_mode("OBJECT", create=False) if workspace is not None else None
-    return tool is not None and tool.idname == "blendsolid.draw_solid_tool"
+    return tool is not None and tool.idname in EDITING_TOOLS
 
 
 class BLENDSOLID_GGT_parameters(bpy.types.GizmoGroup):

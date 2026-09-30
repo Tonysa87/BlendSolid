@@ -64,6 +64,10 @@ class BLENDSOLID_OT_boolean(bpy.types.Operator):
         if part.is_scaled(target):
             self.report({"ERROR"}, part.scaled_message(target))
             return {"CANCELLED"}
+        blocked = part.blocking_error(target)
+        if blocked:
+            self.report({"ERROR"}, blocked)
+            return {"CANCELLED"}
         source = part.source_of(target)
         try:
             script_model.features(source)

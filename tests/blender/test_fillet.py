@@ -209,3 +209,35 @@ def test_asymmetric_chamfer_needs_a_common_face(plain_box):
         bpy.ops.blendsolid.fillet(target=plain_box.name, references=f"{TOP_FRONT}\n{other}", radius=1.0,
                                   chamfer=True, chamfer_mode="TWO")
     assert "chamfer(" not in part.source_of(plain_box)
+
+
+def test_a_failing_fillet_blocks_new_features_and_shows_in_the_viewport(clean):
+    """test6.blend (maintainer, 2026-09-30): a fillet too large failed, and every feature added after it was never
+    built (and was picked on the stale mesh). Now the part says which feature fails, and nothing can be added."""
+    from blendsolid import ops_fillet, ui
+    bpy.ops.ed.undo_push()
+    bpy.ops.blendsolid.add_box("EXEC_DEFAULT", True)
+    obj = bpy.context.object
+    wait_for(lambda: up_to_date(obj))
+    bpy.ops.blendsolid.fillet("EXEC_DEFAULT", True, target=obj.name, references='edges_of(face("box_1", "+Z"))',
+                              radius=50.0)
+    wait_for(lambda: obj.blendsolid_error != "")
+    assert part.failing_feature(obj) == "fillet_1"
+    limit = ops_fillet.too_large_limit(obj.blendsolid_error)
+    assert limit is not None and 0 < limit < 20  # the box is 20 mm tall
+    lines = ui.error_label(obj)
+    assert lines[0] == f"{obj.name}: fillet_1 fails" and "too large" in " ".join(lines)
+    blocked = part.blocking_error(obj)
+    assert "fillet_1 fails" in blocked and "before adding features" in blocked
+    source = part.source_of(obj)
+    with pytest.raises(RuntimeError, match="fillet_1 fails"):
+        bpy.ops.blendsolid.fillet("EXEC_DEFAULT", True, target=obj.name,
+                                  references='edge_between(face("box_1", "+X"), face("box_1", "+Y"))', radius=1.0)
+    with pytest.raises(RuntimeError, match="fillet_1 fails"):
+        bpy.ops.blendsolid.push_pull("EXEC_DEFAULT", True, target=obj.name, reference='face("box_1", "+X")',
+                                     amount=5.0)
+    assert part.source_of(obj) == source
+    # changing the failing feature's own radius is allowed and clears it
+    obj.blendsolid_script.from_string(source.replace("fillet_1_radius = 50.0", f"fillet_1_radius = {limit}"))
+    wait_for(lambda: up_to_date(obj))
+    assert obj.blendsolid_error == "" and part.blocking_error(obj) is None and ui.error_label(obj) == []

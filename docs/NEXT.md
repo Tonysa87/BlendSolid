@@ -61,6 +61,10 @@ Updated: 2026-09-30, session 12 (milestone 3a in progress, branch `m3a`). Read t
    Object Mode (a right-click without a drag re-opens Blender's Object context menu; checked on Windows, gui_check
    step 23 + screenshot). Not built yet: tasks 3-8 (right-click entries by selection, sidebar = context, depth
    highlights, real result as preview, native handle, tangent chain).
+   Also built in session 12 (maintainer's requests after testing): **interactive Add** (ADR 0015: placed where
+   the pie was opened, round size from the view, scaled by the mouse) and the **failing-feature fixes** (ADR 0014
+   addendum: error shown in the viewport, no features added to a failing part, the Fillet drag stops at the
+   largest radius that works). gui_check steps 1-25 PASS on Linux.
 1. **Done (session 12, 4f716fd):** the hovered face's plane sticks (`ops_sketch.hover_target`): a path started
    just off a face stays on its plane; released by another face, a curved face, empty space farther than 1.5 part
    radii, or a change to the part's script/placement. Test `test_the_hovered_face_plane_sticks_just_off_the_face`;

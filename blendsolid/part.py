@@ -176,6 +176,31 @@ def error_tag(obj):
     return obj.get(ERROR_TAG_KEY)
 
 
+def failing_feature(obj):
+    """The name of the feature the part's error points at (its script line), or ""."""
+    from . import script_model
+    line = obj.blendsolid_error_line
+    if not obj.blendsolid_error or not line:
+        return ""
+    try:
+        found = [f for f in script_model.features(source_of(obj)) if f.lineno <= line <= f.end_lineno]
+    except script_model.NotCanonical:
+        return ""
+    return found[0].name if found else ""
+
+
+def blocking_error(obj):
+    """Why no feature can be added to obj now, or None: its current script fails (a feature added after the
+    failing one would never be built, and would be picked on the last good mesh, which is stale). An error of an
+    earlier script (e.g. a drag's live preview, since undone) doesn't block."""
+    if obj is None or not obj.blendsolid_error or error_tag(obj) != current_tag(obj):
+        return None
+    feature = failing_feature(obj)
+    where = f"{feature} fails" if feature else "its script fails"
+    return (f"'{obj.name}': {where} ({obj.blendsolid_error.splitlines()[0]}). Change or undo "
+            f"{feature or 'it'} before adding features")
+
+
 def fill_mesh(mesh, verts, loops, poly_sizes, poly_face, corner_normals=None, edges=None, edge_ids=None,
               edge_sharp=None):
     """The worker's welded display mesh (ADR 0008): closed, so Blender's modifiers see real edges. CAD edges carry

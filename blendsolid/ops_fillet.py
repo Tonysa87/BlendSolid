@@ -95,6 +95,10 @@ class BLENDSOLID_OT_fillet(bpy.types.Operator):
         if part.is_scaled(obj):
             self.report({"ERROR"}, part.scaled_message(obj))
             return {"CANCELLED"}
+        blocked = part.blocking_error(obj)
+        if blocked:
+            self.report({"ERROR"}, blocked)
+            return {"CANCELLED"}
         refs = [r.strip() for r in self.references.splitlines() if r.strip()]
         if not refs:
             self.report({"ERROR"}, "Select one or more edges (or a face, for all its edges) to fillet")
@@ -206,6 +210,15 @@ def preview_lines(obj, refs, size_mm, chamfer, factor, colour):
     return out
 
 
+def too_large_limit(error):
+    """The largest working size (mm) in the worker's "... is too large for ...: the largest that works is X mm"
+    message, or None for any other error."""
+    import re
+    found = re.search(r"too large for .*: the largest that works is ([0-9.]+) mm", error.splitlines()[0] if error
+                      else "")
+    return float(found.group(1)) if found and float(found.group(1)) > 0 else None
+
+
 def header_error(obj):
     """The part's current error for the drag's header (" | can't: ..."), e.g. the worker's "fillet radius 16 mm
     is too large for these 4 edges: the largest that works is 14.996 mm"; "" when it builds."""
@@ -234,6 +247,7 @@ class BLENDSOLID_OT_fillet_click(bpy.types.Operator):
         self._extend = event.shift
         self._source = self._target = self._anchor = None
         self._radius, self._chamfer, self._snap, self._start = 0.0, False, 0.0, 0.0
+        self._limit = None  # the largest size the worker found working while dragging: the drag stops there
         self._factor = part.unit_factor(context.scene)
         self._handles = []
         _dragging.add(id(self))
@@ -256,14 +270,20 @@ class BLENDSOLID_OT_fillet_click(bpy.types.Operator):
         if event.type in {"ESC", "RIGHTMOUSE"} and event.value == "PRESS":
             self._restore()
             return self._end(context, {"CANCELLED"})
-        if event.type == "C" and event.value == "PRESS" and self._source is not None:
+        if event.type == "TIMER":
+            self._check_limit()
+        elif event.type == "C" and event.value == "PRESS" and self._source is not None:
             self._chamfer = not self._chamfer
+            self._limit = None  # a chamfer's limit is another one
             self._preview(context, event)
         elif event.type in {"MOUSEMOVE", "LEFT_CTRL", "RIGHT_CTRL", "LEFT_SHIFT", "RIGHT_SHIFT"}:
             ui = context.preferences.system.ui_scale or 1.0
             moved = ((event.mouse_region_x - self._press[0]) ** 2 + (event.mouse_region_y - self._press[1]) ** 2) ** 0.5
             if self._source is None and moved > DRAG_PX * ui:
                 self._start_drag(context, event)
+                if getattr(self, "_blocked", None):
+                    self.report({"ERROR"}, self._blocked)
+                    return self._end(context, {"CANCELLED"})
             if self._source is not None:
                 self._preview(context, event)
         elif event.type == "LEFTMOUSE" and event.value == "RELEASE":
@@ -289,6 +309,9 @@ class BLENDSOLID_OT_fillet_click(bpy.types.Operator):
         obj, refs = selection()
         if obj is None or not refs:
             return
+        self._blocked = part.blocking_error(obj)
+        if self._blocked:
+            return
         ref = self._pick.reference if self._pick is not None and self._pick.reference in refs else refs[0]
         self._anchor = anchor(obj, ref)
         if self._anchor is None:
@@ -304,7 +327,7 @@ class BLENDSOLID_OT_fillet_click(bpy.types.Operator):
         """The radius along the handle; the immediate overlay redraws with it, and the part's script is rewritten
         with the fillet at that radius (no undo step: the release replaces it with the operator's own edit) and
         submitted at once: the worker's real result follows the overlay."""
-        from . import drawing, ops_draw, runtime
+        from . import drawing, ops_draw
         origin, direction = ops_draw.mouse_ray(context, (event.mouse_region_x, event.mouse_region_y))
         mid, _, frame = self._anchor
         radius = (drawing.height_along_normal(frame, mid, origin, direction) - self._start) / self._factor
@@ -312,7 +335,26 @@ class BLENDSOLID_OT_fillet_click(bpy.types.Operator):
         self._snap = (step / 10 if event.shift else step) if event.ctrl else 0.0
         if self._snap:
             radius = max(drawing.snap(radius, self._snap), self._snap)
-        self._radius = max(radius, 0.001)
+        self._wanted = max(radius, 0.001)
+        self._write(min(self._wanted, self._limit) if self._limit else self._wanted)
+
+    def _check_limit(self):
+        """When the worker answers that the size is too large for these edges, the drag stops at the largest
+        size that works (it bisects it, worker/blends.py): a drag never leaves a fillet that can't be built."""
+        obj = self._target
+        if self._source is None or obj is None or not obj.blendsolid_error \
+                or part.error_tag(obj) != part.current_tag(obj):
+            return
+        limit = too_large_limit(obj.blendsolid_error)
+        if limit is None or (self._limit is not None and limit >= self._limit):
+            return
+        self._limit = limit
+        if self._radius > limit:
+            self._write(limit)
+
+    def _write(self, radius):
+        from . import runtime
+        self._radius = radius
         _, refs = selection()
         try:
             source, _ = script_model.append_feature(self._source, feature_spec(refs, self._radius, self._chamfer))
@@ -332,6 +374,8 @@ class BLENDSOLID_OT_fillet_click(bpy.types.Operator):
         step = ops_draw.step_mm(context.scene)
         what = "chamfer" if self._chamfer else "radius"
         error = header_error(self._target)
+        if self._limit is not None and self._radius >= self._limit:
+            error = f" (the largest that works: {self._limit:g} mm)"
         context.area.header_text_set(f"Fillet: {what} {self._radius:.3f} mm{error} | drag along the arrow"
                                      f" | C: fillet/chamfer | Ctrl: snap {step:g} mm (Shift+Ctrl: {step / 10:g})"
                                      " | Ctrl+Wheel: step | release: confirm | Esc/right-click: cancel")
@@ -381,7 +425,9 @@ def _draw_drag_label(op):
     except (ReferenceError, AttributeError, TypeError):
         return
     from . import drawing, ops_draw
-    lines = [f"{'C' if chamfer else 'R'} {drawing.mm(radius)} mm"] + ([f"snap {snap:g} mm"] if snap else [])
+    limit = getattr(op, "_limit", None)
+    lines = [f"{'C' if chamfer else 'R'} {drawing.mm(radius)} mm" + (" (max)" if limit and radius >= limit else "")]
+    lines += [f"snap {snap:g} mm"] if snap else []
     ops_draw.draw_text_lines(bpy.context, mid + w * radius * factor, lines)
 
 
