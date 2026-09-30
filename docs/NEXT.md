@@ -1,6 +1,6 @@
 # Where we are / what's next (bookmark)
 
-Updated: 2026-09-30, session 12 (milestone 3a in progress, branch `m3a`). Read this first when resuming, then "Next step".
+Updated: 2026-09-30, session 12 end (milestone 3a in progress, branch `m3a`, pushed to GitHub). Read this first when resuming, then "Next step".
 
 ## State
 - **Milestone 0 (spike):** done — `SPIKE_REPORT.md`.
@@ -50,6 +50,18 @@ Updated: 2026-09-30, session 12 (milestone 3a in progress, branch `m3a`). Read t
   **step 4 exposed the bug below**, so 5-6 are still to be seen.
 
 ## Next step — resume exactly here
+**Session 12 ended with everything built, installed in the portable Blender and passing gui_check 1-25, but not
+yet checked by the maintainer** (they couldn't test tonight). Resume with their GUI test of:
+1. Sketch Path started just off the top face (stays on the face's plane), Extrude Sketch of one half.
+2. Sketch snaps: near a corner ("vertex"), an edge's middle ("midpoint"); Shift after the first click ("15° lock").
+3. Groove, Profile Circle, dragged up (a pipe rib) — the old test's step 6.
+4. Pie: right-click (Blender's menu), right-drag to Edit > Fillet / Chamfer, E tap > Sketch > Circle,
+   E hold > Add > Cylinder. Ask whether two flicks feel slow (ADR 0013 point 3).
+5. Add (E > Add > Box): placed where the pie opened, round size, mouse scales, Ctrl grid, typed size, Esc.
+6. Fillet: drag far past the limit (stops at the max), test6.blend's error label, a new fillet on a failing part
+   refused. Open question for the maintainer: were fillet_3-5 in test6 attempts to change fillet_2's radius (then
+   a click on an existing fillet should show its radius arrow instead of adding a new fillet)?
+
 0. **Merged into `m3a` (session 12):** the maintainer's morning research branch `research/ui-pass` (docs only:
    pie menus, fillet feedback, OCCT fillets after 8.0.1; `docs/handoff-2026-09-30.md`), decisions recorded as
    ADR 0013 (commands: two-level pie + selection context menu, sidebar = context; pie key still open) and ADR 0014
