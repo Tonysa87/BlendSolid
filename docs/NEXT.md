@@ -1,6 +1,6 @@
 # Where we are / what's next (bookmark)
 
-Updated: 2026-09-29, session 11 (milestone 3a started, branch `m3a`). Read this first when resuming, then "Next step".
+Updated: 2026-09-30, session 12 (milestone 3a in progress, branch `m3a`). Read this first when resuming, then "Next step".
 
 ## State
 - **Milestone 0 (spike):** done — `SPIKE_REPORT.md`.
@@ -50,6 +50,12 @@ Updated: 2026-09-29, session 11 (milestone 3a started, branch `m3a`). Read this 
   **step 4 exposed the bug below**, so 5-6 are still to be seen.
 
 ## Next step — resume exactly here
+0. **Merged into `m3a` (session 12):** the maintainer's morning research branch `research/ui-pass` (docs only:
+   pie menus, fillet feedback, OCCT fillets after 8.0.1; `docs/handoff-2026-09-30.md`), decisions recorded as
+   ADR 0013 (commands: two-level pie + selection context menu, sidebar = context; pie key still open) and ADR 0014
+   (Fillet/Push-Pull: real result as the only preview, Blender's native handle, fillet out / chamfer in). The
+   **UI pass** (`docs/superpowers/plans/2026-09-30-ui-pass.md`) comes when 3a is stable and before the 3a usage
+   checkpoint: first check the draft plan against the code, do its two cheap GUI checks, then implement.
 1. **Fix first (maintainer's GUI test, 2026-09-29, steps 1-4 fine up to the face split):** a path that starts
    just outside a face can't be drawn on that face: the first click misses the part, so the path goes on the 3D
    cursor's plane (the ground, behind the box) and Extrude Sketch has no face piece to push. Planned fix (as
@@ -73,6 +79,7 @@ Updated: 2026-09-29, session 11 (milestone 3a started, branch `m3a`). Read this 
    Known limits to keep in mind: Extrude Sketch's up-to options show the distance field as "Direction (sign)";
    Revolve's axis is only a straight sketch curve; used sketches are hidden unless a sketch tool is active;
    entities can't be moved/deleted from the viewport (script or undo only).
+   Before the usage checkpoint: the UI pass (item 0).
 4. Open corpus findings on flat faces (ADR 0008 addendum of 2026-09-29, known limits): BRepMesh-fallback
    board faces, `meshing._recover`'s budget on faces with ~200 holes, small holes in a big hole's rectangle
    corners, polygonal holes; the thin strip between a hole's collar and a straight edge (maintainer's GUI note).
