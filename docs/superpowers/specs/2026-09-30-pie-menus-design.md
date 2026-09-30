@@ -1,8 +1,48 @@
-# Design proposal: layered pie menu for commands, sidebar for context
+# Design: layered pie menu + right-click menu for commands, sidebar for context
 
-- **Status:** proposal, to discuss with the maintainer (not decided, nothing to implement yet)
+- **Status:** decided by the maintainer on 2026-09-30 (see "Decisions" right below); the sections after it are
+  the proposal as discussed, kept for the reasoning
 - **Date:** 2026-09-30
 - **Research:** `docs/research/2026-09-30-pie-menus-and-command-access.md`
+- **Mockups:** the maintainer's Design canvas "BlendSolid – interfaccia comandi" (pie level 0, pie level 1,
+  right-click menu on a selected edge, popover — the popover was not chosen)
+
+## Decisions (maintainer, 2026-09-30)
+
+1. **Three routes, one role each:**
+   - **Pie menu, two levels** (native Blender pies, chained): the families of commands, above all the ones that
+     *create* (Add, Draw Solid, Sketch, Solid from Sketch) where nothing is selected yet. Tree: "The command tree"
+     below.
+   - **Right-click menu on the selection** (select first, then act, like Shapr3D and HardOps' dynamic Q menu):
+     BlendSolid entries at the top of Blender's Object context menu, depending on what is selected — an edge →
+     Fillet, Chamfer, Select Tangent Chain, Copy Reference; a face → Push/Pull, Draw Solid Here, Sketch on Face
+     (3a); two or more parts → Union, Difference, Intersect; a cutter → Select Target, Remove Boolean. Blender's
+     own entries stay below a separator. Items are appended to `VIEW3D_MT_object_context_menu` with a poll per
+     selection kind; order fixed within each kind.
+   - **Sidebar = context only** (parameters, references and warnings, the part's booleans, display settings);
+     **F3** finds every operator. Shift+A and Ctrl+Numpad stay as secondary routes.
+2. **Key:** a pie on **`CLICK_DRAG` of an existing key** (tap keeps the key's action, press-and-drag opens the
+   pie), Blender's own "Pie Menu on Drag" pattern. Which key: to choose from Blender 5.2's default Object Mode
+   keymap and common add-ons (HardOps: Q, Shift+Q), with the reason recorded; user-rebindable in the add-on
+   keyconfig.
+3. **Native chained pies first** (option A below): two flicks. The continuous gesture (a pie drawn by BlendSolid)
+   only if the maintainer finds two flicks annoying in the GUI test; that would be its own ADR.
+4. **Not chosen:** the popover at the cursor, single-letter tool keys, a floating bar near the selection, a
+   Maya-style hotbox.
+
+## Handoff to the evening session
+
+- Merge this branch's docs; record the decision as the next ADR (number free after the 3a work) from
+  "Decisions" above.
+- Scheduling is the maintainer's call: this is UI work outside 3a. Suggested: build it once the 3a code in
+  progress is at a stable point and **before the usage checkpoint**, so the checkpoint measures the features, not
+  the current UI. 3a's new commands (Sketch tools, Extrude, Revolve, STEP I/O) go straight into the pie and the
+  right-click menu instead of new sidebar buttons.
+- Plan it as its own small plan (`docs/superpowers/plans/`), criterion as in "First increment" below, extended with
+  the right-click menu: for each selection kind of the test parts (edge, face, two parts, cutter) the menu shows
+  exactly its BlendSolid entries and each runs.
+- Check first in a GUI session (cheap, before writing the plan): how far the level-1 pie recentres from the chosen
+  item; a keymap item on `CLICK_DRAG` of the chosen key leaves its tap action intact.
 
 ## Problem
 
