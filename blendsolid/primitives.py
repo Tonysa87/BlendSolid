@@ -221,3 +221,32 @@ def push_spec(reference, amount):
                            f"extrude({reference}, amount={{name}}_amount, mode=Mode.ADD)")
     return FeatureSpec("push", (("amount", float(-amount)),),
                        f"extrude({reference}, amount=-{{name}}_amount, mode=Mode.SUBTRACT)")
+
+# The interactive Add (ADR 0015): each primitive's parameters as fractions of its size, the largest extent. Even
+# proportions (a cube, a cylinder as wide as tall), so the one size the mouse sets is the part's overall size.
+PROPORTIONS = {
+    "box": {"length": 1.0, "width": 1.0, "height": 1.0},
+    "cylinder": {"radius": 0.5, "height": 1.0},
+    "sphere": {"radius": 0.5},
+    "cone": {"bottom_radius": 0.5, "top_radius": 0.25, "height": 1.0},
+    "torus": {"major_radius": 0.4, "minor_radius": 0.1},
+    "wedge": {"length": 1.0, "width": 1.0, "height": 1.0, "top_length": 0.25},
+}
+ROUND_STEPS = (1.0, 2.0, 5.0)  # the size a new part starts with: 1-2-5 times a power of ten
+DRAG_STEPS = (1.0, 1.2, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0, 6.0, 8.0)  # while scaling it with the mouse (Renard-like)
+
+
+def sized_values(kind, size):
+    """Parameter values (suffix -> mm) of primitive `kind` whose largest extent is `size` mm."""
+    return {suffix: round(size * k, 6) + 0.0 for suffix, k in PROPORTIONS[kind].items()}
+
+
+def nice_size(size, steps=ROUND_STEPS):
+    """The value of `steps` x 10^n nearest `size` (in ratio), for sizes > 0."""
+    import math
+    if size <= 0:
+        return steps[0]
+    exp = math.floor(math.log10(size))
+    candidates = [s * 10.0 ** e for e in (exp - 1, exp, exp + 1) for s in steps]
+    best = min(candidates, key=lambda c: abs(math.log(c / size)))
+    return float(f"{best:.6g}")

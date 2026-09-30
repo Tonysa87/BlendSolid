@@ -86,5 +86,5 @@ def test_keys(addon):
     if kc is None:
         pytest.skip("no add-on keyconfig in this background session")
     found = {(kmi.idname, kmi.type, kmi.value) for _, kmi in pies._keymap_items}
-    assert ("wm.call_menu_pie", "E", "PRESS") in found
+    assert ("blendsolid.call_pie", "E", "PRESS") in found
     assert ("blendsolid.pie_or_menu", "RIGHTMOUSE", "PRESS") in found

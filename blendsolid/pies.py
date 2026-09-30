@@ -5,6 +5,8 @@ own level-1 pie; items that don't exist yet stay greyed out in place, so positio
 
 Research: docs/research/2026-09-30-pie-menus-and-command-access.md, docs/research/2026-09-30-pie-key.md.
 """
+import time
+
 import bpy
 from bpy.props import StringProperty
 
@@ -13,6 +15,23 @@ from . import ops_add, ops_boolean, ops_draw, primitives
 PIE = "VIEW3D_MT_blendsolid_pie"
 CONTEXT_MENU = "VIEW3D_MT_object_context_menu"
 _keymap_items = []
+_origin = None  # where the pie was last opened: (area pointer, (x, y) region pixels, time.monotonic())
+ORIGIN_SECONDS = 30.0  # a command chosen this soon after opening the pie still starts where it was opened
+
+
+def remember_origin(context, event):
+    global _origin
+    _origin = (context.area.as_pointer(), (event.mouse_region_x, event.mouse_region_y), time.monotonic())
+
+
+def take_origin(context):
+    """Region pixels where the pie was opened in this area, if recently (then forgotten), else None."""
+    global _origin
+    found, _origin = _origin, None
+    if found is None or context.area is None or found[0] != context.area.as_pointer() \
+            or time.monotonic() - found[2] > ORIGIN_SECONDS:
+        return None
+    return found[1]
 
 # Level 0, in Blender's pie order (W, E, S, N, NW, NE, SW, SE): (label, icon, level-1 menu or None if not built)
 FAMILIES = [
@@ -62,6 +81,22 @@ class BLENDSOLID_OT_use_tool(bpy.types.Operator):
         return {"FINISHED"}
 
 
+class BLENDSOLID_OT_call_pie(bpy.types.Operator):
+    """Open the BlendSolid pie at the mouse (tap: it stays open; hold: release on an item)"""
+    bl_idname = "blendsolid.call_pie"
+    bl_label = "BlendSolid Pie"
+    bl_options = {"INTERNAL"}
+
+    @classmethod
+    def poll(cls, context):
+        return context.mode == "OBJECT" and context.area is not None and context.area.type == "VIEW_3D"
+
+    def invoke(self, context, event):
+        remember_origin(context, event)
+        bpy.ops.wm.call_menu_pie("INVOKE_DEFAULT", name=PIE)
+        return {"FINISHED"}
+
+
 class BLENDSOLID_OT_pie_or_menu(bpy.types.Operator):
     """Right mouse in Object Mode: a click opens the Object context menu, a drag opens the BlendSolid pie"""
     bl_idname = "blendsolid.pie_or_menu"
@@ -75,6 +110,7 @@ class BLENDSOLID_OT_pie_or_menu(bpy.types.Operator):
     def invoke(self, context, event):
         self._key = event.type
         self._start = (event.mouse_x, event.mouse_y)
+        remember_origin(context, event)
         context.window_manager.modal_handler_add(self)
         return {"RUNNING_MODAL"}
 
@@ -194,7 +230,7 @@ class VIEW3D_MT_blendsolid_pie_part(bpy.types.Menu):
 LEVEL_1 = [VIEW3D_MT_blendsolid_pie_add, VIEW3D_MT_blendsolid_pie_sketch, VIEW3D_MT_blendsolid_pie_edit,
            VIEW3D_MT_blendsolid_pie_draw, VIEW3D_MT_blendsolid_pie_boolean, VIEW3D_MT_blendsolid_pie_solid,
            VIEW3D_MT_blendsolid_pie_part]
-CLASSES = [BLENDSOLID_OT_use_tool, BLENDSOLID_OT_pie_or_menu, VIEW3D_MT_blendsolid_pie, *LEVEL_1]
+CLASSES = [BLENDSOLID_OT_use_tool, BLENDSOLID_OT_call_pie, BLENDSOLID_OT_pie_or_menu, VIEW3D_MT_blendsolid_pie, *LEVEL_1]
 
 
 def right_click_select(context):
@@ -212,9 +248,7 @@ def register():
     if kc is None:  # None in some background sessions
         return
     km = kc.keymaps.new(name="Object Mode", space_type="EMPTY")
-    kmi = km.keymap_items.new("wm.call_menu_pie", "E", "PRESS")
-    kmi.properties.name = PIE
-    _keymap_items.append((km, kmi))
+    _keymap_items.append((km, km.keymap_items.new(BLENDSOLID_OT_call_pie.bl_idname, "E", "PRESS")))
     if not right_click_select(bpy.context):
         _keymap_items.append((km, km.keymap_items.new(BLENDSOLID_OT_pie_or_menu.bl_idname, "RIGHTMOUSE", "PRESS")))
 

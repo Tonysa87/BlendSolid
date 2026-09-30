@@ -16,3 +16,4 @@
 | [0012](0012-sketches-regions-extrude.md) | Sketches, regions and their extrude/revolve | accepted (addendum: paths, grooves, 2026-09-29; GUI check in progress) | 2026-09-29 |
 | [0013](0013-command-access-pies-and-context-menu.md) | Commands from a two-level pie and a selection context menu; sidebar shows context | accepted, not built (pie key open) | 2026-09-30 |
 | [0014](0014-tool-feedback-native-handles-real-result.md) | Fillet and Push/Pull feedback: real result as preview, native handle | accepted, not built | 2026-09-30 |
+| [0015](0015-interactive-add.md) | Adding a primitive: placed where the pie was opened, sized by the mouse | accepted | 2026-09-30 |

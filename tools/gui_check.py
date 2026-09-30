@@ -1582,8 +1582,88 @@ def step23():
         bpy.ops.wm.tool_set_by_id(name="builtin.select_box")
     return "right-drag > Edit > Fillet; E > Sketch > Circle; right-click leaves the tool alone"
 
+
+def step24():
+    """ADR 0015: E > Add > Box places a cube where the pie was opened (the 3D cursor's plane under the mouse), at
+    a round size; moving the mouse away scales it; a click confirms: a cube with equal round sides, scale 1, at
+    the point the pie was opened on. Esc on a second one leaves nothing behind."""
+    if not SIM:
+        return "SKIP: needs --enable-event-simulate"
+    deselect()
+    cursor((0, 0, 0))
+    yield from set_view((5000, 5000, 0), rot_deg=(60, 0, 30), dist=2.0)  # away from the startup cube
+    with override():
+        bpy.ops.wm.tool_set_by_id(name="builtin.select_box")
+    yield from warm_up((5000, 5000, 0))
+    radius = bpy.context.preferences.view.pie_menu_radius * (bpy.context.preferences.system.ui_scale or 1.0)
+    at = (5300, 5200, 0)
+    c = px(at)
+    before = set(bpy.data.objects.keys())
+    ev("MOUSEMOVE", "NOTHING", c)
+    yield 0.2
+    yield from key("E", c)
+    yield 0.4
+    w = (c[0] - int(radius), c[1])
+    yield from move(c, w, 8)
+    ev("LEFTMOUSE", "PRESS", w)
+    yield 0.1
+    ev("LEFTMOUSE", "RELEASE", w)
+    yield 0.6
+    w2 = (w[0] - int(radius), w[1])
+    yield from move(w, w2, 8)
+    ev("LEFTMOUSE", "PRESS", w2)
+    yield 0.1
+    ev("LEFTMOUSE", "RELEASE", w2)
+    yield 0.6
+    new = [n for n in bpy.data.objects.keys() if n not in before]
+    expect(len(new) == 1, f"new objects while placing: {new}")
+    name = new[0]
+    far = (w2[0] - int(radius), w2[1] - int(radius // 2))
+    yield from move(w2, far, 10)
+    yield 0.3
+    scaled = ob(name).scale[0]
+    ev("LEFTMOUSE", "PRESS", far)
+    yield 0.1
+    ev("LEFTMOUSE", "RELEASE", far)
+    yield 0.3
+    yield from settled(name)
+    values = {p.name: p.value for p in ob(name).blendsolid_params}
+    sides = [values.get("box_1_length"), values.get("box_1_width"), values.get("box_1_height")]
+    expect(len(set(sides)) == 1 and sides[0] is not None, f"not a cube: {sides}")
+    size = sides[0]
+    mantissa = size / 10 ** math.floor(math.log10(size))
+    expect(any(abs(mantissa - s) < 1e-9 for s in bs.primitives.DRAG_STEPS), f"size {size} is not a round step")
+    expect(scaled > 1.01, f"moving the mouse away didn't grow it (scale {scaled})")
+    expect(tuple(ob(name).scale) == (1.0, 1.0, 1.0), f"scale left at {tuple(ob(name).scale)}")
+    loc = ob(name).matrix_world.translation / f()
+    expect((loc - Vector(at)).length < 0.02 * 300, f"placed at {tuple(loc)}, pie opened at {at}")
+    expect(close(mm3(ob(name)), size ** 3, 1e-3), f"volume {mm3(ob(name)):.0f}, expected {size ** 3:.0f}")
+    screenshot("added-box")
+    # a second one, cancelled with Esc: nothing left
+    before = set(bpy.data.objects.keys())
+    texts = len(bpy.data.texts)
+    ev("MOUSEMOVE", "NOTHING", c)
+    yield 0.2
+    yield from key("E", c)
+    yield 0.4
+    yield from move(c, w, 8)
+    ev("LEFTMOUSE", "PRESS", w)
+    yield 0.1
+    ev("LEFTMOUSE", "RELEASE", w)
+    yield 0.6
+    yield from move(w, w2, 8)
+    ev("LEFTMOUSE", "PRESS", w2)
+    yield 0.1
+    ev("LEFTMOUSE", "RELEASE", w2)
+    yield 0.6
+    yield from key("ESC", w2)
+    yield 0.3
+    expect(set(bpy.data.objects.keys()) == before and len(bpy.data.texts) == texts,
+           "Esc left a part or script behind")
+    return f"E > Add > Box: a {size:g} mm cube at the pie's point; Esc leaves nothing"
+
 STEPS = [step1, step2, step3, step4, step5, step6, step7, step8, step9, step10, step11, step12, step13, step14,
-         step15, step16, step17, step18, step19, step20, step21, step22, step23]
+         step15, step16, step17, step18, step19, step20, step21, step22, step23, step24]
 
 
 def scenario():
