@@ -31,7 +31,7 @@ faces, corners, tangent chains) add to it.
    source]). The arrow is bound to the drag radius with `target_set_handler`, the way the parameter arrows are.
    Placement stays the edge's midpoint along the faces' bisector (`drawing.fillet_handle`).
 3. **Fillet out, chamfer in** (Shapr3D, Plasticity): dragging the arrow into the solid makes a chamfer, out of
-   it a fillet. The C key stays as a shortcut. *To confirm with the maintainer.*
+   it a fillet. The C key stays as a shortcut. **Approved by the maintainer (2026-09-30).**
 4. **State is shown, never hidden:**
    - while a result for the current radius is pending, the selected edges in a "busy" tint;
    - when the radius can't be built, the arrow turns red (the gizmo's `color`) and the value shows the largest
