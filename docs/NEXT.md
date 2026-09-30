@@ -56,17 +56,12 @@ Updated: 2026-09-30, session 12 (milestone 3a in progress, branch `m3a`). Read t
    (Fillet/Push-Pull: real result as the only preview, Blender's native handle, fillet out / chamfer in). The
    **UI pass** (`docs/superpowers/plans/2026-09-30-ui-pass.md`) comes when 3a is stable and before the 3a usage
    checkpoint: first check the draft plan against the code, do its two cheap GUI checks, then implement.
-1. **Fix first (maintainer's GUI test, 2026-09-29, steps 1-4 fine up to the face split):** a path that starts
-   just outside a face can't be drawn on that face: the first click misses the part, so the path goes on the 3D
-   cursor's plane (the ground, behind the box) and Extrude Sketch has no face piece to push. Planned fix (as
-   Shapr3D/Plasticity: the plane is chosen by hover before the first click, points off the face are projected on
-   it): the drawing plane **sticks to the last flat face hovered** while the mouse leaves it (until another face
-   or empty space far from it is hovered), the hover marker/grid shows that plane, and a key (Space) locks/unlocks
-   it. Where: `ops_sketch.pick_target` (today: sketch under the ray, else `ops_draw.pick`'s face, else the
-   cursor plane) and the Sketch tool's hover gizmo (`BLENDSOLID_GT_sketch_hover`, which would keep the sticky
-   face). Test: a Blender test with rays just off a face after hovering it, and gui_check step 22 drawing the
-   line from outside the face (today it starts inside the margin of an existing sketch). Rebuild + install
-   (the maintainer closes Blender), then resume the maintainer's test at step 4-6.
+1. **Done (session 12, 4f716fd):** the hovered face's plane sticks (`ops_sketch.hover_target`): a path started
+   just off a face stays on its plane; released by another face, a curved face, empty space farther than 1.5 part
+   radii, or a change to the part's script/placement. Test `test_the_hovered_face_plane_sticks_just_off_the_face`;
+   gui_check step 22 draws its line from off the face first (FAILs without the fix). Not built: a key to lock the
+   plane (Space was proposed; it is Blender's play key). **Installed** in the Windows portable Blender (smoke PASS).
+   Next: the maintainer's GUI test from step 4 (line from just outside the top face), then 5-6.
 2. Next sketch features, in the research's order (`sketch-drawing-ux.md`, "Recommendation"): snaps to the part's
    vertices, edge midpoints and edges projected on the sketch plane; 15° angle lock and horizontal/vertical;
    typed segment length (Tab/digits); a corner radius per path vertex (`FilletPolyline`); slice a part by a path;
