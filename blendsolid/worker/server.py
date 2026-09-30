@@ -124,7 +124,7 @@ def main():
                          "warnings": [[line, text] for line, text in r.warnings],
                          "sketches": r.sketches}
                 arrays = ({"verts": r.verts, "loops": r.loops, "poly_sizes": r.poly_sizes, "poly_face": r.poly_face,
-                           "planes": r.planes,
+                           "planes": r.planes, "snaps": r.snaps,
                            "corner_normals": r.corner_normals, "edges": r.edges, "edge_ids": r.edge_ids,
                            "edge_sharp": r.edge_sharp} if r.ok else None)
                 protocol.send_message(conn, reply, arrays)

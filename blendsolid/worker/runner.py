@@ -68,6 +68,7 @@ class RunResult:
     poly_sizes: np.ndarray | None = None  # corners per polygon
     poly_face: np.ndarray | None = None  # BRep face id per polygon
     planes: np.ndarray | None = None  # per face: exact plane (nx, ny, nz, d) or NaN (tessellate.face_planes)
+    snaps: np.ndarray | None = None  # (x, y, z, kind) points sketches snap to (tessellate.snap_points)
     corner_normals: np.ndarray | None = None  # per triangle corner: exact surface normal (tessellate.display_mesh)
     edges: np.ndarray | None = None  # mesh edges lying on BRep edges (vertex pairs)
     edge_ids: np.ndarray | None = None  # their BRep edge ids
@@ -197,7 +198,7 @@ def run_script(source, lin_defl=0.1, ang_defl=0.3, deps=(), tag=None, cache=None
     if shape is None:
         empty = np.zeros(0, np.int32)
         return RunResult(True, verts=np.zeros((0, 3), np.float32), loops=empty, poly_sizes=empty, poly_face=empty,
-                         planes=np.zeros((0, 4)), corner_normals=np.zeros((0, 3), np.float32),
+                         planes=np.zeros((0, 4)), snaps=np.zeros((0, 4)), corner_normals=np.zeros((0, 3), np.float32),
                          edges=np.zeros((0, 2), np.int32), edge_ids=empty, edge_sharp=empty, face_refs=[],
                          edge_refs=[], warnings=list(tracker.warnings), sketches=sketches,
                          timing={"script": t1 - t0, "tessellate": 0.0})
@@ -210,12 +211,14 @@ def run_script(source, lin_defl=0.1, ang_defl=0.3, deps=(), tag=None, cache=None
             return RunResult(False, "`result` is not a valid solid (BRepCheck failed)")
         mesh = tessellate.display_mesh(wrapped, lin_defl, ang_defl)
         planes = tessellate.face_planes(wrapped)
+        snaps = tessellate.snap_points(wrapped)
         refs = provenance.reference_texts(tracker, tessellate.face_map(wrapped), tessellate.edge_map(wrapped))
         if tag is not None:
             cache.put(tag, shape)
         t2 = time.perf_counter()
         return RunResult(True, volume=info["volume"], faces=info["faces"], verts=mesh.verts, loops=mesh.loops,
-                         poly_sizes=mesh.poly_sizes, poly_face=mesh.poly_face, planes=planes, corner_normals=mesh.corner_normals, edges=mesh.edges,
+                         poly_sizes=mesh.poly_sizes, poly_face=mesh.poly_face, planes=planes, snaps=snaps,
+                         corner_normals=mesh.corner_normals, edges=mesh.edges,
                          edge_ids=mesh.edge_ids, edge_sharp=mesh.edge_sharp,
                          face_refs=refs[0] if refs else None, edge_refs=refs[1] if refs else None,
                          warnings=list(tracker.warnings), sketches=sketches,

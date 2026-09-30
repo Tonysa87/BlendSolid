@@ -6,7 +6,7 @@ import bpy
 import pytest
 from mathutils import Matrix, Vector
 
-from blendsolid import ops_extrude, ops_sketch, part, script_model
+from blendsolid import ops_extrude, ops_sketch, part, script_model, sketching
 from conftest import mm3, up_to_date, wait_for
 
 
@@ -136,6 +136,21 @@ def test_the_hovered_face_plane_sticks_just_off_the_face(box):
     # the script changed: the stored "new sketch on the face" plane is dropped, the new sketch is found instead
     assert ops_sketch.hover_target(bpy.context, *ray(25.0, 0.0)).sketch == "sketch_1"  # in the sketch's margin
     assert ops_sketch.hover_target(bpy.context, *ray(10.0, 5.0)).sketch == "sketch_1"
+
+
+def test_a_face_target_snaps_to_the_parts_exact_points(box):
+    factor = part.unit_factor()
+    ops_sketch._sticky = None
+    target = ops_sketch.hover_target(bpy.context, Vector((10 * factor, 0.0, 1.0)), Vector((0, 0, -1)))
+    assert target.frame is not None and target.frame[0][2] == 20.0
+    projected = dict((uv, kind) for uv, kind in reversed(
+        sketching.project_points(target.frame, part.snap_points(box))))
+    assert projected[(20.0, 15.0)] == 0 and projected[(0.0, 15.0)] == 1  # a top corner, a top edge's middle
+    # an existing sketch's target carries the sketch's own plane
+    sketch("LINE", (-25.0, 0.0), (25.0, 0.0), target=box.name, plane=target.plane_code)
+    wait_for(lambda: up_to_date(box))
+    again = ops_sketch.hover_target(bpy.context, Vector((10 * factor, 5 * factor, 1.0)), Vector((0, 0, -1)))
+    assert again.sketch == "sketch_1" and tuple(again.frame[0]) == (0.0, 0.0, 20.0)
 
 
 def test_sketch_on_a_curved_face_is_refused_by_the_worker(clean):

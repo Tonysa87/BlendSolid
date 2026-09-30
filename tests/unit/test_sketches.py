@@ -1,6 +1,7 @@
 """Sketches, regions and the extrude/revolve of regions (worker, milestone 3a)."""
 import math
 
+import numpy as np
 import pytest
 
 import provenance
@@ -328,3 +329,13 @@ def test_a_line_across_a_face_splits_it_into_regions():
     areas = sorted(round(g["area"], 6) for g in r.sketches[0]["regions"])
     assert areas == [400.0, 400.0]
     assert abs(r.volume - (8000 + 400 * 5 - 400 * 4)) < 1e-6
+
+
+def test_snap_points_are_exact_vertices_midpoints_and_centres():
+    r = run(BOX + '    with Locations((10, 0, 20)):\n        Cylinder(3, 5, mode=Mode.SUBTRACT)\n')
+    pts = {(round(x, 9), round(y, 9), round(z, 9)): int(k) for x, y, z, k in r.snaps}
+    assert pts[(20.0, 15.0, 20.0)] == 0 and pts[(-20.0, -15.0, 0.0)] == 0  # box corners
+    assert pts[(0.0, 15.0, 20.0)] == 1 and pts[(20.0, 0.0, 0.0)] == 1  # edge midpoints
+    assert pts[(10.0, 0.0, 20.0)] == 2  # the hole's centre on the top face
+    assert r.snaps.dtype == np.float64 and (20.0, 15.0, 20.0, 0.0) in [tuple(row) for row in r.snaps]  # exact
+    assert len(pts) == len(r.snaps)  # no duplicates

@@ -114,3 +114,25 @@ def test_groove_specs_build():
         spec = sketching.groove_spec(sketch, entity, 2.0, kwargs.pop("depth", 2.0), **kwargs)
         built, name = sm.append_feature(source, spec)
         assert _run(built).volume - 8000 == pytest.approx(delta, abs=1e-3), spec.call
+
+
+def test_part_snap_points_project_on_the_sketch_plane_nearest_first():
+    top = ((0.0, 0.0, 20.0), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0))
+    projected = sketching.project_points(top, [((20.0, 15.0, 0.0), 0), ((20.0, 15.0, 20.0), 0),
+                                               ((10.0, 0.0, 20.0), 2)])
+    assert projected[0][0] == (20.0, 15.0) and projected[-1] == ((20.0, 15.0), 0)  # the bottom one comes last
+    assert ((10.0, 0.0), 2) in projected
+    candidates = [((0.0, 0.0), "point"), ((0.5, 0.0), "vertex")]
+    assert sketching.nearest_snap(candidates, (0.4, 0.0), 1.0) == ((0.5, 0.0), "vertex")
+    assert sketching.nearest_snap(candidates, (0.25, 0.0), 1.0) == ((0.0, 0.0), "point")  # a tie: the first
+    assert sketching.nearest_snap(candidates, (5.0, 0.0), 1.0) is None
+
+
+def test_angle_lock():
+    assert sketching.angle_locked((1.0, 2.0), (11.0, 2.7)) == (11.0, 2.0)  # horizontal: v exact
+    assert sketching.angle_locked((1.0, 2.0), (1.3, -8.0)) == (1.0, -8.0)  # vertical: u exact
+    u, v = sketching.angle_locked((0.0, 0.0), (10.0, 6.0))  # 31° -> 30°
+    assert math.degrees(math.atan2(v, u)) == pytest.approx(30.0, abs=1e-5)
+    assert math.hypot(u, v) == pytest.approx(10 * math.cos(math.radians(30)) + 6 * math.sin(math.radians(30)))
+    u, v = sketching.angle_locked((0.0, 0.0), (-10.0, -9.0))  # 222° -> 225°
+    assert math.degrees(math.atan2(v, u)) % 360 == pytest.approx(225.0, abs=1e-5)

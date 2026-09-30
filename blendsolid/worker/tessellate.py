@@ -16,7 +16,7 @@ from dataclasses import dataclass
 
 import numpy as np
 from OCP.BRep import BRep_Tool
-from OCP.BRepAdaptor import BRepAdaptor_Curve2d, BRepAdaptor_Surface
+from OCP.BRepAdaptor import BRepAdaptor_Curve, BRepAdaptor_Curve2d, BRepAdaptor_Surface
 from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeVertex
 from OCP.BRepExtrema import BRepExtrema_DistShapeShape
 from OCP.BRepCheck import BRepCheck_Analyzer
@@ -27,7 +27,8 @@ from OCP.ElSLib import ElSLib
 from OCP.BRepTools import BRepTools
 from OCP.collections import IndexedMap_TopoDS_Shape_TopTools_ShapeMapHasher as ShapeMap
 from OCP.collections import IndexedDataMap_TopoDS_Shape_List_TopoDS_Shape_TopTools_ShapeMapHasher as AncestorMap
-from OCP.GeomAbs import GeomAbs_Cone, GeomAbs_Cylinder, GeomAbs_Line, GeomAbs_Plane, GeomAbs_Sphere, GeomAbs_Torus
+from OCP.GeomAbs import (GeomAbs_Circle, GeomAbs_Cone, GeomAbs_Cylinder, GeomAbs_Ellipse, GeomAbs_Line, GeomAbs_Plane,
+                         GeomAbs_Sphere, GeomAbs_Torus)
 from OCP.GProp import GProp_GProps
 from OCP.TopAbs import TopAbs_EDGE, TopAbs_FACE, TopAbs_REVERSED, TopAbs_SOLID, TopAbs_VERTEX
 from OCP.TopExp import TopExp, TopExp_Explorer
@@ -382,6 +383,38 @@ def face_planes(shape):
         n, o = plane_normal(face)
         out[fid] = (*n, float(n @ o) + 0.0)
     return out
+
+
+SNAP_VERTEX, SNAP_MIDPOINT, SNAP_CENTRE = 0, 1, 2
+
+
+def snap_points(shape):
+    """Points a sketch can snap to, as (x, y, z, kind) rows (millimetres, part frame, float64): the vertices, the
+    midpoint of every edge (by parameter: a straight edge's middle, an arc's middle point) and the centres of
+    circular and elliptic edges. Exact, so a point snapped to them is written without the display mesh's float32
+    noise."""
+    rows, seen = [], set()
+
+    def add(p, kind):
+        key = (round(p.X(), 6), round(p.Y(), 6), round(p.Z(), 6))
+        if key not in seen:
+            seen.add(key)
+            rows.append((p.X() + 0.0, p.Y() + 0.0, p.Z() + 0.0, kind))
+
+    m = _map(shape, TopAbs_VERTEX)
+    for i in range(1, m.Extent() + 1):
+        add(BRep_Tool.Pnt_s(TopoDS.Vertex(m.FindKey(i))), SNAP_VERTEX)
+    for edge in edge_map(shape):
+        if BRep_Tool.Degenerated_s(edge):
+            continue
+        curve = BRepAdaptor_Curve(edge)
+        add(curve.Value(0.5 * (curve.FirstParameter() + curve.LastParameter())), SNAP_MIDPOINT)
+        kind = curve.GetType()
+        if kind == GeomAbs_Circle:
+            add(curve.Circle().Location(), SNAP_CENTRE)
+        elif kind == GeomAbs_Ellipse:
+            add(curve.Ellipse().Location(), SNAP_CENTRE)
+    return np.array(rows, dtype=np.float64).reshape(-1, 4)
 
 
 def _self_contained(rev):

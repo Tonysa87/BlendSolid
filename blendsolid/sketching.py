@@ -95,6 +95,50 @@ def nearest_point(points, p, radius):
     return found
 
 
+SNAP_KINDS = ("vertex", "midpoint", "centre")  # tessellate.snap_points' kinds, as the drag label names them
+ANGLE_STEP = 15.0  # degrees: Shift locks a path segment to multiples of this from the sketch's axes
+
+
+def project_points(frame, points):
+    """The part's snap points [((x, y, z) mm, kind)] projected on a sketch plane `frame` (origin, x, y, z; part
+    frame, mm) as [((u, v), kind)], rounded to 9 decimals (5.000000000000001 -> 5.0), nearest the plane first
+    (a point on the plane wins over one projected from behind it at the same place)."""
+    rows = []
+    for point, kind in points:
+        u, v, w = to_plane({"plane": frame}, point)
+        rows.append((abs(w), (round(u, 9) + 0.0, round(v, 9) + 0.0), kind))
+    rows.sort(key=lambda r: r[0])
+    return [(uv, kind) for _, uv, kind in rows]
+
+
+def nearest_snap(candidates, p, radius):
+    """(point, kind) of the candidate [((u, v), kind)] nearest `p` within `radius`; ties go to the earlier one."""
+    best, found = radius, None
+    for q, kind in candidates:
+        d = math.hypot(q[0] - p[0], q[1] - p[1])
+        if d < best or (found is None and d <= best):
+            best, found = d, (q, kind)
+    return found
+
+
+def angle_locked(last, p, step=ANGLE_STEP):
+    """`p` moved onto the nearest direction from `last` at a multiple of `step` degrees from the sketch's U axis,
+    keeping its distance along that direction. Horizontal and vertical directions keep the other coordinate
+    exact (no cos/sin rounding)."""
+    du, dv = p[0] - last[0], p[1] - last[1]
+    if du == 0 and dv == 0:
+        return tuple(p)
+    k = round(math.degrees(math.atan2(dv, du)) / step)
+    angle = (k * step) % 360.0
+    if angle % 90.0 == 0.0:
+        quarter = int(angle // 90.0)
+        return ((last[0] + du, last[1]), (last[0], last[1] + dv))[quarter % 2]
+    a = math.radians(angle)
+    c, s = math.cos(a), math.sin(a)
+    t = du * c + dv * s
+    return (round(last[0] + t * c, 6) + 0.0, round(last[1] + t * s, 6) + 0.0)
+
+
 def bounds(sketch):
     """(umin, vmin, umax, vmax) of a sketch's curves and regions (on a face: the face's pieces too)."""
     pts = [p for curves in sketch["curves"].values() for curve in curves for p in curve]

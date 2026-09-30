@@ -155,8 +155,9 @@ class Target:
     cursor's plane. `plane` is the world plane matrix; `local` the plane in the part's frame (for new sketches on
     a face, drawing.LocalPlane) so coordinates are exact."""
 
-    def __init__(self, plane, obj=None, sketch=None, plane_code="", points=()):
+    def __init__(self, plane, obj=None, sketch=None, plane_code="", points=(), frame=None):
         self.plane, self.obj, self.sketch, self.plane_code, self.points = plane, obj, sketch, plane_code, points
+        self.frame = frame  # the plane in the part's frame (origin, x, y, z; mm, float64), None on a new part
 
 
 def pick_target(context, origin, direction, near=()):
@@ -166,18 +167,20 @@ def pick_target(context, origin, direction, near=()):
     if on_sketch is not None and editable(on_sketch[0]) \
             and on_sketch[3] <= _in_front(solid_distance(context, origin, direction)):
         obj, sketch = on_sketch[0], on_sketch[1]
-        return Target(plane_matrix(obj, sketch, factor), obj, sketch["name"], points=sketch["points"])
+        return Target(plane_matrix(obj, sketch, factor), obj, sketch["name"], points=sketch["points"],
+                      frame=sketch["plane"])
     plane, obj, local = ops_draw.pick(context, origin, direction, near=near)
     if obj is not None and local is not None:
         # a flat face of a part: an unused sketch on that plane gets the entity, else a new sketch on the face
         frame = (local.origin, local.x, local.y, local.z)
         for sketch in sketches_of(obj):
             if not sketch["used"] and sketching.same_plane(sketch["plane"], frame):
-                return Target(plane_matrix(obj, sketch, factor), obj, sketch["name"], points=sketch["points"])
+                return Target(plane_matrix(obj, sketch, factor), obj, sketch["name"], points=sketch["points"],
+                      frame=sketch["plane"])
         fid = _face_under(context, origin, direction, near)
         reference = part.face_reference(obj, fid) if fid is not None else ""
         if reference.startswith("face("):
-            return Target(plane, obj, plane_code=f"on_face({reference})")
+            return Target(plane, obj, plane_code=f"on_face({reference})", frame=frame)
     if obj is not None and local is None:
         return None  # a curved face: sketches go on flat faces and planes
     plane = drawing.plane_at_cursor(context.scene.cursor.matrix)
@@ -187,12 +190,14 @@ def pick_target(context, origin, direction, near=()):
             continue
         for sketch in sketches_of(other):
             if not sketch["used"] and _same_world_plane(plane_matrix(other, sketch, factor), plane):
-                return Target(plane_matrix(other, sketch, factor), other, sketch["name"], points=sketch["points"])
+                return Target(plane_matrix(other, sketch, factor), other, sketch["name"], points=sketch["points"],
+                              frame=sketch["plane"])
     return Target(plane)
 
 
 STICKY_REACH = 1.5  # the hovered face's plane stays the drawing plane within this many part radii of its centre
-_sticky = None  # the last part plane hovered: (part name, script, matrix_world, plane, sketch, plane code, points)
+_sticky = None  # the last part plane hovered: (part name, script, matrix_world, plane, sketch, plane code, points,
+#                frame)
 
 
 def hover_target(context, origin, direction, near=()):
@@ -205,11 +210,11 @@ def hover_target(context, origin, direction, near=()):
     if target is None or target.obj is not None:
         _sticky = None if target is None else (target.obj.name, part.source_of(target.obj),
                                                 target.obj.matrix_world.copy(), target.plane.copy(), target.sketch,
-                                                target.plane_code, target.points)
+                                                target.plane_code, target.points, target.frame)
         return target
     if _sticky is None:
         return target
-    name, source, matrix, plane, sketch, plane_code, points = _sticky
+    name, source, matrix, plane, sketch, plane_code, points, frame = _sticky
     obj = part.local_part(name)
     if obj is None or not editable(obj) or part.source_of(obj) != source or obj.matrix_world != matrix:
         _sticky = None
@@ -223,7 +228,7 @@ def hover_target(context, origin, direction, near=()):
             > STICKY_REACH * radius:
         _sticky = None
         return target
-    return Target(plane, obj, sketch, plane_code, points)
+    return Target(plane, obj, sketch, plane_code, points, frame)
 
 
 def _same_world_plane(a, b, tolerance=1e-6):
@@ -360,7 +365,10 @@ class BLENDSOLID_OT_sketch_entity(bpy.types.Operator):
             self.report({"WARNING"}, "Sketches go on flat faces, sketches or the 3D cursor's plane")
             return {"CANCELLED"}
         self._factor = part.unit_factor(context.scene)
-        self._snap = 0.0
+        self._snap, self._snapped = 0.0, ""
+        t = self._target
+        self._part_points = (sketching.project_points(t.frame, part.snap_points(t.obj))
+                             if t.obj is not None and t.frame is not None else [])
         p = self._uv(context, event)
         if p is None:
             return {"CANCELLED"}
@@ -375,8 +383,9 @@ class BLENDSOLID_OT_sketch_entity(bpy.types.Operator):
         return {"RUNNING_MODAL"}
 
     def _uv(self, context, event):
-        """Plane coordinates (mm) under the mouse: snapped to a sketch point within SNAP_PX pixels, else to the
-        grid while Ctrl is held."""
+        """Plane coordinates (mm) under the mouse: with Shift on a path, on the nearest 15° direction from the
+        last point; else snapped to a sketch point, or to the part's vertices, edge midpoints and circle centres
+        projected on the plane, within SNAP_PX pixels; else to the grid while Ctrl is held."""
         from . import ops_draw
         origin, direction = ops_draw._mouse_ray(context, event)
         found = ray_uv(self._target.plane, origin, direction, self._factor)
@@ -385,14 +394,21 @@ class BLENDSOLID_OT_sketch_entity(bpy.types.Operator):
         uv = found[0]
         step = ops_draw.step_mm(context.scene)
         self._snap = (step / 10 if event.shift else step) if event.ctrl else 0.0
+        self._snapped = ""
+        path = getattr(self, "_path", [])
+        if event.shift and not event.ctrl and path:
+            self._snapped = f"{sketching.ANGLE_STEP:g}° lock"
+            return sketching.angle_locked(path[-1][:2], uv)
         at = self._target.plane @ Vector((uv[0] * self._factor, uv[1] * self._factor, 0))
         pixel = ops_draw._pixel_size(context.region, context.region_data, at)
-        points = list(self._target.points) + [p[:2] for p in getattr(self, "_path", [])]
-        if pixel is not None and points:
-            snapped = sketching.nearest_point(points, uv,
-                                              sketching.SNAP_PX * ops_draw.ui_scale(context) * pixel / self._factor)
+        candidates = [(tuple(p), "point") for p in list(self._target.points) + [q[:2] for q in path]]
+        candidates += [(q, sketching.SNAP_KINDS[kind]) for q, kind in getattr(self, "_part_points", [])]
+        if pixel is not None and candidates:
+            snapped = sketching.nearest_snap(candidates, uv,
+                                             sketching.SNAP_PX * ops_draw.ui_scale(context) * pixel / self._factor)
             if snapped is not None:
-                return tuple(snapped)
+                self._snapped = snapped[1]
+                return tuple(snapped[0])
         if self._snap:
             return tuple(drawing.snap(c, self._snap) for c in uv)
         return tuple(round(c, 6) + 0.0 for c in uv)
@@ -429,7 +445,7 @@ class BLENDSOLID_OT_sketch_entity(bpy.types.Operator):
                 self.matrix = [v for row in t.plane for v in row]
             return self.execute(context)
         context.area.header_text_set(
-            f"Sketch: drag the {self.shape.lower()} | ends snap to sketch points | Ctrl: grid "
+            f"Sketch: drag the {self.shape.lower()} | ends snap to sketch and part points | Ctrl: grid "
             f"{ops_draw.step_mm(context.scene):g} mm | Esc/right-click: cancel")
         context.area.tag_redraw()
         return {"RUNNING_MODAL"}
@@ -494,7 +510,8 @@ class BLENDSOLID_OT_sketch_entity(bpy.types.Operator):
         mode = "arc" if self._arc_mode else "line (drag: arc)"
         context.area.header_text_set(
             f"Path: click the next point, {mode} | A: arc | first point: close | Enter/right-click/double-click: "
-            f"end | Backspace: remove the last point | Ctrl: grid {ops_draw.step_mm(context.scene):g} mm | Esc: cancel")
+            f"end | Backspace: remove the last point | Shift: 15° | Ctrl: grid {ops_draw.step_mm(context.scene):g} mm "
+            f"| Esc: cancel")
         context.area.tag_redraw()
         return {"RUNNING_MODAL"}
 
@@ -592,8 +609,9 @@ def _draw_drag_label(op):
         text = f"R {drawing.mm(math.hypot(b[0] - a[0], b[1] - a[1]))} mm"
     else:
         text = f"{drawing.mm(math.hypot(b[0] - a[0], b[1] - a[1]))} mm"
+    snapped = getattr(op, "_snapped", "")
     ops_draw.draw_text_lines(bpy.context, plane @ Vector((b[0] * factor, b[1] * factor, 0.0)),
-                             [text] + ([f"snap {op._snap:g} mm"] if op._snap else []))
+                             [text] + ([snapped] if snapped else [f"snap {op._snap:g} mm"] if op._snap else []))
 
 
 # -- the overlay: sketches, and the hover marker ------------------------------------------------------------------

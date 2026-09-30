@@ -23,6 +23,7 @@ SKETCHES_KEY = "bs_sketches"  # JSON: the worker's sketches.Sketch.display() of 
 FACE_REFS_KEY = "bs_face_refs"  # per BRep face: the reference a click writes, e.g. 'face("box_1", "+Z")'
 EDGE_REFS_KEY = "bs_edge_refs"  # per BRep edge: the same, e.g. 'edge_between(face(...), face(...))'
 WARNINGS_KEY = "bs_warnings"  # the last result's doubtful references: ["<line>\t<message>", ...] (ADR 0009)
+SNAPS_KEY = "bs_snap_points"  # (x, y, z mm part frame, kind) flattened: vertices, edge midpoints, circle centres
 PLANES_KEY = "bs_face_planes"  # per BRep face: exact plane (nx, ny, nz, d mm, part frame) or NaN, flattened
 ERROR_TAG_KEY = "bs_error_tag"
 PART_ID_KEY = "bs_part_id"  # on the part's Text: identity follows the script (Shift+D copies it, Alt+D and
@@ -60,11 +61,11 @@ def unit_factor(scene=None):
 
 
 DEFAULT_TOLERANCE = 1.0  # millimetres
-MESH_FORMAT = 10  # part of every tag: bumping it recomputes saved meshes (2: face planes, 3: exact normals, 4: welded,
+MESH_FORMAT = 11  # part of every tag: bumping it recomputes saved meshes (2: face planes, 3: exact normals, 4: welded,
 #                 5: trimmed curved faces re-triangulated, ADR 0005 addendum; 6: edge-first grids, ADR 0010;
 #                 7: collars around curved holes in flat faces, ADR 0008 addendum; 8: face-point rule 10°;
 #                 9: partial collars on the outer loop's curved runs, collars shrink instead of cancelling;
-#                 10: coplanar triangle pairs of curved faces as quads)
+#                 10: coplanar triangle pairs of curved faces as quads; 11: exact snap points)
 
 
 def tolerance(scene=None):
@@ -122,6 +123,11 @@ def apply_result(obj, event, factor):
         obj.data[PLANES_KEY] = np.asarray(planes, dtype=np.float64).ravel().tolist()
     elif PLANES_KEY in obj.data:
         del obj.data[PLANES_KEY]
+    snaps = event.get("snaps")
+    if snaps is not None:
+        obj.data[SNAPS_KEY] = np.asarray(snaps, dtype=np.float64).ravel().tolist()
+    elif SNAPS_KEY in obj.data:
+        del obj.data[SNAPS_KEY]
     for key, refs in ((FACE_REFS_KEY, event.get("face_refs")), (EDGE_REFS_KEY, event.get("edge_refs"))):
         if refs is not None:
             obj.data[key] = list(refs)
@@ -254,6 +260,14 @@ def edge_reference(obj, eid):
     """The reference text a click on obj's BRep edge `eid` writes into the script, or None."""
     refs = obj.data.get(EDGE_REFS_KEY)
     return refs[eid] if refs is not None and eid is not None and 0 <= eid < len(refs) else None
+
+
+def snap_points(obj):
+    """The part's exact snap points: [((x, y, z) mm part frame, kind)] (tessellate.snap_points), [] if none."""
+    flat = obj.data.get(SNAPS_KEY) if obj is not None and obj.data is not None else None
+    if not flat:
+        return []
+    return [((flat[i], flat[i + 1], flat[i + 2]), int(flat[i + 3])) for i in range(0, len(flat) - 3, 4)]
 
 
 def face_plane(obj, fid):
