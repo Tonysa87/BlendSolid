@@ -44,6 +44,39 @@ faces, corners, tangent chains) add to it.
 7. Later, not in this pass: typed numbers while dragging (Blender's `NumInput`, milestone 2 follow-up); the
    same treatment for Push/Pull's handle.
 
+## Native gizmos for the tools (maintainer: "use Blender's native gizmos for these tools too")
+
+Read in Blender's source (main branch, GitHub mirror; the API and manual pages returned only navigation to the
+fetch tool) [verified, source]:
+
+- **Gizmo types registered by Blender** (`space_api/spacetypes.cc`): `GIZMO_GT_button_2d`, `dial_3d`, `move_3d`,
+  `arrow_3d`, `preselect_3d`, `primitive_3d`, `blank_3d`, `cage_2d`, `cage_3d`, `snap_3d`. `arrow_3d` draw styles
+  NORMAL/CROSS/BOX/CONE/PLANE, options STEM/ORIGIN, transform INVERT/CONSTRAIN; gizmo `use_draw_value` shows
+  the value while dragging; gizmo groups can be `DEPTH_3D`.
+- **What Blender's own tools use** (`scripts/startup/bl_ui/space_toolsystem_toolbar.py`): **Bevel**, **Push/Pull**,
+  Shrink/Fatten, Edge Slide and the Extrude-along-normals tools use `VIEW3D_GGT_tool_generic_handle_normal`;
+  Inset, Rip, Vertex Slide use `…_handle_free`; Extrude uses `VIEW3D_GGT_xform_extrude`; the Add Cube/Cylinder/…
+  tools (draw a base, then the height — Draw Solid's native cousin) use `VIEW3D_GGT_placement`.
+- **The generic handle** (`space_view3d/view3d_gizmo_tool_generic.cc`) is a `GIZMO_GT_button_2d` circle with
+  backdrop, help line and outline, in the theme's **Gizmo Primary / Gizmo Highlight** colours, placed at the
+  centre of Blender's *edit-mesh selection* along its normal; dragging it runs the tool's keymap operator. It can't
+  be reused as it is for BlendSolid (our selection is BRep edges and faces in Object Mode, not an edit-mesh
+  selection), but its **look and behaviour can be rebuilt with the same gizmo type** from Python.
+
+So, per tool:
+
+| Tool | Native model in Blender | Proposal |
+| --- | --- | --- |
+| Fillet | Bevel tool's generic handle | `GIZMO_GT_button_2d` handle (backdrop + help line + outline, theme gizmo colours) at the selected edge's midpoint, offset out along the faces' bisector; dragging it runs the fillet drag |
+| Push/Pull | Push/Pull tool's generic handle | the same handle on the pressed face's centre, along its normal |
+| Parameters | (already) `GIZMO_GT_arrow_3d` | keep; switch hardcoded colours to the theme's gizmo colours |
+| Draw Solid | Add Cube tool (`VIEW3D_GGT_placement`) | study it for 3a's placement feedback; the snap marker could become `GIZMO_GT_snap_3d` (to check from Python) |
+
+With the handle as `button_2d` (a screen-space circle, like Blender's), point 2 above (arrow gizmo in a
+`DEPTH_3D` group) is replaced; the value label while dragging stays (header + `use_draw_value` where the type
+supports it, else the existing label). Colours everywhere from `preferences.themes[0].user_interface`
+(`gizmo_primary`, `gizmo_hi`, …) instead of the hardcoded yellow, orange and blue.
+
 ## Handoff to the evening session
 
 - Merge this branch's docs; the decision goes into the same ADR as the pie menus or its own (Claude Code's call).
