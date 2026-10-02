@@ -29,6 +29,9 @@ neither the toolbar nor the sidebar scales to.
    operator of ours with a `poll` so the event passes through when BlendSolid has nothing to offer; in the add-on
    keyconfig, user-rebindable. **Which key is still open** (candidates to check against Blender 5.2's default
    keymap and HardOps' Q / Shift+Q; the maintainer confirms).
+   **Settled 2026-10-02 (maintainer, "terrei tutti e due per ora"):** both routes of the research's
+   recommendation stay — **right-button drag** (a right-click without a drag keeps Blender's Object context menu;
+   left-click-select keymaps only) and **E** (tap or hold), both rebindable. Revisit if either gets in the way.
 3. **Native chained pies first** (two flicks). A continuous-gesture pie drawn by BlendSolid only if two flicks
    annoy the maintainer in the GUI test, and then as its own ADR.
 4. **Not chosen:** a popover at the cursor, single-letter tool keys, a floating bar near the selection, a
