@@ -68,7 +68,8 @@ Maintainer's note: the blue hover fill had cut corners — fixed (791d9b4, sketc
 snap label before the first click — fixed (5322cab: the hover marker snaps to the part's points and names them;
 gui_check step 22 PASS on Linux and Windows, screenshot shows "vertex" at the corner), installed. Maintainer's request: take back the last path point — Backspace existed (only in the
 header); Ctrl+Z added as an alias (6656744, gui_check step 22 takes back two wrong clicks, FAILs without it),
-installed. Step 3 PASS (Groove, Profile Circle, pipe rib). Next: step 4 (pie).
+installed. Step 3 PASS (Groove, Profile Circle, pipe rib). Step 4 PASS: both pie keys kept (ADR 0013 point 2
+settled), the two-flick native pies are fine ("va bene così": no continuous-gesture pie). Next: step 5 (Add).
 
 **Queue after that test (in order):**
 1. Fix what the maintainer's test finds (one fix at a time, rebuild + install, re-check only what changed).

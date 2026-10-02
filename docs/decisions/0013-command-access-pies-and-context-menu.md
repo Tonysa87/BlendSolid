@@ -34,6 +34,8 @@ neither the toolbar nor the sidebar scales to.
    left-click-select keymaps only) and **E** (tap or hold), both rebindable. Revisit if either gets in the way.
 3. **Native chained pies first** (two flicks). A continuous-gesture pie drawn by BlendSolid only if two flicks
    annoy the maintainer in the GUI test, and then as its own ADR.
+   **GUI test 2026-10-02:** the maintainer finds the two flicks fine (right-drag to a family, release, click the
+   command): no continuous-gesture pie.
 4. **Not chosen:** a popover at the cursor, single-letter tool keys, a floating bar near the selection, a
    Maya-style hotbox.
 5. The WorkSpaceTools stay registered (the pie activates them with `wm.tool_set_by_id`) and collapse into one
