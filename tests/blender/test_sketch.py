@@ -153,6 +153,22 @@ def test_a_face_target_snaps_to_the_parts_exact_points(box):
     assert again.sketch == "sketch_1" and tuple(again.frame[0]) == (0.0, 0.0, 20.0)
 
 
+def test_part_points_follow_the_part_and_the_plane(box):
+    # the hover marker asks on every redraw: cached, but a new result or another plane recomputes them
+    factor = part.unit_factor()
+    ops_sketch._sticky = None
+    top = ops_sketch.hover_target(bpy.context, Vector((10 * factor, 0.0, 1.0)), Vector((0, 0, -1)))
+    first = ops_sketch.part_points(top)
+    assert first == sketching.project_points(top.frame, part.snap_points(box))
+    assert ops_sketch.part_points(top) is first
+    assert ((20.0, 15.0), 0) in first
+    part.set_param(box, "box_1_length", 60.0)
+    wait_for(lambda: up_to_date(box))
+    again = ops_sketch.part_points(top)
+    assert again is not first and ((30.0, 15.0), 0) in again and ((20.0, 15.0), 0) not in again
+    assert ops_sketch.part_points(ops_sketch.Target(top.plane)) == []  # a new part: nothing to snap to
+
+
 def test_sketch_on_a_curved_face_is_refused_by_the_worker(clean):
     bpy.ops.blendsolid.add_cylinder("EXEC_DEFAULT", True)
     obj = bpy.context.object

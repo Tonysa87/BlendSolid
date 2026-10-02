@@ -150,6 +150,35 @@ def solid_distance(context, origin, direction):
 
 # -- where a drag draws ---------------------------------------------------------------------------------------------
 
+_projected = (None, [])  # (key, points) of part_points' last call: the hover marker asks on every redraw
+
+
+def part_points(target):
+    """The part's exact snap points projected on `target`'s plane, [((u, v) mm, kind index)]; [] on a new part."""
+    global _projected
+    if target.obj is None or target.frame is None:
+        return []
+    key = (target.obj.data.name, target.obj.data.get(part.HASH_KEY), tuple(tuple(v) for v in target.frame))
+    if _projected[0] != key:
+        _projected = (key, sketching.project_points(target.frame, part.snap_points(target.obj)))
+    return _projected[1]
+
+
+def snap_to_points(context, target, uv, factor, projected, path=()):
+    """((u, v), label) of the point nearest `uv` (plane mm) within SNAP_PX pixels: the sketch's points and the
+    path's ("point"), the part's `projected` points ("vertex", "midpoint", "centre"); or None."""
+    from . import ops_draw
+    candidates = [(tuple(p), "point") for p in list(target.points) + list(path)]
+    candidates += [(q, sketching.SNAP_KINDS[kind]) for q, kind in projected]
+    if not candidates:
+        return None
+    at = target.plane @ Vector((uv[0] * factor, uv[1] * factor, 0))
+    pixel = ops_draw._pixel_size(context.region, context.region_data, at)
+    if pixel is None:
+        return None
+    return sketching.nearest_snap(candidates, uv, sketching.SNAP_PX * ops_draw.ui_scale(context) * pixel / factor)
+
+
 class Target:
     """Where a drag draws: an existing sketch of a part, a new sketch on a part's face, or a new part on the
     cursor's plane. `plane` is the world plane matrix; `local` the plane in the part's frame (for new sketches on
@@ -375,8 +404,7 @@ class BLENDSOLID_OT_sketch_entity(bpy.types.Operator):
         self._factor = part.unit_factor(context.scene)
         self._snap, self._snapped = 0.0, ""
         t = self._target
-        self._part_points = (sketching.project_points(t.frame, part.snap_points(t.obj))
-                             if t.obj is not None and t.frame is not None else [])
+        self._part_points = part_points(t)
         p = self._uv(context, event)
         if p is None:
             return {"CANCELLED"}
@@ -407,16 +435,11 @@ class BLENDSOLID_OT_sketch_entity(bpy.types.Operator):
         if event.shift and not event.ctrl and path:
             self._snapped = f"{sketching.ANGLE_STEP:g}° lock"
             return sketching.angle_locked(path[-1][:2], uv)
-        at = self._target.plane @ Vector((uv[0] * self._factor, uv[1] * self._factor, 0))
-        pixel = ops_draw._pixel_size(context.region, context.region_data, at)
-        candidates = [(tuple(p), "point") for p in list(self._target.points) + [q[:2] for q in path]]
-        candidates += [(q, sketching.SNAP_KINDS[kind]) for q, kind in getattr(self, "_part_points", [])]
-        if pixel is not None and candidates:
-            snapped = sketching.nearest_snap(candidates, uv,
-                                             sketching.SNAP_PX * ops_draw.ui_scale(context) * pixel / self._factor)
-            if snapped is not None:
-                self._snapped = snapped[1]
-                return tuple(snapped[0])
+        snapped = snap_to_points(context, self._target, uv, self._factor, getattr(self, "_part_points", []),
+                                 [q[:2] for q in path])
+        if snapped is not None:
+            self._snapped = snapped[1]
+            return tuple(snapped[0])
         if self._snap:
             return tuple(drawing.snap(c, self._snap) for c in uv)
         return tuple(round(c, 6) + 0.0 for c in uv)
@@ -700,10 +723,16 @@ class BLENDSOLID_GT_sketch_hover(bpy.types.Gizmo):
         if found is None:
             return
         uv = found[0]
-        step = ops_draw.step_mm(context.scene)
-        node = tuple(drawing.snap(c, step) * factor for c in uv)
+        snapped = snap_to_points(context, target, uv, factor, part_points(target))
+        if snapped is not None:  # where a click lands: say so before the first click too, as the drag label does
+            node = tuple(c * factor for c in snapped[0])
+        else:
+            step = ops_draw.step_mm(context.scene)
+            node = tuple(drawing.snap(c, step) * factor for c in uv)
         point = target.plane @ Vector((node[0], node[1], 0.0))
         ops_draw.draw_marker(context, point, target.plane, target.obj, node)
+        if snapped is not None:
+            ops_draw.draw_text_lines(context, point, [snapped[1]], pixel_space=True)
 
 
 class BLENDSOLID_GGT_sketch_hover(bpy.types.GizmoGroup):

@@ -1414,6 +1414,22 @@ def step22():
         bpy.ops.wm.tool_set_by_id(name="blendsolid.sketch_tool")
     yield from warm_up((30, 830, 0))
     bpy.context.scene.blendsolid_sketch_shape = "PATH"
+    # before the first click the hover marker snaps to a top corner and names it (the maintainer's 2026-10-02
+    # test: the label only showed after the first click)
+    corner = px((20, 815, 20))
+    yield from move(px((15, 810, 20)), corner, 4)
+    yield from frames(3)
+    with override():
+        _, _, region = ctx()
+        at = (corner[0] - region.x, corner[1] - region.y)
+        o, d = bs.ops_draw.mouse_ray(bpy.context, at)
+        target = bs.ops_sketch.hover_target(bpy.context, o, d, bs.ops_draw._near_rays(bpy.context, at))
+        factor = bs.part.unit_factor(bpy.context.scene)
+        uv = bs.ops_sketch.ray_uv(target.plane, o, d, factor)[0]
+        snapped = bs.ops_sketch.snap_to_points(bpy.context, target, uv, factor, bs.ops_sketch.part_points(target))
+    expect(snapped is not None and snapped[1] == "vertex" and tuple(snapped[0]) == (20.0, 15.0),
+           f"hover snap {snapped}")
+    screenshot("hover-vertex")
     # a line across the top face (z 20) at x = 12, started off the face on the far side, where the ray misses the
     # box (the maintainer's 2026-09-29 test): hovering the face first keeps its plane; then on the face a path of a
     # line, a tangent arc (a drag) and a line

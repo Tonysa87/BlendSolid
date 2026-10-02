@@ -255,10 +255,21 @@ def _mouse_ray(context, event):
     return mouse_ray(context, (event.mouse_region_x, event.mouse_region_y))
 
 
-def draw_text_lines(context, at, lines):
-    """The tools' drag labels: text `lines` below and right of world point `at`, white with a shadow."""
+def draw_text_lines(context, at, lines, pixel_space=False):
+    """The tools' drag labels: text `lines` below and right of world point `at`, white with a shadow. Drawn from
+    a POST_PIXEL handler; `pixel_space` sets up the region's pixel matrices first (from a 3D gizmo's draw)."""
     here = view3d_utils.location_3d_to_region_2d(context.region, context.region_data, at)
     if here is None:
+        return
+    if pixel_space:
+        import gpu  # drawing only
+        w, h = context.region.width, context.region.height
+        ortho = Matrix(((2 / w, 0, 0, -1), (0, 2 / h, 0, -1), (0, 0, -1, 0), (0, 0, 0, 1)))
+        with gpu.matrix.push_pop(), gpu.matrix.push_pop_projection():
+            gpu.matrix.load_identity()
+            gpu.matrix.load_projection_matrix(ortho)
+            gpu.state.depth_test_set("NONE")
+            draw_text_lines(context, at, lines)
         return
     import blf  # drawing only
     size = 14 * ui_scale(context)
