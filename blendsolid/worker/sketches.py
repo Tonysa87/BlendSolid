@@ -271,24 +271,23 @@ def _split(edges):
 
 
 def _polyline(curve, closed=False):
-    """Points (u, v) along an edge or wire in local XY."""
+    """Points (u, v) along an edge or wire in local XY: every edge's start (a wire's corners stay exact; sampling
+    the whole wire by length cut them off), straight edges as one segment, curved ones every CURVE_DEG.
+    A closed polyline doesn't repeat its first point."""
     from build123d import GeomType
-    edges = curve.edges() if hasattr(curve, "edges") else [curve]
-    if all(e.geom_type == GeomType.LINE for e in edges) and not closed:
-        pts = [curve.position_at(0)] + [e.position_at(1) for e in edges]
-        return [[p.X + 0.0, p.Y + 0.0] for p in pts]
-    turn = 0.0
+    edges = curve.edges()  # a wire's edges in order, each oriented along the wire
+    pts = []
     for e in edges:
+        n = 1
         if e.geom_type != GeomType.LINE:
             try:
-                turn += e.length / e.radius
+                turn = e.length / e.radius
             except Exception:
-                turn += math.pi
-    n = int(min(MAX_SEGMENTS, max(len(edges), math.degrees(turn) / CURVE_DEG + 4 * len(edges))))
-    if closed:
-        pts = [curve.position_at(i / n) for i in range(n)]
-    else:
-        pts = [curve.position_at(i / n) for i in range(n + 1)]
+                turn = math.pi
+            n = max(4, min(MAX_SEGMENTS, math.ceil(math.degrees(turn) / CURVE_DEG)))
+        pts += [e.position_at(i / n) for i in range(n)]
+    if not closed:
+        pts.append(edges[-1].position_at(1))
     return [[p.X + 0.0, p.Y + 0.0] for p in pts]
 
 

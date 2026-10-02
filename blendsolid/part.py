@@ -61,11 +61,12 @@ def unit_factor(scene=None):
 
 
 DEFAULT_TOLERANCE = 1.0  # millimetres
-MESH_FORMAT = 11  # part of every tag: bumping it recomputes saved meshes (2: face planes, 3: exact normals, 4: welded,
+MESH_FORMAT = 12  # part of every tag: bumping it recomputes saved meshes (2: face planes, 3: exact normals, 4: welded,
 #                 5: trimmed curved faces re-triangulated, ADR 0005 addendum; 6: edge-first grids, ADR 0010;
 #                 7: collars around curved holes in flat faces, ADR 0008 addendum; 8: face-point rule 10°;
 #                 9: partial collars on the outer loop's curved runs, collars shrink instead of cancelling;
-#                 10: coplanar triangle pairs of curved faces as quads; 11: exact snap points)
+#                 10: coplanar triangle pairs of curved faces as quads; 11: exact snap points;
+#                 12: sketch outlines keep their corners)
 
 
 def tolerance(scene=None):

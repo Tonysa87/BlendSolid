@@ -331,6 +331,29 @@ def test_a_line_across_a_face_splits_it_into_regions():
     assert abs(r.volume - (8000 + 400 * 5 - 400 * 4)) < 1e-6
 
 
+def test_region_and_curve_outlines_keep_every_corner():
+    # the hover fill and the drag outline are drawn from these polylines: a corner sampled past cuts it off
+    r = run('    Box(40, 20, 10, align=(Align.CENTER, Align.CENTER, Align.MIN))  # feature: box_1\n'
+            '    with sketch(on_face(face("box_1", "+Z"))) as sketch_1:  # feature: sketch_1\n'
+            '        sketch_1.line_1 = Line((3.0, -15.0), (-2.0, 15.0))\n'
+            '        sketch_1.path_1 = path((5.0, -5.0), (12.0, -5.0), arc_to((12.0, 5.0)), (8.0, 5.0), '
+            '(8.0, -2.0))\n')
+    sketch = r.sketches[0]
+    corners = {(20.0, 10.0), (20.0, -10.0), (-20.0, 10.0), (-20.0, -10.0)}
+    found = {tuple(round(c, 6) + 0.0 for c in p) for g in sketch["regions"] for loop in g["loops"] for p in loop}
+    assert corners <= found, corners - found
+    for g in sketch["regions"]:
+        for loop in g["loops"]:
+            assert all(abs(a[0] - b[0]) + abs(a[1] - b[1]) > 1e-9 for a, b in zip(loop, loop[1:] + loop[:1]))
+        shoelace = sum(a[0] * b[1] - b[0] * a[1] for a, b in zip(g["loops"][0], g["loops"][0][1:] + g["loops"][0][:1]))
+        assert abs(abs(shoelace) / 2 - g["area"]) < 1e-9, (shoelace / 2, g["area"])  # edges in order, none reversed
+    pts =[tuple(round(c, 6) + 0.0 for c in p) for poly in sketch["curves"]["path_1"] for p in poly]
+    for p in [(5.0, -5.0), (12.0, -5.0), (12.0, 5.0), (8.0, 5.0), (8.0, -2.0)]:
+        assert p in pts, p
+    arc = sketch["curves"]["path_1"][1]
+    assert all(abs(math.hypot(x - 12.0, y) - 5.0) < 1e-9 for x, y in arc) and len(arc) >= 180 / 5 + 1
+
+
 def test_snap_points_are_exact_vertices_midpoints_and_centres():
     r = run(BOX + '    with Locations((10, 0, 20)):\n        Cylinder(3, 5, mode=Mode.SUBTRACT)\n')
     pts = {(round(x, 9), round(y, 9), round(z, 9)): int(k) for x, y, z, k in r.snaps}
