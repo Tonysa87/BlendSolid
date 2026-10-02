@@ -133,3 +133,12 @@ def test_computed_primitive_is_smooth_shaded(clean, cursor, kind):
     obj = bpy.context.view_layer.objects.active
     wait_for(lambda: up_to_date(obj))
     assert all(p.use_smooth for p in obj.data.polygons)
+
+
+def test_typed_size_keys_are_blender_event_types():
+    # the keypad's digits are NUMPAD_0..NUMPAD_9: a wrong name (NUMPAD_ZERO) is silently never matched
+    from blendsolid import ops_add
+    types = {item.identifier for item in bpy.types.Event.bl_rna.properties["type"].enum_items}
+    assert set(ops_add.TYPED_KEYS) <= types, set(ops_add.TYPED_KEYS) - types
+    assert sorted(v for k, v in ops_add.TYPED_KEYS.items() if k.startswith("NUMPAD_") and v.isdigit()) == \
+        [str(i) for i in range(10)]

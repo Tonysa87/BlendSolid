@@ -164,12 +164,8 @@ class _Placement:
 
     def _type(self, event):
         """Digits, '.' and Backspace type the size (Blender's numeric input, reduced); True if handled."""
-        chars = {f"{'NUMPAD_' if pad else ''}{name}": ch for pad in (False, True) for name, ch in (
-            ("ZERO", "0"), ("ONE", "1"), ("TWO", "2"), ("THREE", "3"), ("FOUR", "4"), ("FIVE", "5"), ("SIX", "6"),
-            ("SEVEN", "7"), ("EIGHT", "8"), ("NINE", "9"))}
-        chars.update({"PERIOD": ".", "NUMPAD_PERIOD": ".", "COMMA": "."})
-        if event.type in chars:
-            self.typed += chars[event.type]
+        if event.type in TYPED_KEYS:
+            self.typed += TYPED_KEYS[event.type]
         elif event.type == "BACK_SPACE" and self.typed:
             self.typed = self.typed[:-1]
         else:
@@ -232,6 +228,12 @@ def _draw_label(placement):
     except ReferenceError:
         pass
 
+
+# event types that type a size: the row digits are ZERO..NINE, the keypad's NUMPAD_0..NUMPAD_9 (Blender's names)
+TYPED_KEYS = {name: str(i) for i, name in enumerate(("ZERO", "ONE", "TWO", "THREE", "FOUR", "FIVE", "SIX", "SEVEN",
+                                                     "EIGHT", "NINE"))}
+TYPED_KEYS.update({f"NUMPAD_{i}": str(i) for i in range(10)})
+TYPED_KEYS.update({"PERIOD": ".", "NUMPAD_PERIOD": ".", "COMMA": "."})
 
 def _remove_part(obj):
     """Remove a part made a moment ago (the cancelled preview): its object, mesh and script."""

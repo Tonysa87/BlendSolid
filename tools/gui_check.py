@@ -1667,7 +1667,32 @@ def step24():
     expect((loc - Vector(at)).length < 0.02 * 300, f"placed at {tuple(loc)}, pie opened at {at}")
     expect(close(mm3(ob(name)), size ** 3, 1e-3), f"volume {mm3(ob(name)):.0f}, expected {size ** 3:.0f}")
     screenshot("added-box")
-    # a second one, cancelled with Esc: nothing left
+    # a second one, its size typed on the keypad (the maintainer's 2026-10-02 test: only the row digits worked)
+    before = set(bpy.data.objects.keys())
+    ev("MOUSEMOVE", "NOTHING", c)
+    yield 0.2
+    yield from key("E", c)
+    yield 0.4
+    yield from move(c, w, 8)
+    ev("LEFTMOUSE", "PRESS", w)
+    yield 0.1
+    ev("LEFTMOUSE", "RELEASE", w)
+    yield 0.6
+    yield from move(w, w2, 8)
+    ev("LEFTMOUSE", "PRESS", w2)
+    yield 0.1
+    ev("LEFTMOUSE", "RELEASE", w2)
+    yield 0.6
+    typed = [n for n in bpy.data.objects.keys() if n not in before]
+    yield from key("NUMPAD_3", w2)
+    yield from key("NUMPAD_5", w2)
+    yield from key("RET", w2)
+    yield 0.3
+    expect(len(typed) == 1, f"new objects while typing: {typed}")
+    yield from settled(typed[0])
+    values = {p.name: p.value for p in ob(typed[0]).blendsolid_params}
+    expect(values.get("box_1_length") == 35.0, f"typed 35 on the keypad, got {values.get('box_1_length')}")
+    # a third one, cancelled with Esc: nothing left
     before = set(bpy.data.objects.keys())
     texts = len(bpy.data.texts)
     ev("MOUSEMOVE", "NOTHING", c)
@@ -1688,7 +1713,7 @@ def step24():
     yield 0.3
     expect(set(bpy.data.objects.keys()) == before and len(bpy.data.texts) == texts,
            "Esc left a part or script behind")
-    return f"E > Add > Box: a {size:g} mm cube at the pie's point; Esc leaves nothing"
+    return f"E > Add > Box: a {size:g} mm cube at the pie's point; 35 typed on the keypad; Esc leaves nothing"
 
 
 def step25():
