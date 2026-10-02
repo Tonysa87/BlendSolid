@@ -1368,12 +1368,22 @@ def _drag(start_mm, end_mm, press_mods=None, **mods):
     yield 0.3
 
 
-def _path(points_mm, arcs=(), close=False):
+def _path(points_mm, arcs=(), close=False, mistakes=None):
     """Click the points of a path (a drag into the points whose index is in `arcs`), then Enter (or click the
-    first point again with `close`)."""
+    first point again with `close`). `mistakes` {i: [(point mm, key, mods)]}: before point i, click each point and
+    take it back with its key (Backspace, Ctrl+Z)."""
     xy = [px(p) for p in points_mm]
     for i, b in enumerate(xy):
         a = xy[i - 1] if i else b
+        for wrong_mm, kind, mods in (mistakes or {}).get(i, []):
+            wrong = px(wrong_mm)
+            yield from move(a, wrong, ctrl=True)
+            ev("LEFTMOUSE", "PRESS", wrong, ctrl=True)
+            yield 0.1
+            ev("LEFTMOUSE", "RELEASE", wrong, ctrl=True)
+            yield 0.3
+            yield from key(kind, wrong, **mods)
+            a = wrong
         if i in arcs:  # press on the last point, drag to this one: a tangent arc
             yield from move(a, a, 1, ctrl=True)
             ev("LEFTMOUSE", "PRESS", a, ctrl=True)
@@ -1442,7 +1452,9 @@ def step22():
     expect(bare is not None and bare.obj is None, "the line's start is not off the part (the case to check)")
     yield from move(px((12, 810, 20)), start, 8)
     yield from _path([(12, 825, 20), (12, 775, 20)])
-    yield from _path([(-15, 795, 20), (5, 795, 20), (5, 805, 20), (-15, 805, 20)], arcs=(2,))
+    # with two wrong clicks taken back (Backspace, Ctrl+Z: the maintainer's 2026-10-02 request)
+    yield from _path([(-15, 795, 20), (5, 795, 20), (5, 805, 20), (-15, 805, 20)], arcs=(2,),
+                     mistakes={2: [((0, 790, 20), "BACK_SPACE", {})], 3: [((-5, 812, 20), "Z", {"ctrl": True})]})
     source = bs.part.source_of(ob(name))
     entities = [e.name for e in bs.script_model.sketch_entities(source, "sketch_1")]
     expect(entities == ["path_1", "path_2"], f"sketch entities {entities}")

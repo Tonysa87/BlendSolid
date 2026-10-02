@@ -20,7 +20,8 @@ from mathutils import Matrix, Vector, geometry
 from . import drawing, focus, part, script_model, sketching, trust
 
 SHAPES = [("PATH", "Path", "Click points of a path of lines; drag while clicking (or A) for an arc tangent to it; "
-                           "click the first point to close it, Enter or right-click to end it", "IPO_LINEAR", 3),
+                           "click the first point to close it, Enter or right-click to end it, Backspace or Ctrl+Z to remove "
+                           "the last point", "IPO_LINEAR", 3),
           ("RECTANGLE", "Rectangle", "Drag the opposite corners of a rectangle", "MESH_PLANE", 0),
           ("CIRCLE", "Circle", "Drag from the centre of a circle to its rim", "MESH_CIRCLE", 1)]
 DRAG_PX = 6  # a press moved this far before its release is a drag (an arc), not a click
@@ -496,7 +497,8 @@ class BLENDSOLID_OT_sketch_entity(bpy.types.Operator):
             return self._finish_path(context, closed=False)
         if event.value == "DOUBLE_CLICK" and event.type == "LEFTMOUSE":
             return self._finish_path(context, closed=False)
-        if event.value == "PRESS" and event.type == "BACK_SPACE":
+        if event.value == "PRESS" and (event.type == "BACK_SPACE" or event.type == "Z" and
+                                       (event.ctrl or event.oskey) and not event.shift):  # Ctrl+Z: the reflex
             if self._path:
                 self._path.pop()
             if not self._path:
@@ -541,7 +543,7 @@ class BLENDSOLID_OT_sketch_entity(bpy.types.Operator):
         mode = "arc" if self._arc_mode else "line (drag: arc)"
         context.area.header_text_set(
             f"Path: click the next point, {mode} | A: arc | first point: close | Enter/right-click/double-click: "
-            f"end | Backspace: remove the last point | Shift: 15° | Ctrl: grid {ops_draw.step_mm(context.scene):g} mm "
+            f"end | Backspace/Ctrl+Z: remove the last point | Shift: 15° | Ctrl: grid {ops_draw.step_mm(context.scene):g} mm "
             f"| Esc: cancel")
         context.area.tag_redraw()
         return {"RUNNING_MODAL"}
