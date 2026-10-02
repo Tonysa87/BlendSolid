@@ -138,7 +138,9 @@ yet checked by the maintainer** (they couldn't test tonight). Resume with their 
   or on a copy. The same button serves the NURBS surface modeling to come (spec: Surfaces, SubD → NURBS, G2
   milestones), whose results are converted to quads the same way. It is the spec's "Blender output" row (v2: quad
   mesh for simple faces; R&D: quads on trimmed faces). Quad-meshing findings from the 2026-09-28 tessellation
-  research are its starting input.
+  research are its starting input. Research and the maintainer's decision (merged from `research/cad-to-quads`,
+  2026-10-02): `docs/research/2026-09-30-cad-to-quad-meshing.md` — start with the classic methods (Plasticity-like
+  Tris / Quads / Ngons, triangle pairing, no vertex moved), then study Gmsh's quasi-structured quads; spec 3e.
 - **Live cutters, after milestone 1.5** (maintainer's request, 2026-09-27; research: Fusion 360 timeline
   suppress/remove, HardOps/BoxCutter hidden cutters and Bool Scroll, Onshape/SolidWorks feature suppress):
   a per-boolean on/off toggle (suppress without removing, like a modifier's eye); "Apply" — inline a cutter
