@@ -11,7 +11,7 @@ Updated: 2026-09-30, session 12 end (milestone 3a in progress, branch `m3a`, pus
   (tag `m2`) — `docs/milestone-2-report.md` (what was built, criterion, history, known limits).
 - `main`: 283 unit + 236 Blender tests; `tools/gui_check.py` steps 1-21 PASS on Linux and Windows (as of session 9,
   not re-run since). Branch `m3a`: 330 unit + 244 Blender tests, step 22 PASS (Linux and Windows).
-- **The Windows portable Blender has branch `m3a` installed** (built from 6656744; `MESH_FORMAT` 12, smoke PASS).
+- **The Windows portable Blender has branch `m3a` installed** (built from b50efea; `MESH_FORMAT` 12, smoke PASS).
 - **Merged into `main` (session 10):** partial collars for curved runs of a flat face's loops, collars that shrink
   instead of cancelling, collar safety nets, planar cells of curved faces as quads (the maintainer's GUI review:
   a fillet of sliver triangles); `MESH_FORMAT` 10 — ADR 0008 and ADR 0010 addenda of 2026-09-29 (measured on a
@@ -69,7 +69,9 @@ snap label before the first click — fixed (5322cab: the hover marker snaps to 
 gui_check step 22 PASS on Linux and Windows, screenshot shows "vertex" at the corner), installed. Maintainer's request: take back the last path point — Backspace existed (only in the
 header); Ctrl+Z added as an alias (6656744, gui_check step 22 takes back two wrong clicks, FAILs without it),
 installed. Step 3 PASS (Groove, Profile Circle, pipe rib). Step 4 PASS: both pie keys kept (ADR 0013 point 2
-settled), the two-flick native pies are fine ("va bene così": no continuous-gesture pie). Next: step 5 (Add).
+settled), the two-flick native pies are fine ("va bene così": no continuous-gesture pie). Step 5 (Add): typing a size worked only with the row digits — the keypad's event names were wrong (NUMPAD_ZERO
+for NUMPAD_0); fixed (b50efea, a test checks every typed key against Blender's event types, gui_check step 24
+types 35 on the keypad and FAILs without the fix), installed. Rest of step 5 still to confirm.
 
 **Queue after that test (in order):**
 1. Fix what the maintainer's test finds (one fix at a time, rebuild + install, re-check only what changed).
