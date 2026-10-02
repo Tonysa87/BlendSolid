@@ -11,7 +11,7 @@ Updated: 2026-09-30, session 12 end (milestone 3a in progress, branch `m3a`, pus
   (tag `m2`) — `docs/milestone-2-report.md` (what was built, criterion, history, known limits).
 - `main`: 283 unit + 236 Blender tests; `tools/gui_check.py` steps 1-21 PASS on Linux and Windows (as of session 9,
   not re-run since). Branch `m3a`: 330 unit + 244 Blender tests, step 22 PASS (Linux and Windows).
-- **The Windows portable Blender has branch `m3a` installed** (built from 791d9b4; `MESH_FORMAT` 12, smoke PASS).
+- **The Windows portable Blender has branch `m3a` installed** (built from 5322cab; `MESH_FORMAT` 12, smoke PASS).
 - **Merged into `main` (session 10):** partial collars for curved runs of a flat face's loops, collars that shrink
   instead of cancelling, collar safety nets, planar cells of curved faces as quads (the maintainer's GUI review:
   a fillet of sliver triangles); `MESH_FORMAT` 10 — ADR 0008 and ADR 0010 addenda of 2026-09-29 (measured on a
@@ -64,7 +64,9 @@ yet checked by the maintainer** (they couldn't test tonight). Resume with their 
 
 **Test progress (session 13, 2026-10-02):** step 1 PASS (path from just off the face, Extrude Sketch of one half).
 Maintainer's note: the blue hover fill had cut corners — fixed (791d9b4, sketch outlines sampled per edge,
-`MESH_FORMAT` 12), installed; check it in passing during step 2.
+`MESH_FORMAT` 12), installed, confirmed by the maintainer. Step 2 PASS (snaps, 15° lock). Maintainer's note: no
+snap label before the first click — fixed (5322cab: the hover marker snaps to the part's points and names them;
+gui_check step 22 PASS on Linux and Windows, screenshot shows "vertex" at the corner), installed. Next: step 3.
 
 **Queue after that test (in order):**
 1. Fix what the maintainer's test finds (one fix at a time, rebuild + install, re-check only what changed).
