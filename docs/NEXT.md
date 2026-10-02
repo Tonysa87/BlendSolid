@@ -1,6 +1,6 @@
 # Where we are / what's next (bookmark)
 
-Updated: 2026-09-30, session 12 end (milestone 3a in progress, branch `m3a`, pushed to GitHub). Read this first when resuming, then "Next step".
+Updated: 2026-10-02, session 13 end (milestone 3a in progress, branch `m3a`, pushed to GitHub). Read this first when resuming, then "Next step".
 
 ## State
 - **Milestone 0 (spike):** done — `SPIKE_REPORT.md`.
@@ -10,7 +10,8 @@ Updated: 2026-09-30, session 12 end (milestone 3a in progress, branch `m3a`, pus
 - **Milestone 2 (selectors from clicks):** done, signed off 2026-09-28 (GUI tests 1–5), merged into `main`
   (tag `m2`) — `docs/milestone-2-report.md` (what was built, criterion, history, known limits).
 - `main`: 283 unit + 236 Blender tests; `tools/gui_check.py` steps 1-21 PASS on Linux and Windows (as of session 9,
-  not re-run since). Branch `m3a`: 330 unit + 244 Blender tests, step 22 PASS (Linux and Windows).
+  not re-run since). Branch `m3a`: 342 unit + 259 Blender tests; gui_check 1-25 PASS on Linux (session 12), steps 22 and 24
+  re-run in session 13 (22 also on Windows).
 - **The Windows portable Blender has branch `m3a` installed** (built from b50efea; `MESH_FORMAT` 12, smoke PASS).
 - **Merged into `main` (session 10):** partial collars for curved runs of a flat face's loops, collars that shrink
   instead of cancelling, collar safety nets, planar cells of curved faces as quads (the maintainer's GUI review:
@@ -50,28 +51,28 @@ Updated: 2026-09-30, session 12 end (milestone 3a in progress, branch `m3a`, pus
   **step 4 exposed the bug below**, so 5-6 are still to be seen.
 
 ## Next step — resume exactly here
-**Session 12 ended with everything built, installed in the portable Blender and passing gui_check 1-25, but not
-yet checked by the maintainer** (they couldn't test tonight). Resume with their GUI test of:
-1. Sketch Path started just off the top face (stays on the face's plane), Extrude Sketch of one half.
-2. Sketch snaps: near a corner ("vertex"), an edge's middle ("midpoint"); Shift after the first click ("15° lock").
-3. Groove, Profile Circle, dragged up (a pipe rib) — the old test's step 6.
-4. Pie: right-click (Blender's menu), right-drag to Edit > Fillet / Chamfer, E tap > Sketch > Circle,
-   E hold > Add > Cylinder. Ask whether two flicks feel slow (ADR 0013 point 3).
-5. Add (E > Add > Box): placed where the pie opened, round size, mouse scales, Ctrl grid, typed size, Esc.
-6. Fillet: drag far past the limit (stops at the max), test6.blend's error label, a new fillet on a failing part
-   refused. Open question for the maintainer: were fillet_3-5 in test6 attempts to change fillet_2's radius (then
-   a click on an existing fillet should show its radius arrow instead of adding a new fillet)?
+**Session 13 (2026-10-02): the maintainer's GUI test of session 12's build, steps 1-4 PASS, step 5 half done.**
+Everything below is built, tested, committed, pushed and installed in the portable Blender (b50efea). Resume with:
+1. **Step 5, the rest (Add, E > Add > Box):** typing a size on the keypad (just fixed), then: mouse scales in round
+   steps, Ctrl = grid steps, a click confirms (object scale 1), Esc on a second one leaves nothing.
+2. **Step 6 (Fillet):** drag far past the limit (stops at the max), test6.blend's error label, a new fillet on a
+   failing part refused. Open question for the maintainer: were fillet_3-5 in test6 attempts to change fillet_2's
+   radius (then a click on an existing fillet should show its radius arrow instead of adding a new fillet)?
 
-**Test progress (session 13, 2026-10-02):** step 1 PASS (path from just off the face, Extrude Sketch of one half).
-Maintainer's note: the blue hover fill had cut corners — fixed (791d9b4, sketch outlines sampled per edge,
-`MESH_FORMAT` 12), installed, confirmed by the maintainer. Step 2 PASS (snaps, 15° lock). Maintainer's note: no
-snap label before the first click — fixed (5322cab: the hover marker snaps to the part's points and names them;
-gui_check step 22 PASS on Linux and Windows, screenshot shows "vertex" at the corner), installed. Maintainer's request: take back the last path point — Backspace existed (only in the
-header); Ctrl+Z added as an alias (6656744, gui_check step 22 takes back two wrong clicks, FAILs without it),
-installed. Step 3 PASS (Groove, Profile Circle, pipe rib). Step 4 PASS: both pie keys kept (ADR 0013 point 2
-settled), the two-flick native pies are fine ("va bene così": no continuous-gesture pie). Step 5 (Add): typing a size worked only with the row digits — the keypad's event names were wrong (NUMPAD_ZERO
-for NUMPAD_0); fixed (b50efea, a test checks every typed key against Blender's event types, gui_check step 24
-types 35 on the keypad and FAILs without the fix), installed. Rest of step 5 still to confirm.
+Session 13's results and fixes (each with a test that fails without it):
+- Step 1 PASS (path from just off the face stays on its plane; Extrude Sketch of one half). Note: the blue hover
+  fill had cut corners: closed sketch outlines were sampled by length along the whole wire — now every edge from
+  its start (791d9b4, `MESH_FORMAT` 12). Confirmed by the maintainer.
+- Step 2 PASS (snaps "vertex"/"midpoint", 15° lock), after my test instructions were corrected (the labels only
+  showed after the first click). Then fixed: the hover marker snaps to the part's points and names them before the
+  first click too (5322cab, `ops_sketch.snap_to_points` / `part_points`; gui_check step 22, Windows screenshot).
+- Request: take back the last path point. Backspace existed (only in the header text); **Ctrl+Z** added as an alias
+  (6656744; gui_check step 22 takes back two wrong clicks).
+- Step 3 PASS (Groove, Profile Circle, pipe rib).
+- Step 4 PASS. **Decisions (ADR 0013):** both pie keys stay (right-button drag and E); the two-flick native pies are
+  fine (no continuous-gesture pie).
+- Step 5: the keypad didn't type sizes (event names NUMPAD_ZERO.. instead of NUMPAD_0..); fixed (b50efea,
+  `ops_add.TYPED_KEYS` checked against Blender's event types; gui_check step 24 types 35 on the keypad).
 
 **Queue after that test (in order):**
 1. Fix what the maintainer's test finds (one fix at a time, rebuild + install, re-check only what changed).
@@ -90,7 +91,7 @@ types 35 on the keypad and FAILs without the fix), installed. Rest of step 5 sti
 
 0. **Merged into `m3a` (session 12):** the maintainer's morning research branch `research/ui-pass` (docs only:
    pie menus, fillet feedback, OCCT fillets after 8.0.1; `docs/handoff-2026-09-30.md`), decisions recorded as
-   ADR 0013 (commands: two-level pie + selection context menu, sidebar = context; pie key still open) and ADR 0014
+   ADR 0013 (commands: two-level pie + selection context menu, sidebar = context; pie keys settled 2026-10-02: right-drag and E) and ADR 0014
    (Fillet/Push-Pull: real result as the only preview, Blender's native handle, fillet out / chamfer in). The
    **UI pass** (`docs/superpowers/plans/2026-09-30-ui-pass.md`) comes when 3a is stable and before the 3a usage
    checkpoint: first check the draft plan against the code, do its two cheap GUI checks, then implement.

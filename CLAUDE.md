@@ -226,3 +226,8 @@ tools/test.sh           # unit tests (Blender's Python) + Blender tests (blender
 - Sketch curve ends rounded to 6 decimals miss each other by up to 5e-7 mm: the region splitter uses a 1e-5 mm
   fuzzy value; snap points are rounded to 9 decimals (5.000000000000001 -> 5.0).
 - gui_check's `warm_up()` clicks at the world origin: steps whose view is elsewhere pass `warm_up(at=...)`.
+- Polylines of a wire for display: sample each edge from its own start (`worker/sketches._polyline`); sampling the
+  whole wire by length cuts its corners off.
+- Blender's keypad digits are `NUMPAD_0`..`NUMPAD_9` (row digits `ZERO`..`NINE`): a wrong event name never matches
+  and raises nothing; check key tables against `bpy.types.Event.bl_rna.properties["type"].enum_items`.
+- A label from a 3D gizmo's `draw()` needs pixel matrices first (`ops_draw.draw_text_lines(..., pixel_space=True)`).
