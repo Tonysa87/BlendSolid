@@ -427,6 +427,9 @@ def tessellate(shape, lin_defl=0.1, ang_defl=0.3):
     return tessellate_with_normals(shape, lin_defl, ang_defl)[:3]
 
 
+fallbacks = []  # the faces of the last tessellate_with_normals() meshed by BRepMesh (runner warns about them)
+
+
 def tessellate_with_normals(shape, lin_defl=0.1, ang_defl=0.3):
     """tessellate() plus each vertex's exact surface normal (float32, unit, on the side the face's triangles
     face): Blender shades with these (custom normals) instead of averaging the triangles around a vertex,
@@ -461,6 +464,7 @@ def tessellate_with_normals(shape, lin_defl=0.1, ang_defl=0.3):
                            "fillets): try another radius or size")
     layout = meshing.plan(faces, edges, kinds, rings, lin_defl, seg_angle)
     fallback = None
+    del fallbacks[:]
     verts, tris, tri_face, normals, offset = [], [], [], [], 0
     for fid, (face, rev, fi) in enumerate(zip(faces, revolutions, layout.faces)):
         uv = None
@@ -488,6 +492,7 @@ def tessellate_with_normals(shape, lin_defl=0.1, ang_defl=0.3):
                 import sys
                 print(f"BlendSolid: face {fid} couldn't be meshed from its edges: BRepMesh fallback (the mesh is "
                       "open along its edges)", file=sys.stderr)
+                fallbacks.append(fid)
                 if fallback is None:
                     fallback = True
                     BRepMesh_IncrementalMesh(shape, lin_defl, False, ang_defl, True)

@@ -510,13 +510,18 @@ def _recover(q, tris, constraints, budget=200000):
         return None
 
     work = 0
+    fixed = set()  # constraint edges already in place: never flipped (two crossing constraints: no answer)
+    for a, b in constraints:
+        a, b = int(a), int(b)
+        if (a, b) in em or (b, a) in em:
+            fixed.add((min(a, b), max(a, b)))
     for a, b in constraints:
         a, b = int(a), int(b)
         if (a, b) in em or (b, a) in em:
             continue
         found = crossing_edges(a, b)
-        if found is None:
-            return None
+        if found is None or any((min(x, y), max(x, y)) in fixed for x, y in found):
+            return None  # through a node, or across another boundary segment (a boundary crossing itself, M5)
         queue = deque(found)
         stuck = 0
         while queue:
@@ -524,6 +529,8 @@ def _recover(q, tris, constraints, budget=200000):
             if work > budget:
                 return None
             x, y = queue.popleft()
+            if (min(x, y), max(x, y)) in fixed:
+                return None
             i, j = em.get((x, y)), em.get((y, x))
             if i is None or j is None:
                 continue  # flipped away already
@@ -549,7 +556,24 @@ def _recover(q, tris, constraints, budget=200000):
                 queue.append((u, w))
         if (a, b) not in em and (b, a) not in em:
             return None
+        fixed.add((min(a, b), max(a, b)))
     return np.asarray(tris, dtype=np.int64)
+
+
+def _merge_touching(uv, segs, tol=1e-9):
+    """Boundary segments with the nodes where loops touch merged into one (a hole touching the outer loop at a
+    vertex lists that vertex in both loops: Delaunay keeps one copy, and the other's segments could never be
+    recovered — bug sweep M3). Returns the segments and each node's kept copy (Delaunay's triangles may use
+    either: map them through it); the duplicate's point stays in `uv`, unused."""
+    from scipy.spatial import cKDTree
+    first = np.arange(len(uv))
+    pairs = cKDTree(uv).query_pairs(tol * max(1.0, float(np.abs(uv).max())))
+    if not pairs:
+        return segs, first
+    for a, b in sorted(pairs):
+        lo, hi = min(first[a], first[b]), max(first[a], first[b])
+        first[first == hi] = lo
+    return [(int(first[a]), int(first[b])) for a, b in segs if first[a] != first[b]], first
 
 
 def trimmed(face_info, edges, periods, grid=True):
@@ -567,6 +591,7 @@ def trimmed(face_info, edges, periods, grid=True):
     if not uvs:
         return None  # no boundary to mesh from (seen on a sliver face OCCT left in a tapered cut)
     uv, xyz = np.concatenate(uvs), np.concatenate(xyzs)
+    segs, same = _merge_touching(uv, segs)
     scale = np.array(face_info.scale, dtype=np.float64)
     if grid:
         scale = scale / np.array(face_info.step)  # the grid step is 1 in both directions
@@ -600,6 +625,9 @@ def trimmed(face_info, edges, periods, grid=True):
         tri = Delaunay(q).simplices
     except Exception:
         return None
+    same = np.concatenate([same, np.arange(len(same), len(q))])
+    tri = same[tri]
+    tri = tri[(tri[:, 0] != tri[:, 1]) & (tri[:, 1] != tri[:, 2]) & (tri[:, 2] != tri[:, 0])]
     tri = _recover(q, tri, segs)
     if tri is None:
         return None

@@ -212,6 +212,11 @@ def run_script(source, lin_defl=0.1, ang_defl=0.3, deps=(), tag=None, cache=None
             return RunResult(False, "`result` is not a valid solid (BRepCheck failed)")
         progress.note("meshing the part for display")
         mesh = tessellate.display_mesh(wrapped, lin_defl, ang_defl)
+        if tessellate.fallbacks:  # the geometry is right, its display isn't watertight there: say so
+            n = len(tessellate.fallbacks)
+            which = "a face of the part" if n == 1 else f"{n} faces of the part"
+            tracker.warn(f"{which} couldn't be meshed from the edges: the display mesh is open along "
+                         f"{'it' if n == 1 else 'them'} (the solid itself is fine)")
         planes = tessellate.face_planes(wrapped)
         snaps = tessellate.snap_points(wrapped)
         refs = provenance.reference_texts(tracker, tessellate.face_map(wrapped), tessellate.edge_map(wrapped))

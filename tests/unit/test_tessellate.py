@@ -668,3 +668,41 @@ def test_invalid_part_is_rejected_before_tessellation():
     shape = _read_brep("fallback_open.brep")
     assert not tessellate.check(shape)["valid"]
     tessellate.display_mesh(shape, 1.0, ANG)
+
+
+@pytest.mark.parametrize("cut", ["Pos(15.0, 0.0) * Circle(5.0)",  # a hole tangent to the face's edge
+                                 "Pos(15.0, 10.0) * Rectangle(10.0, 10.0)"])
+def test_a_hole_touching_the_outer_loop_meshes_closed(cut):
+    # M3: the touching vertex is in both loops; Delaunay kept one copy and the face fell back to BRepMesh (open)
+    import runner
+    src = ("with BuildPart() as part:\n"
+           "    Box(40, 30, 20, align=(Align.CENTER, Align.CENTER, Align.MIN))  # feature: box_1\n"
+           '    with sketch(on_face(face("box_1", "+Z"))) as sketch_1:  # feature: sketch_1\n'
+           f"        sketch_1.c = {cut}\n"
+           "    extrude(regions(sketch_1, (15.0, 0.0)), amount=-5.0, mode=Mode.SUBTRACT)  # feature: e_1\n"
+           "result = part.part\n")
+    shape = runner._build(src, runner.SCRIPT_NAME, [], runner.ShapeCache())
+    m = tessellate.display_mesh(shape.wrapped, 1.0, ANG)
+    pairs, _ = sides(m)
+    _, counts = np.unique(pairs, axis=0, return_counts=True)
+    assert (counts == 2).all()
+
+
+def test_a_boundary_crossing_itself_falls_back_with_a_warning():
+    # M5: a hole 0.01 mm from a rounded corner: the corner arc's chords cross the hole's polygon; the face's mesh
+    # came out folded (flipped polygons, open edges) and nothing said so. Now: BRepMesh, and a warning
+    import runner
+    d = 10 - 2 - 0.01
+    src = ("with BuildPart() as part:\n"
+           "    Box(40, 30, 20, align=(Align.CENTER, Align.CENTER, Align.MIN))  # feature: box_1\n"
+           "    fillet(part.edges().filter_by(Axis.Z), radius=10.0)  # feature: f_1\n"
+           f"    with Locations(({10 + d * math.sqrt(0.5):.6f}, {5 + d * math.sqrt(0.5):.6f}, 20.0)):\n"
+           "        Cylinder(2.0, 10.0, mode=Mode.SUBTRACT)\n"
+           "result = part.part\n")
+    r = runner.run_script(src, 1.0, ANG)
+    assert r.ok and any("couldn't be meshed" in text and line is None for line, text in r.warnings)
+    starts = np.concatenate([[0], np.cumsum(r.poly_sizes)[:-1]])
+    nxt = np.arange(len(r.loops)) + 1
+    nxt[starts + r.poly_sizes - 1] = starts
+    directed = np.stack([r.loops, r.loops[nxt]], axis=1)
+    assert len(np.unique(directed, axis=0)) == len(directed)  # no polygon flipped against its neighbour

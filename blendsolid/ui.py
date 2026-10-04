@@ -184,7 +184,7 @@ class BLENDSOLID_PT_part(bpy.types.Panel):
         doubts = part.warnings(obj)
         if doubts and not obj.blendsolid_error:
             box = layout.box()
-            box.label(text="Check these references", icon="ERROR")
+            box.label(text="Warnings", icon="ERROR")
             for line, text in doubts[:4]:
                 where = f" (line {line})" if advanced and line else ""
                 box.label(text=text + where, icon="BLANK1")
