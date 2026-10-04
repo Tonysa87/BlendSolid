@@ -1,6 +1,6 @@
 # Where we are / what's next (bookmark)
 
-Updated: 2026-10-02, session 13 end (milestone 3a in progress, branch `m3a`, pushed to GitHub). Read this first when resuming, then "Next step".
+Updated: 2026-10-04, session 14 (milestone 3a in progress, branch `m3a`, pushed to GitHub). Read this first when resuming, then "Next step".
 
 ## State
 - **Milestone 0 (spike):** done — `SPIKE_REPORT.md`.
@@ -51,6 +51,21 @@ Updated: 2026-10-02, session 13 end (milestone 3a in progress, branch `m3a`, pus
   **step 4 exposed the bug below**, so 5-6 are still to be seen.
 
 ## Next step — resume exactly here
+**Session 14 (2026-10-04), in progress:** step 5's keypad typing PASS; two bugs found by the maintainer, fixed
+(not yet installed: the maintainer asked for a deep headless bug sweep before the next build):
+- Add: confirming a typed/scaled size showed the part at the starting size for a moment (the scale went back to 1
+  before the worker's mesh at the new size arrived): the mesh takes the scale at confirm (a87af0b; installed and
+  confirmed by the maintainer).
+- Groove/rib: a Round rib along a path with arcs and sharp corners failed with `StdFail_NotDone` (OCCT's mitred
+  pipe can't trim a sharp corner right after an arc; on other paths it silently overlaps itself, BRepCheck valid):
+  paths with sharp corners are now swept run by run and the corners filled (mitre = the runs' straight extensions
+  intersected, round = the outer half of the profile revolved) — e5affbc, exact volumes in tests. File:
+  `E:\bs_debug\s14_rib.blend`.
+- Known, not fixed yet: `arc_to` a point straight ahead along the tangent raises a raw `gp_Dir::Cross()` error.
+- Headless bug sweep running (grooves/paths, regions/extrude/revolve, Blender operators/undo, display mesh on 3a
+  geometry); its findings get fixed one at a time, then rebuild + install, then step 5b (mouse scaling, Ctrl
+  grid, click confirm with scale 1) and step 6.
+
 **Session 13 (2026-10-02): the maintainer's GUI test of session 12's build, steps 1-4 PASS, step 5 half done.**
 Everything below is built, tested, committed, pushed and installed in the portable Blender (b50efea). Resume with:
 1. **Step 5, the rest (Add, E > Add > Box):** typing a size on the keypad (just fixed), then: mouse scales in round
