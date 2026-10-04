@@ -193,7 +193,11 @@ def failing_feature(obj):
 def blocking_error(obj):
     """Why no feature can be added to obj now, or None: its current script fails (a feature added after the
     failing one would never be built, and would be picked on the last good mesh, which is stale). An error of an
-    earlier script (e.g. a drag's live preview, since undone) doesn't block."""
+    earlier script (e.g. a drag's live preview, since undone) doesn't block. Nor can one be added to a part whose
+    script isn't trusted (ADR 0004): it would never be built."""
+    if obj is not None and obj.blendsolid_script is not None and not trust.is_trusted(obj):
+        return (f"'{obj.name}': scripts in this file are not trusted: press Trust Scripts in This File first "
+                "(BlendSolid never runs them before that)")
     if obj is None or not obj.blendsolid_error or error_tag(obj) != current_tag(obj):
         return None
     feature = failing_feature(obj)

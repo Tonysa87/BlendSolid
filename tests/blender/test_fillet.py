@@ -241,3 +241,36 @@ def test_a_failing_fillet_blocks_new_features_and_shows_in_the_viewport(clean):
     obj.blendsolid_script.from_string(source.replace("fillet_1_radius = 50.0", f"fillet_1_radius = {limit}"))
     wait_for(lambda: up_to_date(obj))
     assert obj.blendsolid_error == "" and part.blocking_error(obj) is None and ui.error_label(obj) == []
+
+
+@pytest.mark.parametrize("why", ["scaled", "untrusted"])
+def test_the_fillet_tool_leaves_parts_it_cannot_edit_alone(default_part, monkeypatch, why):
+    # picking only checked "local part": the tool took a scaled or untrusted part, the release's operator call
+    # raised (scaled), or wrote a fillet that never computes (untrusted, ADR 0004) — bug sweep, 2026-10-04
+    from types import SimpleNamespace
+
+    from blendsolid import ops_fillet, trust
+    if why == "scaled":
+        default_part.scale = (2.0, 1.0, 1.0)
+        bpy.context.view_layer.update()
+    else:
+        monkeypatch.setattr(trust, "_file_trusted", False)
+        monkeypatch.setattr(trust, "_trusted_texts", set())
+    edge = 'edge_between(face("box_1", "+Z"), face("box_1", "-Y"))'
+    source = part.source_of(default_part)
+    if why == "untrusted":
+        assert picking.pick(bpy.context, *down(30, 0.3), PIXEL) is None
+        with pytest.raises(RuntimeError, match="not trusted"):
+            bpy.ops.blendsolid.fillet(target=default_part.name, references=edge, radius=1.0)
+        assert part.source_of(default_part) == source
+    # an edge selected before the part became uneditable: the drag's release is refused, the drag ends cleanly
+    monkeypatch.setitem(ops_fillet._selection, "part", default_part.name)
+    monkeypatch.setitem(ops_fillet._selection, "refs", [edge])
+    cls = ops_fillet.BLENDSOLID_OT_fillet_click
+    op = SimpleNamespace(_source=source, _radius=1.0, _chamfer=False, _timer=None,
+                         _handles=[], _restore=lambda: None)
+    op._end = lambda context, result: cls._end(op, context, result)
+    ops_fillet._dragging.add(id(op))
+    event = SimpleNamespace(type="LEFTMOUSE", value="RELEASE", ctrl=False, shift=False)
+    assert cls.modal(op, bpy.context, event) == {"CANCELLED"}
+    assert not ops_fillet._dragging and part.source_of(default_part) == source

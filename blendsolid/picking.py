@@ -140,7 +140,8 @@ def pick(context, origin, direction, pixel):
     if found is None:
         return None
     location, _, index, obj = found
-    if not part.is_local_part(obj):
+    from . import ops_sketch
+    if not ops_sketch.editable(obj):  # scaled, untrusted or hand-edited parts: as for every other tool
         return None
     fid = part.face_id(obj.evaluated_get(depsgraph).data, index)
     face_ref = part.face_reference(obj, fid)

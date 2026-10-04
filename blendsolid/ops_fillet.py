@@ -292,8 +292,11 @@ class BLENDSOLID_OT_fillet_click(bpy.types.Operator):
                 return self._end(context, {"FINISHED"})
             self._restore()
             obj, refs = selection()
-            bpy.ops.blendsolid.fillet("EXEC_DEFAULT", True, target=obj.name, references="\n".join(refs),
-                                      radius=max(self._radius, 0.001), chamfer=self._chamfer)
+            try:
+                bpy.ops.blendsolid.fillet("EXEC_DEFAULT", True, target=obj.name, references="\n".join(refs),
+                                          radius=max(self._radius, 0.001), chamfer=self._chamfer)
+            except RuntimeError:  # refused: the operator reported why; the drag must still end cleanly
+                return self._end(context, {"CANCELLED"})
             return self._end(context, {"FINISHED"})
         self._header(context)
         context.area.tag_redraw()

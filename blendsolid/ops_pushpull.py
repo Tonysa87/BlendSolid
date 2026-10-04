@@ -158,8 +158,11 @@ class BLENDSOLID_OT_push_pull_drag(bpy.types.Operator):
             self._target.blendsolid_script.from_string(self._source)
             if abs(self._amount) < 1e-3:
                 return self._end(context, {"CANCELLED"})  # a click without a drag
-            bpy.ops.blendsolid.push_pull("EXEC_DEFAULT", True, target=self._target.name, reference=self._reference,
-                                         amount=self._amount)
+            try:
+                bpy.ops.blendsolid.push_pull("EXEC_DEFAULT", True, target=self._target.name,
+                                             reference=self._reference, amount=self._amount)
+            except RuntimeError:  # refused: the operator reported why; the drag must still end cleanly
+                return self._end(context, {"CANCELLED"})
             return self._end(context, {"FINISHED"})
         step = ops_draw.step_mm(context.scene)
         what = "pull out (add)" if self._amount >= 0 else "push in (cut)"
