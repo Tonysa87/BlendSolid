@@ -1,6 +1,6 @@
 # Where we are / what's next (bookmark)
 
-Updated: 2026-10-04, session 14 end (milestone 3a in progress, branch `m3a`, pushed to GitHub). Read this first when resuming, then "Next step".
+Updated: 2026-10-04, session 15 end (milestone 3a in progress, branch `m3a`, pushed to GitHub). Read this first when resuming, then "Next step".
 
 ## State
 - **Milestone 0 (spike):** done — `SPIKE_REPORT.md`.
@@ -52,25 +52,36 @@ Updated: 2026-10-04, session 14 end (milestone 3a in progress, branch `m3a`, pus
   **step 4 exposed the bug below**, so 5-6 are still to be seen.
 
 ## Next step — resume exactly here
-**Session 14 (2026-10-04) ended mid-bug-sweep; the maintainer then said: work autonomously (they will `/clear`
-from remote).** Start with `git fetch` (docs-only research branches are merged into `m3a`), then the plan below.
+**Session 15 (2026-10-04, autonomous, the maintainer away and reading from the phone) did plan steps 1-5 below.**
+Start with `git fetch`, then plan step 6 (the maintainer's GUI test) when they are back.
 
-### Where session 14 left things
-- Maintainer's GUI test of session 12's build: steps 1-4 PASS (session 13), step 5 keypad typing PASS. Two bugs
-  they found are fixed: the Add "pop" on confirm (a87af0b, installed, confirmed) and the Round rib failing at a
-  sharp corner after an arc (`StdFail_NotDone`; e5affbc: paths with sharp corners are swept run by run and the
-  corners filled; file `E:\bs_debug\s14_rib.blend`). **Not installed**: everything after a87af0b (the Windows
-  portable Blender still has a87af0b).
-- **Headless bug sweep** (the maintainer's request before rebuilding: "prenditi il tempo che serve"): 4 searches,
-  ~10,000 cases. **Ledger with every finding, its status and commit: `docs/research/2026-10-04-bug-sweep.md`**
-  (B = Blender side, R = regions/extrude/revolve, M = display mesh, G = grooves/paths). Tools to rerun them:
-  `spike/m3_bug_sweep/` (README; `rerun.py grooves|tapers` reruns 3000 groove / 895 taper cases, 2 processes).
-- Fixed so far (each with a test that fails without it): B1-B11, B13 (warning), B14; R2, R3 (sure-vanish bound),
-  R4, R5, R7, R10; G1, G2, G3, G5, G6, G8. Two regressions of the path fixes, found by rerunning the groove
-  cases, are fixed too (065b189). Branch `m3a`: 378 unit + 278 Blender tests pass.
-- Learned (CLAUDE.md pitfalls): OCCT's draft can hang holding the GIL; `BRepOffsetAPI_MakeOffset` segfaults on
-  some faces (a volume check of tapers against offset sections was measured and dropped for that); rounding
-  fixes must stay at the rounding level (1e-6 rad) or they move real geometry.
+### What session 15 did (details and commits: the ledger `docs/research/2026-10-04-bug-sweep.md`)
+- **Plan 1, silent wrong results:** R11 (area seeds now carry their bounding curves: `area((u, v), inside="rect_1",
+  ...)`, ADR 0012 addendum; research: Onshape names regions by their bounding curves, Fusion silently switches),
+  R12, G7, G4, R13, R15, R8, R9. **G13**: a new independent volume check of grooves
+  (`spike/m3_bug_sweep/groove_check/oracle.py`, point membership + Monte Carlo, validated on 40 known cases) found
+  OCCT's fuse of overlapping sweep pieces returning valid but wrong solids: the union is now verified before use,
+  and smooth runs whose band overlaps itself are refused. G14: a groove's overshoot cut material above its plane.
+- **Plan 2, clear messages:** R6, R14, R16, B12, G9, G10, G11, G15 (round profile, width 3 depth 2: raw error), B15
+  (a `near=` reference left with one candidate warns).
+- **Plan 3, loud mesh failures:** M3, M4 (Sloan's walk), M5 (crossing boundary: fallback, and every fallback is now
+  a warning on the part; a face nothing can mesh never fails the part), M13 (progress notes: a timeout names the
+  step and line), M16.
+- **Plan 4, mesh quality:** M1 (curvature-adaptive nodes on edges of no structured face), M2 (per-sample parameter
+  steps), M8 (sqrt(2) on the sag limit), M17/M18 (ball dimples: a whole sphere drawn sticking out of the part, or
+  a flat one — older bugs found by an independent review). `MESH_FORMAT` 14.
+- Mesh sweep, 1500 parts before/after: open edges 1351 → 1 (see the final numbers below), BRepMesh fallbacks 6 → 0,
+  slivers under 1° 34698 → ~19700, flipped polygons 171 → 63, tessellation faster.
+- **New tool (maintainer's request: look at the meshes, not only numbers): `tools/mesh_shot.py`** — shaded +
+  wireframe screenshots of a part script's display mesh (`--face curved` zooms on curved faces; red/orange = thin
+  triangles). The session's gallery of grooves (4 profiles × 2 corners × cut/rib), taper, revolve, dimples found
+  G15 at once.
+- Independent reviewers (subagents, 2 processes each) checked R11 and the session's mesh and feature commits;
+  their findings are fixed or in the ledger.
+- Seen in the gallery, left for the checkpoint: round/circle grooves between two mitres get ~131 long thin columns
+  (M7: the mitre's half ellipses evenly spaced); flat faces around a groove's outline get long thin triangles to
+  the face corners (ADR 0008's convex pieces); G12 (a round corner next to a run shorter than half the width
+  misses a sliver, rare).
 
 ### Plan (agreed with the maintainer at the end of session 14; follow it in order)
 Goal: reach the **3a usage checkpoint** (the maintainer models 2-3 real objects) as soon as possible, fixing first

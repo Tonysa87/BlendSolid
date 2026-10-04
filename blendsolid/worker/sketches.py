@@ -631,13 +631,38 @@ class _Place:
         return self.origin + self.lateral * p[0] + self.up * p[1]
 
 
-def _sweep(wire, profile_at, normal, corners):
+def _split_run(run, half, depth=0):
+    """A smooth run (local XY) as the wires to sweep apart: itself, or — where it crosses itself or its band comes
+    back over itself (OCCT's one-go sweep then overlaps itself and BRepCheck accepts the wrong solid) — its edges,
+    an edge overlapping itself in halves. The pieces' union is verified (_fused)."""
+    from build123d import GeomType, Wire
+    for e in run.edges():
+        if e.geom_type == GeomType.CIRCLE and e.radius < half * (1 - 1e-9):
+            raise SketchError(f"an arc of the path (radius {e.radius:.6g} mm) turns tighter than half the groove's "
+                              f"width ({half:.6g} mm): its inside would fold over itself")
+    if not (_crosses_itself(run.edges()) or _band_overlaps(run, half)):
+        return [run]
+    edges = run.edges()
+    if len(edges) == 1:
+        if depth >= 3:
+            raise SketchError("a stretch of the path comes back within the groove's width and can't be split")
+        e = edges[0]
+        return [p for part in (e.trim(0.0, 0.5), e.trim(0.5, 1.0))
+                for p in _split_run(Wire([part]), half, depth + 1)]
+    return [p for e in edges for p in _split_run(Wire([e]), half, depth + 1)]
+
+
+def _sweep(wire, profile_at, normal, corners, pieces_of=None):
     """The solid swept by the profile along `wire`, kept square to the plane of normal `normal`, sharp corners
     mitred or rounded. `profile_at(point, tangent)` is the profile wire placed square to the path there.
     OCCT sweeps a path without sharp corners in one go; at a sharp corner its transitions aren't reliable (a mitre
     right after an arc raises StdFail_NotDone, or gives a solid overlapping itself that BRepCheck accepts: the
     maintainer's GUI test, 2026-10-04), so a path with sharp corners is swept run by run (_sweep_by_runs)."""
     runs, sharp = _runs(wire)
+    if pieces_of is not None:
+        split = [pieces_of(r) for r in runs]
+        if any(len(p) > 1 for p in split):
+            return _sweep_by_runs([p for ps in split for p in ps], sharp, profile_at, normal, corners)
     if not sharp:
         return _pipe(wire, profile_at(wire.position_at(0), wire.tangent_at(0)), normal, corners)
     return _sweep_by_runs(runs, sharp, profile_at, normal, corners)
@@ -1017,11 +1042,6 @@ def helpers(tracker):
         local = bd.Wire(edges) if len(edges) > 1 else bd.Wire([edges[0]])
         # OCCT sweeps each smooth run in one go and BRepCheck accepts a run's sweep overlapping itself (bug sweep
         # G4); runs crossing each other are swept apart and fused, which is fine
-        for run in _runs(local)[0]:
-            if _crosses_itself(run.edges()) or _band_overlaps(run, width / 2):
-                raise SketchError(f"a smooth stretch of the path {name} crosses itself or comes back within the "
-                                  f"groove's width ({width:g} mm): the groove would overlap itself there (put a "
-                                  f"sharp corner between the stretches that meet, or narrow the groove)")
         wire = sk.placed(local)
         n = sk.plane.z_dir
         cut = mode != bd.Mode.ADD
@@ -1031,7 +1051,9 @@ def helpers(tracker):
 
         def profile_at(point, tangent):
             return _profile_wire(profile, width, depth, over, _Place(point, n.cross(tangent).normalized(), up, tangent))
-        solid = _sweep(wire, profile_at, n, corners)
+        def pieces_of(run):  # a smooth run whose band overlaps itself is swept piece by piece (G4, G13)
+            return [sk.placed(p) for p in _split_run(sk.plane.to_local_coords(run), width / 2)]
+        solid = _sweep(wire, profile_at, n, corners, pieces_of)
         if over and profile != "circle":  # a pipe is centred on its path: both its halves are its own
             solid = _trim_over(solid, sk.plane, n, over, cut)
         roles = tracker.roles

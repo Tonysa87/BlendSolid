@@ -585,16 +585,26 @@ def test_rib_past_the_face_edge_leaves_nothing_below_the_face(profile, section):
     assert abs(r.volume - (24000 + section * 60)) < 1e-6
 
 
-@pytest.mark.parametrize("points", ["(0.0, 0.0), (10.0, 0.0), arc_to((7.0, 3.0)), (7.0, -5.0)",
-                                    "(0.0, 0.0), (10.0, 0.0), arc_to((10.0, 6.0)), arc_to((10.0, 0.0))"])
-def test_groove_along_a_smooth_run_crossing_itself_is_refused(points):
-    # G4: BRepCheck accepted the self-overlapping sweep of a tangent run that crosses itself
+@pytest.mark.parametrize("points, volume", [
+    ("(0.0, 0.0), (10.0, 0.0), arc_to((7.0, 3.0)), (7.0, -5.0)", 23937.83),
+    ("(0.0, 0.0), (10.0, 0.0), arc_to((10.0, 6.0)), arc_to((10.0, 0.0))", 23945.70)])
+def test_groove_along_a_smooth_run_crossing_itself_is_swept_piece_by_piece(points, volume):
+    # G4: BRepCheck accepted the self-overlapping one-go sweep of a tangent run crossing itself (wrong volume). Its
+    # edges are now swept apart and their union verified. Volumes: independent point-membership integration
+    # (spike/m3_bug_sweep/groove_check/oracle.py, 2 x 2e6 samples, ±0.5 mm³)
+    r = run(BOX + '    with sketch(on_face(face("box_1", "+Z"))) as sketch_1:  # feature: sketch_1\n'
+                  f'        sketch_1.path_1 = path({points})\n'
+                  '    groove(sketch_1.path_1, width=1.0, depth=2.0)  # feature: groove_1\n')
+    assert abs(r.volume - volume) < 0.8
+
+
+def test_an_arc_tighter_than_half_the_width_is_refused():
     r = runner.run_script("with BuildPart() as part:\n" + BOX +
                           '    with sketch(on_face(face("box_1", "+Z"))) as sketch_1:  # feature: sketch_1\n'
-                          f'        sketch_1.path_1 = path({points})\n'
-                          '    groove(sketch_1.path_1, width=1.0, depth=2.0)  # feature: groove_1\n'
+                          '        sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), arc_to((0.0, 1.0)), (-10.0, 1.0))\n'
+                          '    groove(sketch_1.path_1, width=2.0, depth=1.0)  # feature: groove_1\n'
                           "result = part.part\n")
-    assert not r.ok and "crosses itself or comes back within" in r.error and r.line == 5
+    assert not r.ok and "turns tighter than half the groove's width" in r.error
 
 
 @pytest.mark.parametrize("points, length", [("(-10.0, 0.0), (10.0, 0.0), (0.0, 10.0), (0.0, -10.0)",
@@ -910,18 +920,16 @@ def test_a_flat_end_facing_its_own_band_is_not_an_overlap():
     assert abs(72000 - r.volume - (10 + 4.5 * math.pi + 1.4) * 2 * 2) < 1e-6
 
 
-def test_a_smooth_stretch_coming_back_within_the_width_is_refused():
+def test_a_smooth_stretch_coming_back_within_the_width_is_swept_piece_by_piece():
     # session 15: arcs tangent inside an arc, a V rib 4.4 mm wide: OCCT's one-go sweep overlapped itself, BRepCheck
-    # passed, the volume was 10% short
-    r = runner.run_script(
-        "with BuildPart() as part:\n"
-        "    with sketch(Plane.XY) as sketch_1:  # feature: sketch_1\n"
-        "        sketch_1.path_1 = path((3.071372, 8.810365), (-10.261066, 9.238603), arc_to((-10.957385, 9.293478)), "
-        "arc_to((-14.100835, -8.562851)), arc_to((-19.340133, -1.503174)), (3.071372, 8.810365))\n"
-        '    groove(sketch_1.path_1, width=4.399503, depth=1.25679, profile="v", corners="mitre", mode=Mode.ADD)'
-        "  # feature: rib_1\n"
-        "result = part.part\n")
-    assert not r.ok and "comes back within the groove's width" in r.error
+    # passed, the volume was 10% short (229.8). Now swept edge by edge: 256.74 against the independent
+    # integration's 257.0 ± 2.7
+    r = run("    with sketch(Plane.XY) as sketch_1:  # feature: sketch_1\n"
+            "        sketch_1.path_1 = path((3.071372, 8.810365), (-10.261066, 9.238603), arc_to((-10.957385, 9.293478)), "
+            "arc_to((-14.100835, -8.562851)), arc_to((-19.340133, -1.503174)), (3.071372, 8.810365))\n"
+            '    groove(sketch_1.path_1, width=4.399503, depth=1.25679, profile="v", corners="mitre", mode=Mode.ADD)'
+            "  # feature: rib_1\n")
+    assert abs(r.volume - 257.0) < 3.5
     # a U-turn of radius above half the width is fine
     run(BOX + '    with sketch(on_face(face("box_1", "+Z"))) as sketch_1:  # feature: sketch_1\n'
               '        sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), arc_to((0.0, 3.0)), (-10.0, 3.0))\n'
