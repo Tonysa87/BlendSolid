@@ -1,0 +1,353 @@
+1525 pass -> same volume
+398 b-lip -> exact
+84 d-a corner of the path turns 180°: too sharp  -> SketchError: a corner of the path turns 180°: too sharp to m
+47 d-the profile swept along this path isn't a v -> other volume
+42 d-the profile can't follow this path (a corne -> other volume
+28 b-volume -> exact
+27 d-a corner of the path turns 174°: too sharp  -> SketchError: a corner of the path turns 174°: too sharp to m
+23 d-a corner of the path turns 172°: too sharp  -> SketchError: a corner of the path turns 172°: too sharp to m
+21 d-a corner of the path turns 179°: too sharp  -> SketchError: a corner of the path turns 179°: too sharp to m
+19 pass -> SketchError: the profile can't follow this path (a corner or
+19 d-a corner of the path turns 178°: too sharp  -> SketchError: a corner of the path turns 178°: too sharp to m
+18 d-a corner of the path turns 176°: too sharp  -> SketchError: a corner of the path turns 176°: too sharp to m
+18 d-a corner of the path turns 173°: too sharp  -> SketchError: a corner of the path turns 173°: too sharp to m
+17 d-a corner of the path turns 175°: too sharp  -> SketchError: a corner of the path turns 175°: too sharp to m
+17 d-a corner of the path turns 171°: too sharp  -> SketchError: a corner of the path turns 171°: too sharp to m
+15 pass -> exact
+14 d-a corner of the path turns 177°: too sharp  -> SketchError: a corner of the path turns 177°: too sharp to m
+12 b-lip -> other volume
+11 d-the profile can't follow this path (a corne -> SketchError: the profile can't follow this path (a corner or
+10 d-the profile swept along this path isn't a v -> SketchError: the profile can't follow this path (a corner or
+8 d-a corner of the path turns 170°: too sharp  -> SketchError: a corner of the path turns 170°: too sharp to m
+7 a-AttributeError: 'NoneType' object has no at -> other volume
+6 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.396269 mm) turns t
+6 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.607286 mm) turns t
+6 a-AttributeError: 'NoneType' object has no at -> SketchError: the profile can't follow this path (a corner or
+5 b-volume -> SketchError: the profile can't follow this path (a corner or
+5 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.423451 mm) turns t
+5 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.04641 mm) turns ti
+5 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.359849 mm) turns t
+5 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.305252 mm) turns t
+5 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.712681 mm) turns t
+5 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.546199 mm) turns t
+5 a-StdFail_NotDone: BRep_API: command not done -> other volume
+5 c-slow -> same volume
+4 b-lip -> SketchError: the profile can't follow this path (a corner or
+4 b-volume -> same volume
+4 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.04604 mm) turns ti
+4 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.431472 mm) turns t
+4 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.00964 mm) turns ti
+4 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.08223 mm) turns ti
+4 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.612446 mm) turns t
+4 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.954975 mm) turns t
+4 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.310758 mm) turns t
+4 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.488465 mm) turns t
+4 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.11229 mm) turns ti
+4 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.315915 mm) turns t
+4 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.460732 mm) turns t
+4 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.412502 mm) turns t
+4 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.498839 mm) turns t
+4 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.530721 mm) turns t
+4 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.27493 mm) turns ti
+4 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.436939 mm) turns t
+4 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.729596 mm) turns t
+4 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.673438 mm) turns t
+4 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.06652 mm) turns ti
+4 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.300086 mm) turns t
+4 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.544308 mm) turns t
+4 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.573471 mm) turns t
+4 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.534538 mm) turns t
+4 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.584621 mm) turns t
+4 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.793361 mm) turns t
+4 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.827608 mm) turns t
+4 a-ValueError: Null TopoDS_Shape object -> other volume
+3 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.766497 mm) turns t
+3 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.04925 mm) turns ti
+3 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.651035 mm) turns t
+3 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.21311 mm) turns ti
+3 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.380304 mm) turns t
+3 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.51471 mm) turns ti
+3 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.550215 mm) turns t
+3 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.965164 mm) turns t
+3 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.550899 mm) turns t
+3 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.80725 mm) turns ti
+3 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.676225 mm) turns t
+3 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.647842 mm) turns t
+3 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.49576 mm) turns ti
+3 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.60111 mm) turns ti
+3 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.13736 mm) turns ti
+3 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.23617 mm) turns ti
+3 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.790227 mm) turns t
+3 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.413252 mm) turns t
+3 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.02631 mm) turns ti
+3 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.811708 mm) turns t
+3 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.58333 mm) turns ti
+3 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.51447 mm) turns ti
+3 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.793084 mm) turns t
+3 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.21124 mm) turns ti
+3 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.661911 mm) turns t
+3 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.49553 mm) turns ti
+3 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.32838 mm) turns ti
+3 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.17272 mm) turns ti
+3 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.16152 mm) turns ti
+3 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.428457 mm) turns t
+3 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.764106 mm) turns t
+3 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.57415 mm) turns ti
+3 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.20171 mm) turns ti
+3 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.903029 mm) turns t
+3 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.364157 mm) turns t
+3 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.53476 mm) turns ti
+3 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.979086 mm) turns t
+3 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.20151 mm) turns ti
+3 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.430446 mm) turns t
+3 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.578693 mm) turns t
+3 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.995668 mm) turns t
+3 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.461538 mm) turns t
+3 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.65646 mm) turns ti
+3 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.408459 mm) turns t
+3 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.18 mm) turns tight
+3 a-`result` contains no solid -> SketchError: an arc of the path (radius 0.430446 mm) turns t
+3 b-multisolid -> exact
+2 d-the profile can't follow this path (a corne -> SketchError: an arc of the path (radius 1.67035 mm) turns ti
+2 d-the profile can't follow this path (a corne -> SketchError: an arc of the path (radius 0.7069 mm) turns tig
+2 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.87129 mm) turns ti
+2 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.650702 mm) turns t
+2 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.22462 mm) turns ti
+2 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.82709 mm) turns ti
+2 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.29397 mm) turns ti
+2 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.0046 mm) turns tig
+2 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.50509 mm) turns ti
+2 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.57509 mm) turns ti
+2 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.25979 mm) turns ti
+2 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.72796 mm) turns ti
+2 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.484058 mm) turns t
+2 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.15066 mm) turns ti
+2 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.2698 mm) turns tig
+2 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.551975 mm) turns t
+2 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.868141 mm) turns t
+2 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.49577 mm) turns ti
+2 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.49627 mm) turns ti
+2 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.609639 mm) turns t
+2 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.83573 mm) turns ti
+2 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 2.48833 mm) turns ti
+2 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.94901 mm) turns ti
+2 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.554581 mm) turns t
+2 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.70659 mm) turns ti
+2 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.8306 mm) turns tig
+2 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.984335 mm) turns t
+2 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.870747 mm) turns t
+2 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.61167 mm) turns ti
+2 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.14889 mm) turns ti
+2 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.9068 mm) turns tig
+2 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 2.24146 mm) turns ti
+2 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.847551 mm) turns t
+2 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.501853 mm) turns t
+2 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.06209 mm) turns ti
+2 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.435683 mm) turns t
+2 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.9248 mm) turns tig
+2 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.721823 mm) turns t
+2 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.381756 mm) turns t
+2 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.737497 mm) turns t
+2 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.893098 mm) turns t
+2 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.714692 mm) turns t
+2 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.51191 mm) turns ti
+2 ok-noref -> SketchError: an arc of the path (radius 0.651035 mm) turns t
+2 ok-noref -> SketchError: an arc of the path (radius 0.345584 mm) turns t
+2 ok-noref -> SketchError: an arc of the path (radius 0.647842 mm) turns t
+2 ok-noref -> SketchError: an arc of the path (radius 0.612446 mm) turns t
+2 ok-noref -> SketchError: an arc of the path (radius 1.02631 mm) turns ti
+2 ok-noref -> SketchError: an arc of the path (radius 0.412502 mm) turns t
+2 ok-noref -> SketchError: an arc of the path (radius 0.300086 mm) turns t
+2 ok-noref -> SketchError: an arc of the path (radius 1.20171 mm) turns ti
+2 ok-noref -> SketchError: an arc of the path (radius 1.19636 mm) turns ti
+2 ok-noref -> SketchError: an arc of the path (radius 0.501853 mm) turns t
+2 a-AttributeError: 'NoneType' object has no at -> SketchError: an arc of the path (radius 0.847551 mm) turns t
+2 a-AttributeError: 'NoneType' object has no at -> SketchError: a corner of the path turns 172°: too sharp to m
+2 a-`result` is not a valid solid (BRepCheck fa -> SketchError: an arc of the path (radius 0.793084 mm) turns t
+2 a-`result` is not a valid solid (BRepCheck fa -> other volume
+1 pass -> SketchError: the profile swept along this path isn't a valid
+1 d-the profile can't follow this path (a corne -> SketchError: an arc of the path (radius 1.04925 mm) turns ti
+1 d-the profile can't follow this path (a corne -> SketchError: an arc of the path (radius 0.897289 mm) turns t
+1 d-the profile can't follow this path (a corne -> SketchError: an arc of the path (radius 1.80697 mm) turns ti
+1 d-the profile can't follow this path (a corne -> SketchError: an arc of the path (radius 1.10558 mm) turns ti
+1 d-the profile can't follow this path (a corne -> SketchError: an arc of the path (radius 1.20478 mm) turns ti
+1 d-the profile can't follow this path (a corne -> SketchError: an arc of the path (radius 1.60111 mm) turns ti
+1 d-the profile can't follow this path (a corne -> SketchError: an arc of the path (radius 1.13736 mm) turns ti
+1 d-the profile can't follow this path (a corne -> SketchError: an arc of the path (radius 0.749897 mm) turns t
+1 d-the profile can't follow this path (a corne -> SketchError: an arc of the path (radius 0.413252 mm) turns t
+1 d-the profile can't follow this path (a corne -> SketchError: an arc of the path (radius 1.77006 mm) turns ti
+1 d-the profile can't follow this path (a corne -> SketchError: an arc of the path (radius 0.492574 mm) turns t
+1 d-the profile can't follow this path (a corne -> SketchError: an arc of the path (radius 0.530721 mm) turns t
+1 d-the profile can't follow this path (a corne -> SketchError: an arc of the path (radius 1.27493 mm) turns ti
+1 d-the profile can't follow this path (a corne -> SketchError: an arc of the path (radius 0.57415 mm) turns ti
+1 d-the profile can't follow this path (a corne -> SketchError: an arc of the path (radius 1.19529 mm) turns ti
+1 d-the profile can't follow this path (a corne -> SketchError: an arc of the path (radius 0.9068 mm) turns tig
+1 d-the profile can't follow this path (a corne -> SketchError: an arc of the path (radius 0.979086 mm) turns t
+1 d-the profile can't follow this path (a corne -> SketchError: an arc of the path (radius 1.24301 mm) turns ti
+1 d-the profile can't follow this path (a corne -> SketchError: an arc of the path (radius 1.3276 mm) turns tig
+1 d-the profile can't follow this path (a corne -> SketchError: an arc of the path (radius 1.04349 mm) turns ti
+1 d-the profile can't follow this path (a corne -> SketchError: an arc of the path (radius 1.12872 mm) turns ti
+1 d-the profile can't follow this path (a corne -> SketchError: an arc of the path (radius 0.584621 mm) turns t
+1 b-volume -> other volume
+1 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.897289 mm) turns t
+1 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.80697 mm) turns ti
+1 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.54122 mm) turns ti
+1 d-the profile swept along this path isn't a v -> SketchError: a corner of the path turns 179°: too sharp to m
+1 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.46376 mm) turns ti
+1 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.10558 mm) turns ti
+1 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.912568 mm) turns t
+1 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 2.14939 mm) turns ti
+1 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 3.30171 mm) turns ti
+1 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.83623 mm) turns ti
+1 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.20478 mm) turns ti
+1 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.345584 mm) turns t
+1 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 2.43993 mm) turns ti
+1 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 2.77518 mm) turns ti
+1 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.33252 mm) turns ti
+1 d-the profile swept along this path isn't a v -> SketchError: the profile swept along this path isn't a valid
+1 d-the profile swept along this path isn't a v -> RUNNER TimeoutExpired
+1 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.749897 mm) turns t
+1 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.39099 mm) turns ti
+1 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 2.11966 mm) turns ti
+1 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.88008 mm) turns ti
+1 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 3.50136 mm) turns ti
+1 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.49132 mm) turns ti
+1 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.3612 mm) turns tig
+1 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.88688 mm) turns ti
+1 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.78604 mm) turns ti
+1 d-the profile swept along this path isn't a v -> SketchError: a corner of the path turns 177°: too sharp to m
+1 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.84775 mm) turns ti
+1 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.5781 mm) turns tig
+1 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.77006 mm) turns ti
+1 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 2.4458 mm) turns tig
+1 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.492574 mm) turns t
+1 d-the profile swept along this path isn't a v -> SketchError: a corner of the path turns 176°: too sharp to m
+1 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.67035 mm) turns ti
+1 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.04069 mm) turns ti
+1 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.79465 mm) turns ti
+1 d-the profile swept along this path isn't a v -> SketchError: a corner of the path turns 180°: too sharp to m
+1 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.990271 mm) turns t
+1 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.334046 mm) turns t
+1 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.54388 mm) turns ti
+1 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.81904 mm) turns ti
+1 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.694842 mm) turns t
+1 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.82397 mm) turns ti
+1 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.19636 mm) turns ti
+1 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 2.31981 mm) turns ti
+1 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.91332 mm) turns ti
+1 d-the profile swept along this path isn't a v -> SketchError: a corner of the path turns 174°: too sharp to m
+1 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.22665 mm) turns ti
+1 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.91376 mm) turns ti
+1 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.11822 mm) turns ti
+1 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.54025 mm) turns ti
+1 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.96777 mm) turns ti
+1 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.828 mm) turns tigh
+1 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.60275 mm) turns ti
+1 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 3.29674 mm) turns ti
+1 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 2.09998 mm) turns ti
+1 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.04349 mm) turns ti
+1 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 0.389057 mm) turns t
+1 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.11286 mm) turns ti
+1 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.12872 mm) turns ti
+1 d-the profile swept along this path isn't a v -> SketchError: an arc of the path (radius 1.97188 mm) turns ti
+1 d-a corner of the path turns 176°: too sharp  -> SketchError: an arc of the path (radius 1.04604 mm) turns ti
+1 d-a corner of the path turns 176°: too sharp  -> SketchError: an arc of the path (radius 0.550899 mm) turns t
+1 d-a corner of the path turns 176°: too sharp  -> SketchError: an arc of the path (radius 1.08223 mm) turns ti
+1 d-a corner of the path turns 176°: too sharp  -> SketchError: an arc of the path (radius 0.413252 mm) turns t
+1 d-a corner of the path turns 176°: too sharp  -> SketchError: an arc of the path (radius 1.04641 mm) turns ti
+1 d-a corner of the path turns 180°: too sharp  -> SketchError: an arc of the path (radius 0.766497 mm) turns t
+1 d-a corner of the path turns 180°: too sharp  -> SketchError: an arc of the path (radius 1.54122 mm) turns ti
+1 ok-noref -> SketchError: an arc of the path (radius 0.380304 mm) turns t
+1 ok-noref -> SketchError: an arc of the path (radius 0.676225 mm) turns t
+1 ok-noref -> SketchError: an arc of the path (radius 0.908442 mm) turns t
+1 ok-noref -> SketchError: an arc of the path (radius 1.70953 mm) turns ti
+1 ok-noref -> SketchError: an arc of the path (radius 0.484058 mm) turns t
+1 ok-noref -> SketchError: an arc of the path (radius 1.28517 mm) turns ti
+1 ok-noref -> SketchError: an arc of the path (radius 1.15066 mm) turns ti
+1 ok-noref -> SketchError: an arc of the path (radius 0.954975 mm) turns t
+1 ok-noref -> SketchError: an arc of the path (radius 0.488465 mm) turns t
+1 ok-noref -> SketchError: an arc of the path (radius 0.868141 mm) turns t
+1 ok-noref -> SketchError: an arc of the path (radius 1.11229 mm) turns ti
+1 ok-noref -> SketchError: an arc of the path (radius 0.498839 mm) turns t
+1 ok-noref -> SketchError: an arc of the path (radius 1.49627 mm) turns ti
+1 ok-noref -> SketchError: an arc of the path (radius 1.89829 mm) turns ti
+1 ok-noref -> SketchError: an arc of the path (radius 1.83573 mm) turns ti
+1 ok-noref -> SketchError: an arc of the path (radius 0.492574 mm) turns t
+1 ok-noref -> SketchError: an arc of the path (radius 1.70659 mm) turns ti
+1 ok-noref -> SketchError: an arc of the path (radius 0.8306 mm) turns tig
+1 ok-noref -> SketchError: an arc of the path (radius 0.436939 mm) turns t
+1 ok-noref -> SketchError: an arc of the path (radius 0.428457 mm) turns t
+1 ok-noref -> SketchError: an arc of the path (radius 0.764106 mm) turns t
+1 ok-noref -> SketchError: an arc of the path (radius 0.903029 mm) turns t
+1 ok-noref -> SketchError: an arc of the path (radius 0.364157 mm) turns t
+1 ok-noref -> SketchError: an arc of the path (radius 3.35899 mm) turns ti
+1 ok-noref -> SketchError: an arc of the path (radius 1.91376 mm) turns ti
+1 ok-noref -> SketchError: an arc of the path (radius 1.86485 mm) turns ti
+1 ok-noref -> SketchError: an arc of the path (radius 1.58215 mm) turns ti
+1 ok-noref -> SketchError: an arc of the path (radius 2.58486 mm) turns ti
+1 ok-noref -> SketchError: an arc of the path (radius 1.9248 mm) turns tig
+1 ok-noref -> SketchError: an arc of the path (radius 0.573471 mm) turns t
+1 ok-noref -> SketchError: an arc of the path (radius 0.578693 mm) turns t
+1 ok-noref -> SketchError: an arc of the path (radius 0.381756 mm) turns t
+1 ok-noref -> SketchError: an arc of the path (radius 0.389057 mm) turns t
+1 ok-noref -> SketchError: an arc of the path (radius 1.65646 mm) turns ti
+1 ok-noref -> SketchError: an arc of the path (radius 1.08878 mm) turns ti
+1 ok-noref -> SketchError: an arc of the path (radius 1.97188 mm) turns ti
+1 a-AttributeError: 'NoneType' object has no at -> SketchError: a corner of the path turns 179°: too sharp to m
+1 a-AttributeError: 'NoneType' object has no at -> SketchError: a corner of the path turns 171°: too sharp to m
+1 a-AttributeError: 'NoneType' object has no at -> SketchError: an arc of the path (radius 0.436939 mm) turns t
+1 a-AttributeError: 'NoneType' object has no at -> SketchError: a corner of the path turns 173°: too sharp to m
+1 a-AttributeError: 'NoneType' object has no at -> SketchError: an arc of the path (radius 0.359849 mm) turns t
+1 d-a round groove's depth (1.83131 mm) must be -> SketchError: a round groove's depth (1.831311 mm) must be at
+1 a-`result` contains no solid -> SketchError: an arc of the path (radius 1.22462 mm) turns ti
+1 a-`result` contains no solid -> SketchError: an arc of the path (radius 0.550215 mm) turns t
+1 a-`result` contains no solid -> SketchError: an arc of the path (radius 0.315915 mm) turns t
+1 a-`result` contains no solid -> SketchError: an arc of the path (radius 1.49627 mm) turns ti
+1 a-`result` contains no solid -> SketchError: this intersection has nothing in common with th
+1 a-`result` contains no solid -> SketchError: an arc of the path (radius 0.428457 mm) turns t
+1 d-a corner of the path turns 179°: too sharp  -> SketchError: an arc of the path (radius 1.22462 mm) turns ti
+1 d-a corner of the path turns 179°: too sharp  -> SketchError: an arc of the path (radius 0.749897 mm) turns t
+1 d-a corner of the path turns 179°: too sharp  -> SketchError: an arc of the path (radius 0.551975 mm) turns t
+1 d-a corner of the path turns 179°: too sharp  -> SketchError: an arc of the path (radius 0.544308 mm) turns t
+1 a-`result` is not a valid solid (BRepCheck fa -> SketchError: an arc of the path (radius 1.46376 mm) turns ti
+1 a-`result` is not a valid solid (BRepCheck fa -> SketchError: an arc of the path (radius 1.00964 mm) turns ti
+1 a-`result` is not a valid solid (BRepCheck fa -> SketchError: an arc of the path (radius 0.423451 mm) turns t
+1 a-`result` is not a valid solid (BRepCheck fa -> SketchError: an arc of the path (radius 1.2698 mm) turns tig
+1 a-`result` is not a valid solid (BRepCheck fa -> `result` is not a valid solid (BRepCheck failed)
+1 a-`result` is not a valid solid (BRepCheck fa -> SketchError: an arc of the path (radius 1.51447 mm) turns ti
+1 a-`result` is not a valid solid (BRepCheck fa -> SketchError: an arc of the path (radius 1.16152 mm) turns ti
+1 a-`result` is not a valid solid (BRepCheck fa -> SketchError: the profile can't follow this path (a corner or
+1 a-`result` is not a valid solid (BRepCheck fa -> SketchError: an arc of the path (radius 2.09998 mm) turns ti
+1 d-a corner of the path turns 175°: too sharp  -> SketchError: an arc of the path (radius 0.460732 mm) turns t
+1 d-a corner of the path turns 175°: too sharp  -> SketchError: an arc of the path (radius 0.979086 mm) turns t
+1 a-StdFail_NotDone: BRep_API: command not done -> SketchError: an arc of the path (radius 1.70953 mm) turns ti
+1 a-StdFail_NotDone: BRep_API: command not done -> SketchError: an arc of the path (radius 0.609639 mm) turns t
+1 a-StdFail_NotDone: BRep_API: command not done -> SketchError: an arc of the path (radius 0.530721 mm) turns t
+1 a-ValueError: Null TopoDS_Shape object -> SketchError: OCCT's boolean went wrong here (the part's volu
+1 a-ValueError: Null TopoDS_Shape object -> SketchError: an arc of the path (radius 0.498839 mm) turns t
+1 a-ValueError: Null TopoDS_Shape object -> SketchError: an arc of the path (radius 0.492574 mm) turns t
+1 a-ValueError: Null TopoDS_Shape object -> SketchError: an arc of the path (radius 0.7069 mm) turns tig
+1 d-a corner of the path turns 174°: too sharp  -> SketchError: an arc of the path (radius 1.10127 mm) turns ti
+1 d-a corner of the path turns 174°: too sharp  -> SketchError: an arc of the path (radius 1.91332 mm) turns ti
+1 d-a corner of the path turns 174°: too sharp  -> SketchError: an arc of the path (radius 1.12872 mm) turns ti
+1 b-multisolid -> SketchError: the profile can't follow this path (a corner or
+1 d-a corner of the path turns 173°: too sharp  -> SketchError: an arc of the path (radius 1.23617 mm) turns ti
+1 d-a round groove's depth (3.60826 mm) must be -> SketchError: a round groove's depth (3.608258 mm) must be at
+1 d-a corner of the path turns 171°: too sharp  -> SketchError: an arc of the path (radius 1.77006 mm) turns ti
+1 d-a corner of the path turns 170°: too sharp  -> SketchError: an arc of the path (radius 1.08878 mm) turns ti
+1 d-a round groove's depth (2.32975 mm) must be -> SketchError: a round groove's depth (2.329747 mm) must be at
+1 d-a round groove's depth (1.87794 mm) must be -> SketchError: an arc of the path (radius 0.413252 mm) turns t
+1 a-RuntimeError: the result has an edge far lo -> SketchError: an arc of the path (radius 0.310758 mm) turns t
+1 d-a round groove's depth (1.9075 mm) must be  -> SketchError: a round groove's depth (1.907498 mm) must be at
+1 d-a round groove's depth (1.8791 mm) must be  -> SketchError: a round groove's depth (1.879102 mm) must be at
+1 d-a round groove's depth (1.2819 mm) must be  -> SketchError: a round groove's depth (1.281897 mm) must be at
+1 a-ValueError: need at least one array to conc -> other volume
+1 d-a round groove's depth (3.24208 mm) must be -> SketchError: an arc of the path (radius 0.984335 mm) turns t
+1 a-RuntimeError: face 8 has no triangulation -> other volume
+1 d-a round groove's depth (1.69014 mm) must be -> SketchError: a round groove's depth (1.690141 mm) must be at
+1 a-Standard_NullObject: BRepAdaptor_Curve::No  -> SketchError: an arc of the path (radius 1.06209 mm) turns ti
+1 d-a round groove's depth (3.47849 mm) must be -> SketchError: an arc of the path (radius 0.721823 mm) turns t
+1 d-a round groove's depth (1.52545 mm) must be -> SketchError: an arc of the path (radius 0.389057 mm) turns t
+1 d-a round groove's depth (3.50632 mm) must be -> SketchError: an arc of the path (radius 1.08878 mm) turns ti
+1 a-IndexError: index 2 is out of bounds for ax -> other volume
+1 d-a round groove's depth (1.43606 mm) must be -> SketchError: an arc of the path (radius 1.18 mm) turns tight

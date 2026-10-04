@@ -59,8 +59,14 @@ commit 23f4bfd** — File > Import / Export > "CAD (.step, .iges, .brep) – Ble
 part's script), assemblies as nested collections, repeated products as linked duplicates, colours as materials,
 invalid solids shown with a warning; export of the selected or all visible non-cutter parts from their scripts.
 Corpus: 18/18 files, 0 errors (6 invalid solids warned), import ≤ 2.5 s, meshing of the 150-part board 27 s
-(2 cores). 450 unit + 289 Blender tests. Not yet: an independent review (running at the end of session 16), the
-groove/taper rerun results, a build + install, the GUI check below (step 6 (d)).
+(2 cores). An independent review found 5 bugs, fixed in 23b19a8 (UTF-8 names, linked duplicates exported as one
+product, typed extension decides the format, a failed export left queued, an instance colour). 454 unit + 294
+Blender tests. **Build 23b19a8 installed** in the Windows portable Blender (smoke PASS).
+**First thing next session:** analyse the groove rerun on the final code (summary
+`spike/m3_bug_sweep/rerun_grooves_s16.txt`, cases in `changed_grooves.json`): check every "other volume" case with
+`groove_check/oracle.py`, and the 19 "pass -> SketchError: the profile can't follow this path" (accepted before,
+refused now: right or a regression?). The taper rerun was still running at session end: rerun it
+(`$PY rerun.py tapers`, ~10 min). Then the GUI check below (step 6 (d)).
 Start with `git fetch`, then plan step 6 (the maintainer's GUI test) when they are back.
 
 ### What session 15 did (details and commits: the ledger `docs/research/2026-10-04-bug-sweep.md`)
