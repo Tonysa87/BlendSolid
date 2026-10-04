@@ -773,3 +773,19 @@ def test_polygons_lose_a_vertex_repeated_next_to_itself():
     out_loops, out_sizes, faces, out_normals = tessellate._drop_repeats(loops, sizes, np.array([5, 6]), normals)
     assert out_loops.tolist() == [0, 1, 2] and out_sizes.tolist() == [3] and out_sizes.dtype == np.int32
     assert faces.tolist() == [5] and out_normals.tolist() == normals[[0, 2, 3]].tolist()
+
+
+def test_a_face_brepmesh_cannot_mesh_never_fails_the_part():
+    # a 0.001 mm first path segment leaves a flat face whose discretized boundary crosses itself: the strict
+    # recovery refuses it (M5), BRepMesh makes nothing of it, and the whole part failed ("face 3 has no
+    # triangulation"); now the lenient recovery meshes it, with the fallback warning
+    import runner
+    src = ("with BuildPart() as part:\n"
+           "    with sketch(Plane.XY) as sketch_1:  # feature: sketch_1\n"
+           "        sketch_1.path_1 = path((-7.535518, 8.50321), (-7.536487, 8.503457), (-17.339872, -3.419224))\n"
+           '    groove(sketch_1.path_1, width=0.649878, depth=3.019164, profile="circle", corners="round", '
+           "mode=Mode.ADD)  # feature: rib_1\n"
+           "result = part.part\n")
+    r = runner.run_script(src)
+    assert r.ok and abs(r.volume - 5.14613513647428) < 1e-6
+    assert any("couldn't be meshed" in text for _, text in r.warnings)

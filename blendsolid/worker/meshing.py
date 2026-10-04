@@ -458,11 +458,13 @@ def _orient(p, a, b, c):
     return (p[b, 0] - p[a, 0]) * (p[c, 1] - p[a, 1]) - (p[b, 1] - p[a, 1]) * (p[c, 0] - p[a, 0])
 
 
-def _recover(q, tris, constraints, budget=200000):
+def _recover(q, tris, constraints, budget=200000, strict=True):
     """Make every constraint segment an edge of the triangulation by flipping the edges that cross it (Sloan 1993:
     walk from one end to list the crossing edges, flip them until none crosses). Returns the triangles, or None if
     a segment can't be recovered (it runs through another node) or the work passes `budget` flips (the caller
-    falls back: pathological boundaries must not hang the worker)."""
+    falls back: pathological boundaries must not hang the worker). Not `strict` (a last resort for a boundary that
+    crosses itself, which has no valid answer): constraints may be flipped away and those that can't be recovered
+    are skipped."""
     from collections import deque
     tris = [tuple(int(x) for x in t) for t in tris]
     for t_i, t in enumerate(tris):
@@ -528,7 +530,9 @@ def _recover(q, tris, constraints, budget=200000):
         if (a, b) in em or (b, a) in em:
             continue
         found = crossing_edges(a, b)
-        if found is None or any((min(x, y), max(x, y)) in fixed for x, y in found):
+        if found is None or (strict and any((min(x, y), max(x, y)) in fixed for x, y in found)):
+            if not strict:
+                continue
             return None  # through a node, or across another boundary segment (a boundary crossing itself, M5)
         queue = deque(found)
         stuck = 0
@@ -537,7 +541,7 @@ def _recover(q, tris, constraints, budget=200000):
             if work > budget:
                 return None
             x, y = queue.popleft()
-            if (min(x, y), max(x, y)) in fixed:
+            if strict and (min(x, y), max(x, y)) in fixed:
                 return None
             i, j = em.get((x, y)), em.get((y, x))
             if i is None or j is None:
@@ -548,6 +552,8 @@ def _recover(q, tris, constraints, budget=200000):
                 queue.append((x, y))
                 stuck += 1
                 if stuck > len(queue) + 1:
+                    if not strict:
+                        break
                     return None
                 continue
             stuck = 0
@@ -563,6 +569,8 @@ def _recover(q, tris, constraints, budget=200000):
             if {u, w} != {a, b} and crosses(a, b, u, w):
                 queue.append((u, w))
         if (a, b) not in em and (b, a) not in em:
+            if not strict:
+                continue
             return None
         fixed.add((min(a, b), max(a, b)))
     return np.asarray(tris, dtype=np.int64)
@@ -584,7 +592,7 @@ def _merge_touching(uv, segs, tol=1e-9):
     return [(int(first[a]), int(first[b])) for a, b in segs if first[a] != first[b]], first
 
 
-def trimmed(face_info, edges, periods, grid=True):
+def trimmed(face_info, edges, periods, grid=True, strict=True):
     """(uv, xyz, triangles CCW in (u, v)) of a face from its boundary loops, with the interior nodes of a grid
     scaled by the face's steps (none on a flat face), or None if the boundary can't be recovered."""
     from scipy.spatial import Delaunay
@@ -636,7 +644,7 @@ def trimmed(face_info, edges, periods, grid=True):
     same = np.concatenate([same, np.arange(len(same), len(q))])
     tri = same[tri]
     tri = tri[(tri[:, 0] != tri[:, 1]) & (tri[:, 1] != tri[:, 2]) & (tri[:, 2] != tri[:, 0])]
-    tri = _recover(q, tri, segs)
+    tri = _recover(q, tri, segs, strict=strict)
     if tri is None:
         return None
     tri = tri[_interior(tri, segs)]
@@ -917,16 +925,16 @@ def ring(use, fi, edges, u0):
     return u[order], xyz[order], float(np.median(uv[:, 1]))
 
 
-def mesh_face(fi, edges, periods):
-    """(uv, xyz, triangles CCW in (u, v)) of a planned face, or None if it couldn't be meshed."""
+def mesh_face(fi, edges, periods, strict=True):
+    """(uv, xyz, triangles CCW in (u, v)) of a planned face, or None if it couldn't be meshed. Not `strict`: the
+    last resort for a boundary crossing itself (see _recover), whose mesh may fold."""
     if fi.kind == "plane":
-        return trimmed(fi, edges, periods, grid=False)
+        return trimmed(fi, edges, periods, grid=False, strict=strict)
     if fi.kind == "tfi":
         out = tfi(fi, edges, periods)
         if out is not None:
             return out
-        fi.step = _fitted(fi, _capped(fi.step))
-        return trimmed(fi, edges, periods)
+        fi.kind, fi.step = "grid", _fitted(fi, _capped(fi.step))
     if fi.kind == "grid":
-        return trimmed(fi, edges, periods)
+        return trimmed(fi, edges, periods, strict=strict)
     return None

@@ -497,12 +497,18 @@ def tessellate_with_normals(shape, lin_defl=0.1, ang_defl=0.3):
                     fallback = True
                     BRepMesh_IncrementalMesh(shape, lin_defl, False, ang_defl, True)
                 tri, pts = _triangulation(face)
-                if tri is None:
-                    raise RuntimeError(f"face {fid} has no triangulation")
-                t = np.array([tri.Triangle(i).Get() for i in range(1, tri.NbTriangles() + 1)],
-                             dtype=np.int32).reshape(-1, 3) - 1
-                uv_all = [(tri.UVNode(i + 1).X(), tri.UVNode(i + 1).Y()) for i in range(len(pts))]
-                t = _uv_ccw(t, np.asarray(uv_all))
+                if tri is not None:
+                    t = np.array([tri.Triangle(i).Get() for i in range(1, tri.NbTriangles() + 1)],
+                                 dtype=np.int32).reshape(-1, 3) - 1
+                    uv_all = [(tri.UVNode(i + 1).X(), tri.UVNode(i + 1).Y()) for i in range(len(pts))]
+                    t = _uv_ccw(t, np.asarray(uv_all))
+                else:  # BRepMesh made nothing either (a sliver face): our mesh without the crossing check
+                    out = meshing.mesh_face(fi, layout.edges, periods, strict=False)
+                    if out is None:
+                        print(f"BlendSolid: face {fid} left out of the display mesh", file=sys.stderr)
+                        continue  # the display misses a face; the part and its other faces stay
+                    uv_all, pts, t = out
+                    t = t.astype(np.int32)
             pts, t, kept = _weld(pts, t)
             uv = [tuple(uv_all[i]) for i in kept]
         if face.Orientation() == TopAbs_REVERSED:
