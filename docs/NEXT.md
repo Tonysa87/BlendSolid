@@ -62,9 +62,11 @@ Updated: 2026-10-04, session 14 (milestone 3a in progress, branch `m3a`, pushed 
   intersected, round = the outer half of the profile revolved) — e5affbc, exact volumes in tests. File:
   `E:\bs_debug\s14_rib.blend`.
 - Known, not fixed yet: `arc_to` a point straight ahead along the tangent raises a raw `gp_Dir::Cross()` error.
-- Headless bug sweep running (grooves/paths, regions/extrude/revolve, Blender operators/undo, display mesh on 3a
-  geometry); its findings get fixed one at a time, then rebuild + install, then step 5b (mouse scaling, Ctrl
-  grid, click confirm with scale 1) and step 6.
+- **Headless bug sweep done** (4 searches, ~10,000 cases): ledger with every finding and its status in
+  `docs/research/2026-10-04-bug-sweep.md` (B = Blender side, R = regions/extrude/revolve, M = display mesh,
+  G = grooves/paths). All Blender-side bugs fixed (B1-B11, B14); worker fixes going one at a time, each with a
+  test that fails without it. Then rebuild + install, then step 5b (mouse scaling, Ctrl grid, click confirm with
+  scale 1) and step 6.
 
 **Session 13 (2026-10-02): the maintainer's GUI test of session 12's build, steps 1-4 PASS, step 5 half done.**
 Everything below is built, tested, committed, pushed and installed in the portable Blender (b50efea). Resume with:
