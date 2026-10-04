@@ -522,6 +522,24 @@ def test_a_join_touching_the_part_along_an_edge_warns():
     assert not r.warnings
 
 
+def test_v_groove_along_an_arc_it_fits():
+    # G9: the V widened by the 0.5 mm overshoot was refused along an arc of radius 1.2 (half width 1)
+    r = run(BOX + '    with sketch(on_face(face("box_1", "+Z"))) as sketch_1:  # feature: sketch_1\n'
+                  '        sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), arc_to((0.0, 2.4)), (-10.0, 2.4))\n'
+                  '    groove(sketch_1.path_1, width=2.0, depth=1.0, profile="v")  # feature: groove_1\n')
+    assert abs(r.volume - (24000 - 20 - 1.0 * math.pi * 1.2)) < 1e-6  # Pappus: section 1 mm², centroid at 1.2
+
+
+def test_round_corner_nearly_turning_back():
+    # G10: OCCT's fuse of the runs at a 177.6° corner came back invalid (and its volume wrong): fuzzy retry
+    r = run(BOX + '    with sketch(on_face(face("box_1", "+Z"))) as sketch_1:  # feature: sketch_1\n'
+                  '        sketch_1.path_1 = path((-6.959651, -2.821778), (-5.800949, -4.970833), '
+                  '(-9.00161, 1.614851), (-1.165306, 5.423318))\n'
+                  '    groove(sketch_1.path_1, width=2.147519, depth=1.566852, profile="round", corners="round")'
+                  '  # feature: groove_1\n')
+    assert 24000 - 50 < r.volume < 24000 - 45
+
+
 def test_closed_path_groove():
     r = run(GROOVE_BOX +
             '    with sketch(on_face(face("box_1", "+Z"))) as sketch_1:  # feature: sketch_1\n'

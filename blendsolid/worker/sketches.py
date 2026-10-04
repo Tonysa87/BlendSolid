@@ -547,9 +547,9 @@ def _profile_points(profile, width, depth, over):
     w = width / 2
     if profile == "rect":
         return [(-w, -depth), (w, -depth), (w, over), (-w, over)]
-    if profile == "v":
-        k = w / depth  # the V's half width per mm of depth, from the apex up to the plane
-        return [(0.0, -depth), (w + k * over, over), (-w - k * over, over)]
+    if profile == "v":  # straight up above the plane: a V widened by the overshoot refused arcs it fits (G9)
+        return [(0.0, -depth), (w, 0.0), (w, over), (-w, over), (-w, 0.0)] if over else \
+            [(0.0, -depth), (w, 0.0), (-w, 0.0)]
     raise SketchError(f"unknown profile '{profile}' (one of {', '.join(PROFILES)})")
 
 
@@ -697,11 +697,46 @@ def _sweep_by_runs(runs, sharp, profile_at, normal, corners):
             pieces.append(_round_corner(profile_at, point, before, after, normal, turn, reach))
         else:
             raise SketchError("the profile can't be mitred at a corner of this path: try round corners")
-    solid = pieces[0].fuse(*pieces[1:]).clean() if len(pieces) > 1 else pieces[0]
-    solids = solid.solids()
-    if len(solids) != 1:
-        raise SketchError("the profile can't follow this path (a corner or an arc too tight for its width?)")
-    return _valid_sweep(solids[0])
+    return _valid_sweep(_fused(pieces) if len(pieces) > 1 else pieces[0])
+
+
+def _fused(pieces):
+    """The union of the sweep's pieces as one solid. OCCT's fuse of runs that nearly overlap (a 177.6° corner)
+    can come back invalid, its volume wrong (bug sweep G10): retried with a fuzzy value, then piece by piece."""
+    from build123d import Compound, Solid
+    from OCP.BRepAlgoAPI import BRepAlgoAPI_Fuse
+    from OCP.BRepCheck import BRepCheck_Analyzer
+    from OCP.collections import List_TopoDS_Shape
+
+    def plain():
+        return pieces[0].fuse(*pieces[1:])
+
+    def fuzzy():
+        op, args, tools = BRepAlgoAPI_Fuse(), List_TopoDS_Shape(), List_TopoDS_Shape()
+        args.Append(pieces[0].wrapped)
+        for p in pieces[1:]:
+            tools.Append(p.wrapped)
+        op.SetArguments(args)
+        op.SetTools(tools)
+        op.SetFuzzyValue(FUZZY_MM)
+        op.Build()
+        return Compound(op.Shape()) if op.IsDone() else None
+
+    def one_by_one():
+        acc = pieces[0]
+        for p in pieces[1:]:
+            acc = acc.fuse(p)
+        return acc
+
+    for attempt in (plain, fuzzy, one_by_one):
+        try:
+            shape = attempt()
+            solids = shape.clean().solids() if shape is not None else []
+        except Exception:
+            continue
+        if len(solids) == 1 and BRepCheck_Analyzer(solids[0].wrapped).IsValid():
+            return Solid(solids[0].wrapped)
+    raise SketchError("the profile can't follow this path (a corner or an arc too tight for its width?)")
 
 
 # -- the script helpers -------------------------------------------------------------------------------------------
