@@ -117,6 +117,9 @@ def surface_steps(surf, uv_box, lin_defl, ang_defl, samples=7):
     # would otherwise get thousands of columns); then at most _MAX_CELLS across the face each way (Rhino caps its
     # initial grid the same way).
     if all(math.isfinite(s) for s in steps):
+        # curved both ways, a cell's two sags add up at its middle: each direction gets half the deviation's
+        # square (bug sweep M8: tori at 1.9x the tolerance)
+        steps = tuple(s / math.sqrt(2) for s in steps)
         low = min(steps)
         steps = tuple(min(s, max(_ASPECT * low, s / _ASPECT_SPLIT)) for s in steps)
     extent = ((u1 - u0) * scale[0], (v1 - v0) * scale[1])
@@ -816,6 +819,13 @@ def _adaptive_params(info, lin_defl, ang_defl, longest):
     if len(params) < 2:
         return None
     params[0], params[-1] = info.first, info.last
+    gap = 1e-6 * info.length  # TangentialDeflection may return a point next to an end: one node, not two
+    kept = [params[0]]
+    for t in params[1:-1]:
+        if GCPnts_AbscissaPoint.Length_s(curve, kept[-1], t) > gap and \
+                GCPnts_AbscissaPoint.Length_s(curve, t, params[-1]) > gap:
+            kept.append(t)
+    params = kept + [params[-1]]
     out = [params[0]]
     for a, b in zip(params, params[1:]):
         length = GCPnts_AbscissaPoint.Length_s(curve, a, b)

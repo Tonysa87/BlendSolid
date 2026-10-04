@@ -13,7 +13,7 @@ import math
 import os
 import sys
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ROOT = os.environ.get("BS_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # BS_ROOT: another checkout
 sys.path[:0] = [os.path.join(ROOT, "blendsolid", "worker"),
                 os.environ.get("BLENDSOLID_WORKER_LIBS") or os.path.join(ROOT, ".dev", "worker_libs")]
 

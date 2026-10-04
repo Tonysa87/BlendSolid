@@ -1353,6 +1353,27 @@ def _nearest_edge(candidates, edges, point):
     return min(candidates, key=lambda eid: BRepExtrema_DistShapeShape(vertex, edges[eid]).Value())
 
 
+def _drop_repeats(loops, sizes, poly_face, corner_normals):
+    """Polygons without a vertex repeated next to itself: an edge shorter than the weld (OCCT leaves 6e-5 mm
+    edges on a 5 m part; float32 joins their ends) made a zero-length side, open to the edge check. A polygon left
+    with under 3 corners goes."""
+    dtype, sizes64 = np.asarray(sizes).dtype, np.asarray(sizes, dtype=np.int64)
+    starts = np.concatenate([[0], np.cumsum(sizes64)[:-1]]).astype(np.int64)
+    nxt = np.arange(len(loops)) + 1
+    nxt[starts + sizes64 - 1] = starts
+    keep = loops != loops[nxt]
+    if keep.all():
+        return loops, sizes, poly_face, corner_normals
+    sizes = sizes64
+    owner = np.repeat(np.arange(len(sizes)), sizes)
+    new_sizes = np.bincount(owner[keep], minlength=len(sizes))
+    keep &= (new_sizes >= 3)[owner]
+    new_sizes = np.bincount(owner[keep], minlength=len(sizes))
+    alive = new_sizes > 0
+    return (loops[keep], new_sizes[alive].astype(dtype), np.asarray(poly_face)[alive],
+            corner_normals[keep])
+
+
 def display_mesh(shape, lin_defl=0.1, ang_defl=0.3):
     """The mesh Blender shows: tessellate_with_normals()'s faces welded along their BRep edges, so it is closed
     and Blender's modifiers see real edges; a flat face without holes as one polygon; the exact normals per
@@ -1365,6 +1386,7 @@ def display_mesh(shape, lin_defl=0.1, ang_defl=0.3):
     verts, loops = _weld_all(verts, loops)
     pairs, _, _, _ = _sides(loops, sizes)
     loops, _ = _merge_open(verts, loops, pairs)
+    loops, sizes, poly_face, corner_normals = _drop_repeats(loops, sizes, poly_face, corner_normals)
     used, loops = np.unique(loops, return_inverse=True)
     verts, loops = verts[used], loops.ravel().astype(np.int32)
     pairs, side_poly, side_corner, side_next = _sides(loops, sizes)

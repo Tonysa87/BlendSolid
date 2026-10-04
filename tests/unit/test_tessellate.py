@@ -763,3 +763,13 @@ def test_an_edge_bending_tightly_in_one_place_follows_its_curvature():
                 cos = u @ w / max(1e-300, np.linalg.norm(u) * np.linalg.norm(w))
                 worst = min(worst, math.degrees(math.acos(max(-1.0, min(1.0, cos)))))
     assert worst > 0.5
+
+
+def test_polygons_lose_a_vertex_repeated_next_to_itself():
+    # a 6e-5 mm OCCT edge on a 5 m part: float32 welds its ends and a polygon had a zero-length side (open edge)
+    loops = np.array([0, 1, 1, 2, 3, 3, 4, 4], dtype=np.int32)
+    sizes = np.array([4, 4], dtype=np.int32)
+    normals = np.arange(24, dtype=np.float32).reshape(8, 3)
+    out_loops, out_sizes, faces, out_normals = tessellate._drop_repeats(loops, sizes, np.array([5, 6]), normals)
+    assert out_loops.tolist() == [0, 1, 2] and out_sizes.tolist() == [3] and out_sizes.dtype == np.int32
+    assert faces.tolist() == [5] and out_normals.tolist() == normals[[0, 2, 3]].tolist()
