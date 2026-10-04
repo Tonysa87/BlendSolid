@@ -724,3 +724,42 @@ def test_a_partial_cone_reaching_its_apex_gets_columns_by_its_angle():
     cone = [i for i, f in enumerate(faces) if BRepAdaptor_Surface(f).GetType() == GeomAbs_Cone]
     assert len(cone) == 1
     assert 8 <= (m.poly_face == cone[0]).sum() <= 16  # pi/2 / 0.15 rad: 11 columns
+
+
+def test_an_edge_bending_tightly_in_one_place_follows_its_curvature():
+    # M1: a round groove's wall meets the face along a 56 mm curve that bends tightly only near a mitre: evenly
+    # spaced, it took 571 intervals, and the trimmed grid next to it was fans of slivers (212 under 1 degree)
+    import runner
+    src = ("with BuildPart() as part:\n"
+           "    Box(400.0, 300.0, 100.0, align=(Align.CENTER, Align.CENTER, Align.MIN))  # feature: box_1\n"
+           '    with sketch(on_face(face("box_1", "-Y"))) as sketch_1:  # feature: sketch_1\n'
+           "        sketch_1.path_1 = path((-35.047041, 5.849994), (127.148556, -7.785299), (82.887776, 16.092945), "
+           "(-8.216632, 32.892658), (52.147902, -32.226622))\n"
+           '    groove(sketch_1.path_1, width=7.555558, depth=5.647334, profile="round", corners="mitre")'
+           "  # feature: groove_1\n"
+           "result = part.part\n")
+    shape = runner._build(src, runner.SCRIPT_NAME, [], runner.ShapeCache()).wrapped
+    m = tessellate.display_mesh(shape, 0.1, ANG)
+    pairs, _ = sides(m)
+    _, counts = np.unique(pairs, axis=0, return_counts=True)
+    assert (counts == 2).all() and len(m.poly_sizes) < 2000  # 2711 polygons before
+    # no triangle under half a degree on the trimmed grids (the four-sided strips between two mitres still have
+    # long thin cells: bug sweep M7, deferred)
+    import meshing
+    faces, edges = tessellate.face_map(shape), tessellate.edge_map(shape)
+    kinds = ["plane" if BRepAdaptor_Surface(f).GetType() == GeomAbs_Plane else "curved" for f in faces]
+    layout = meshing.plan(faces, edges, kinds, [1] * len(faces), 0.1, ANG / 2)
+    grids = {i for i, fi in enumerate(layout.faces) if fi.kind == "grid"}
+    assert grids
+    assert max(e.count for e in layout.edges) < 100  # the 56 mm wall edge: 571 evenly spaced intervals before
+    v = m.verts.astype(np.float64)
+    starts = np.concatenate([[0], np.cumsum(m.poly_sizes)[:-1]])
+    worst = 180.0
+    for s, n, f in zip(starts, m.poly_sizes, m.poly_face):
+        if n == 3 and f in grids:
+            a, b, c = v[m.loops[s:s + 3]]
+            for p, q, r in ((a, b, c), (b, c, a), (c, a, b)):
+                u, w = q - p, r - p
+                cos = u @ w / max(1e-300, np.linalg.norm(u) * np.linalg.norm(w))
+                worst = min(worst, math.degrees(math.acos(max(-1.0, min(1.0, cos)))))
+    assert worst > 0.5

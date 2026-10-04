@@ -149,6 +149,7 @@ class EdgeInfo:
     points: np.ndarray = None           # (count + 1, 3)
     own: int = 1                        # intervals its own curve needs
     need: list = field(default_factory=list)
+    adaptive: np.ndarray = None         # curvature-adaptive parameters (an edge on no structured face, _free_edges)
 
 
 def edge_info(edge):
@@ -246,7 +247,7 @@ def build_points(info):
         info.points = np.tile(np.array(p, dtype=np.float64), (info.count + 1, 1))
         return
     curve = BRepAdaptor_Curve(edge)
-    info.params = even_params(curve, info, info.count)
+    info.params = info.adaptive if info.adaptive is not None else even_params(curve, info, info.count)
     info.points = np.array([_xyz(curve.Value(float(t))) for t in info.params], dtype=np.float64)
     fwd = TopoDS.Edge(edge.Oriented(TopAbs_FORWARD))
     v1, v2 = TopoDS_Vertex(), TopoDS_Vertex()
@@ -766,9 +767,66 @@ def plan(faces, edge_list, kinds, ring_counts, lin_defl, ang_defl):
         if fi.kind == "tfi" and any(fi is owner for owner in dropped):
             fi.kind, fi.step = "grid", _fitted(fi, _capped(fi.step))
             left.append(fi)
+    _free_edges(infos, edges, lin_defl, ang_defl)
     for info in edges:
         build_points(info)
     return Plan(infos, edges, left)
+
+
+_ADAPTIVE_GAIN = 2  # an edge free of structured faces takes curvature-adaptive nodes when even ones need this many times more
+
+
+def _free_edges(infos, edges, lin_defl, ang_defl):
+    """Edges on no structured face (a four-sided grid's sides or a revolution's circles, whose nodes pair up by
+    index) are recounted for the faces left on them: their own curve and the trimmed grids' steps (a four-sided
+    face demoted to a grid no longer asks its side counts: bug sweep M1). Where the curve bends tightly in one
+    place only, evenly spaced nodes put that place's spacing everywhere (571 intervals on a 56 mm edge next to a
+    0.1 mm tolerance): such an edge follows its curvature instead (GCPnts_TangentialDeflection, as BRepMesh),
+    no interval longer than the grids ask."""
+    structured, needs = set(), {}
+    for fi in infos:
+        for loop in fi.loops:
+            for use in loop:
+                if fi.kind in ("tfi", "revolution"):
+                    structured.add(use.edge)
+                elif fi.kind == "grid":
+                    needs[use.edge] = max(needs.get(use.edge, 1), face_need(fi, use, edges[use.edge]))
+    for i, info in enumerate(edges):
+        if i in structured or info.degenerate:
+            continue
+        need = needs.get(i, 1)
+        info.count = max(info.own, need)
+        if info.count < 2 * _ADAPTIVE_GAIN:
+            continue
+        params = _adaptive_params(info, lin_defl, ang_defl, info.length / need)
+        if params is not None and (len(params) - 1) * _ADAPTIVE_GAIN <= info.count:
+            info.adaptive = params
+            info.count = len(params) - 1
+
+
+def _adaptive_params(info, lin_defl, ang_defl, longest):
+    """Parameters along the edge following its curvature (each chord within lin_defl and ang_defl), intervals
+    longer than `longest` mm split evenly; None if OCCT can't."""
+    curve = BRepAdaptor_Curve(info.edge)
+    try:
+        td = GCPnts_TangentialDeflection(curve, info.first, info.last, ang_defl, lin_defl, 2)
+        params = sorted(td.Parameter(i) for i in range(1, td.NbPoints() + 1))
+    except Exception:
+        return None
+    if len(params) < 2:
+        return None
+    params[0], params[-1] = info.first, info.last
+    out = [params[0]]
+    for a, b in zip(params, params[1:]):
+        length = GCPnts_AbscissaPoint.Length_s(curve, a, b)
+        n = max(1, math.ceil(length / longest - 1e-9)) if longest > 0 else 1
+        for k in range(1, n):
+            ap = GCPnts_AbscissaPoint(curve, length * k / n, a)
+            out.append(ap.Parameter() if ap.IsDone() else a + (b - a) * k / n)
+        out.append(b)
+    if len(out) - 1 > _MAX_EDGE:
+        return None
+    return np.asarray(out, dtype=np.float64)
 
 
 def _capped(step):
