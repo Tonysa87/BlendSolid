@@ -12,8 +12,9 @@ Updated: 2026-10-04, session 16 (milestone 3a in progress, branch `m3a`, pushed 
 - `main`: 283 unit + 236 Blender tests; `tools/gui_check.py` steps 1-21 PASS on Linux and Windows (as of session 9,
   not re-run since). Branch `m3a`: 378 unit + 278 Blender tests (session 14); gui_check 1-25 PASS on Linux
   (session 12; not re-run since session 13).
-- **The Windows portable Blender has branch `m3a` installed from 7a5b8f1** (session 15; `MESH_FORMAT` 14, smoke
-  PASS). Branch `m3a`: 436 unit + 280 Blender tests; gui_check 1-25 PASS on Linux (session 15).
+- **The Windows portable Blender has branch `m3a` installed from 23b19a8** (session 16; `MESH_FORMAT` 14, smoke
+  PASS). Branch `m3a`: 454 unit + 294 Blender tests (session 16); gui_check 1-25 PASS on Linux (session 15; not
+  re-run in session 16: import/export adds no viewport interaction).
 - **Merged into `main` (session 10):** partial collars for curved runs of a flat face's loops, collars that shrink
   instead of cancelling, collar safety nets, planar cells of curved faces as quads (the maintainer's GUI review:
   a fillet of sliver triangles); `MESH_FORMAT` 10 — ADR 0008 and ADR 0010 addenda of 2026-09-29 (measured on a
@@ -45,6 +46,11 @@ Updated: 2026-10-04, session 16 (milestone 3a in progress, branch `m3a`, pushed 
     symmetric, taper (straight prism + draft, exact planes). **Revolve Sketch**: a region, then a straight sketch
     curve as the axis.
   - All the sketch tools sit in the Draw Solid toolbar group (hold for the menu), like Fillet and Push/Pull.
+- **Built in session 16 (ADR 0016):** STEP/IGES/BREP import and export (worker `exchange.py`; Blender
+  `ops_exchange.py`, `blobs.py`; File > Import / Export > "CAD (.step, .iges, .brep) – BlendSolid"). Known limits
+  left from the review: restoring an edited blob Text leaves the part's error until Recompute; import/export block
+  Blender with no cancel (bounded by the worker's 120 s timeout); IGES non-ASCII names untested in other software;
+  no *Reload from file*; per-face colours, layers and PMI not imported; a non-uniform scale exports B-splines.
 - **Maintainer's GUI test of this version (2026-09-29), steps given in the chat:** 1 add a Box; 2 Sketch Path on
   the top face (line, dragged arc, line, Enter); 3 Groove: drag down on the path, then change Profile (Round, V);
   4 Sketch a line across the top face from just outside one edge to just outside the other; 5 Extrude Sketch: one
@@ -134,8 +140,8 @@ geometric result verified with numbers.
    extruding the rest of the face; (b) Groove with Profile Round and V, Corners Round: look at the wireframe of
    the round corners (a clean fan, not a dense grid of slivers); (c) the sidebar's warning box is now titled
    "Warnings" (it also lists "couldn't be meshed from the edges" when a face falls back).
-7. **The rest of 3a needed before the checkpoint:** the UI pass (queue item 3: tasks 3-8) and STEP/IGES/BREP
-   import/export (real parts to work on); then the usage checkpoint.
+7. **The rest of 3a needed before the checkpoint:** the UI pass (queue item 3: tasks 3-8) and ~~STEP/IGES/BREP
+   import/export~~ (done in session 16, ADR 0016); then the usage checkpoint.
 8. **Deferred until the checkpoint has spoken** (each stays in the ledger with its reason): R1 and the rest of R3
    (taper hang — the worker is killed after 120 s with a message — and drafts wrong past a partly vanishing
    outline: needs a design note first), M6-M11 (rarer mesh defects), the remaining fuzz edge cases, and the
@@ -153,7 +159,7 @@ geometric result verified with numbers.
    shown before dragging.
 4. Sketch features still to do (item 2 below): snaps to edges, typed segment length, corner radius per vertex,
    slice by path, offset to a band, named groove faces (ADR 0009 addendum).
-5. Rest of 3a (item 3 below): STEP/IGES/BREP import/export, up-to-face, New Part/Cutter for extrudes, arcs/polygon/
+5. Rest of 3a (item 3 below): ~~STEP/IGES/BREP import/export~~ (session 16), up-to-face, New Part/Cutter for extrudes, arcs/polygon/
    slot, editing sketch entities in the viewport; then the 3a acceptance criterion, the usage checkpoint, merge
    `m3a` into `main`.
 
@@ -185,7 +191,7 @@ Earlier items (sessions 12-13, kept for reference):
    (nearest point on a projected edge); typed segment length (Tab/digits); a corner radius per path vertex (`FilletPolyline`); slice a part by a path;
    offset a path to a closed band. Also: the groove's faces all get role `wall` (references to them need `near=`):
    name them (floor, walls by path segment, ends) in an ADR 0009 addendum.
-3. Rest of 3a: STEP/IGES/BREP import/export (research section 7: embedded compressed BRep blobs, one part per
+3. Rest of 3a: ~~STEP/IGES/BREP import/export~~ (done, session 16, ADR 0016; research section 7: embedded compressed BRep blobs, one part per
    leaf solid, invalid solids as warnings); up to a picked face; New Part / Cutter operations for extrudes; arcs,
    polygon, slot; editing/deleting sketch entities from the viewport; the 3a acceptance criterion (research,
    "Acceptance criteria"); the usage checkpoint (the maintainer models 2-3 real objects); then merge `m3a`.
