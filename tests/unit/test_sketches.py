@@ -789,3 +789,14 @@ def test_rounding_fixes_leave_real_geometry_alone(face, points, groove, volume):
             f'        sketch_1.path_1 = path({points})\n'
             f'    groove(sketch_1.path_1, {groove})  # feature: rib_1\n')
     assert abs(r.volume - volume) < 1e-3, r.volume
+
+
+def test_round_groove_depth_error_tells_the_numbers_apart():
+    # G11: "depth (1 mm) must be at least half its width (1 mm)"
+    r = runner.run_script("with BuildPart() as part:\n" + BOX +
+                          '    with sketch(on_face(face("box_1", "+Z"))) as sketch_1:  # feature: sketch_1\n'
+                          '        sketch_1.path_1 = path((0.0, 0.0), (10.0, 0.0))\n'
+                          '    groove(sketch_1.path_1, width=2.0, depth=0.9999999, profile="round")'
+                          '  # feature: groove_1\n'
+                          "result = part.part\n")
+    assert not r.ok and "(0.9999999 mm)" in r.error and "(1 mm)" in r.error

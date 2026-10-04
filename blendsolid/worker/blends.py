@@ -141,18 +141,20 @@ def _attempt(make):
 
 def _explain(what, size, count, tried, largest, sliver=None):
     edges = "this edge" if count == 1 else f"these {count} edges"
+    verb, doing = ("round", "rounding") if what.startswith("fillet") else ("bevel", "bevel")  # G11
     if sliver is not None:
         return (f"{what} {_fmt(size)} mm: {edges} touch a face with a {_fmt(sliver)} mm edge, a sliver left by an "
-                f"earlier feature; fix that feature (e.g. make the faces meet exactly) before rounding here")
+                f"earlier feature; fix that feature (e.g. make the faces meet exactly) before the "
+                f"{what.split()[0]} here")
     shown = _floor3(largest)
     if largest <= 0 or shown <= 0:
-        return (f"{what} {_fmt(size)} mm: OCCT can't round {edges} at any size tried (down to "
+        return (f"{what} {_fmt(size)} mm: OCCT can't {verb} {edges} at any size tried (down to "
                 f"{_fmt(min(tried) if tried else size)} mm); try fewer edges at once")
     works = sorted(s for s, ok in tried.items() if ok)
     fails = sorted({size, *(s for s, ok in tried.items() if not ok)})
     if any(s < largest for s in fails) or any(s > size for s in works) or shown >= size:
         return (f"{what} {_fmt(size)} mm fails on {edges}: another face is in the way (a hole or a step inside "
-                f"the rounding), so some sizes work and others don't. Works at "
+                f"the {doing}), so some sizes work and others don't. Works at "
                 f"{', '.join(dict.fromkeys(_fmt(_floor3(s)) for s in works[-4:]))} mm; fails at "
                 f"{', '.join(dict.fromkeys(_fmt(s) for s in fails[:4]))} mm")
     return f"{what} {_fmt(size)} mm is too large for {edges}: the largest that works is {_fmt(shown)} mm"

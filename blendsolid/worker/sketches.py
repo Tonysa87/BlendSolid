@@ -579,6 +579,15 @@ def _profile_points(profile, width, depth, over):
     raise SketchError(f"unknown profile '{profile}' (one of {', '.join(PROFILES)})")
 
 
+def _distinct(a, b):
+    """Two numbers written with enough digits to tell them apart (0.9999999 isn't shown as 1 next to 1; G11)."""
+    for digits in (6, 9, 12, 17):
+        x, y = f"{a:.{digits}g}", f"{b:.{digits}g}"
+        if x != y:
+            return x, y
+    return x, y
+
+
 def _profile_wire(profile, width, depth, over, place):
     """The profile as a wire placed by `place` (lateral, up) -> 3D point."""
     from build123d import Edge, Wire
@@ -587,7 +596,8 @@ def _profile_wire(profile, width, depth, over, place):
     if profile == "round":
         r = width / 2
         if depth < r:
-            raise SketchError(f"a round groove's depth ({depth:g} mm) must be at least half its width ({r:g} mm)")
+            a, b = _distinct(depth, r)
+            raise SketchError(f"a round groove's depth ({a} mm) must be at least half its width ({b} mm)")
         arc = Edge.make_three_point_arc(place((-r, -depth + r)), place((0.0, -depth)), place((r, -depth + r)))
         top = Edge.make_line(place((r, over)), place((-r, over)))
         if over == depth - r:  # a half disc: no straight sides

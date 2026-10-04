@@ -164,3 +164,11 @@ def test_chamfer_reference_is_a_face_result():
     assert min(v[1] for v in top) == pytest.approx(-15 + 4, abs=1e-4)  # 2 mm measured on the front (-Y)
     r = runner.run_script(source.replace('reference=face("box_1", "-Y")', 'reference=face("box_1", "+X")'))
     assert not r.ok and r.line == 3 and "reference face doesn't hold" in r.error
+
+
+def test_chamfer_messages_say_bevel():
+    # G11: "OCCT can't round" for a chamfer
+    import blends
+    assert "can't bevel these 2 edges" in blends._explain("chamfer length", 1.0, 2, {0.5: False}, 0.0)
+    assert "can't round this edge" in blends._explain("fillet radius", 1.0, 1, {0.5: False}, 0.0)
+    assert "before the chamfer here" in blends._explain("chamfer length", 1.0, 1, {}, 0.0, sliver=0.001)
