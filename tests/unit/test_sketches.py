@@ -246,6 +246,39 @@ def test_partial_revolve_touching_its_axis_has_an_end_cap():
     assert 'face("revolve_1", "start")' in r.face_refs and r.volume < math.pi * 16 * 10 / 4
 
 
+@pytest.mark.parametrize("body, message", [
+    # R6: raw StdFail_NotDone
+    ('    with sketch(Plane.XZ) as sketch_1:  # feature: sketch_1\n'
+     '        sketch_1.r = Pos(0.0, 5.0) * Rectangle(4.0, 10.0)\n'
+     '        sketch_1.axis = Line((0.0, 20.0), (0.0, 30.0))\n'
+     '    revolve(regions(sketch_1, (1.0, 5.0)), axis=sketch_1.axis("axis"))  # feature: revolve_1\n',
+     "crosses the axis"),
+    # R14: a full turn
+    ('    with sketch(Plane.XZ) as sketch_1:  # feature: sketch_1\n'
+     '        sketch_1.r = Pos(4.0, 5.0) * Rectangle(4.0, 10.0)\n'
+     '        sketch_1.axis = Line((0.0, 20.0), (0.0, 30.0))\n'
+     '    revolve(regions(sketch_1, (4.0, 5.0)), axis=sketch_1.axis("axis"), revolution_arc=0.0)'
+     '  # feature: revolve_1\n', "no angle"),
+    # R16: raw Standard_ConstructionError; "`result` contains no solid" without a line
+    (BOX + '    with sketch(on_face(face("box_1", "+Z"))) as sketch_1:  # feature: sketch_1\n'
+     '        sketch_1.c = Circle(3.0)\n'
+     '    extrude(regions(sketch_1, (0.0, 0.0)), amount=1e-7)  # feature: extrude_1\n', "too small"),
+    (BOX + '    with sketch(on_face(face("box_1", "+Z"))) as sketch_1:  # feature: sketch_1\n'
+     '        sketch_1.c = Rectangle(60.0, 60.0)\n'
+     '    extrude(regions(sketch_1, (0.0, 0.0)), amount=-30.0, mode=Mode.SUBTRACT)  # feature: extrude_1\n',
+     "removes the whole part"),
+    # B12: "AssertionError: " with no text
+    (BOX + '    with sketch(on_face(face("box_1", "+Z"))) as sketch_1:  # feature: sketch_1\n'
+     '        sketch_1.c = Circle(3.0)\n'
+     '    extrude(regions(sketch_1, (0.0, 0.0)), amount=5.0, mode=Mode.INTERSECT)  # feature: extrude_1\n',
+     "nothing in common"),
+])
+def test_clear_messages_on_the_feature_line(body, message):
+    r = runner.run_script("with BuildPart() as part:\n" + body + "result = part.part\n")
+    assert not r.ok and r.error.startswith("SketchError: ") and message in r.error
+    assert r.line == body.count("\n") + 1
+
+
 def test_side_references_survive_an_upstream_change():
     def source(width):
         return (f"w = {width}\nwith BuildPart() as part:\n" + BOX +

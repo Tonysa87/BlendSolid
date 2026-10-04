@@ -29,6 +29,7 @@ HOOK_FEATURE = "__bs_sketch__"
 ON_EDGE_MM = 1e-4       # a seed this close to a region's boundary is doubtful (warning)
 ON_FACE_MM = 1e-4       # a sketch edge this close to a solid's face swept it
 AXIS_SNAP = 1e-4        # a face normal this close to a part axis is that axis (drawing.plane_on_part_face)
+MIN_MM = 1e-6          # the smallest extrude distance (OCCT's prism fails at 1e-7)
 FUZZY_MM = 1e-5         # curve ends this close meet (scripts write 6 decimals: ends snapped to a rounded corner)
 FACE = "face"           # area(): the sketch face's own boundary, among the entity names (reserved)
 SIDES = ("inside", "outside", "left", "right")
@@ -411,6 +412,23 @@ def _side_roles(solid, sketch, region_faces, roles, axis=None):
                 break
 
 
+def _crosses_axis(face, axis, normal):
+    """Does the (placed) area lie on both sides of `axis`, in its plane of normal `normal`? An axis out of the
+    plane: no answer (False)."""
+    if abs(axis.direction.dot(normal)) > 1e-9:
+        return False
+    side = axis.direction.cross(normal)
+    if abs((face.center() - axis.position).dot(normal)) > ON_FACE_MM:
+        return False
+    signs = set()
+    for e in face.edges():
+        for i in range(17):
+            d = (e.position_at(i / 16) - axis.position).dot(side)
+            if abs(d) > ON_FACE_MM:
+                signs.add(d > 0)
+    return len(signs) > 1
+
+
 def _off_axis(point, axis):
     d = point - axis.position
     return (d - axis.direction * d.dot(axis.direction)).length
@@ -780,7 +798,15 @@ def helpers(tracker):
         if context is not None:
             before = context.part.volume if context.part is not None else 0.0
             pieces = len(context.part.solids()) if context.part is not None else 0
-            context._add_to_context(*solids, clean=clean, mode=mode)
+            try:
+                context._add_to_context(*solids, clean=clean, mode=mode)
+            except AssertionError:  # build123d's intersection with nothing in common (bug sweep B12)
+                if mode != bd.Mode.INTERSECT:
+                    raise
+                raise SketchError("this intersection has nothing in common with the part") from None
+            if before > 0 and (context.part is None or not context.part.solids()):  # bug sweep R16
+                raise SketchError("this feature removes the whole part" if mode == bd.Mode.SUBTRACT else
+                                  "this intersection has nothing in common with the part")
             _check_boolean(before, context.part.volume if context.part is not None else 0.0,
                            sum(s.volume for s in solids), mode, tracker)
             if mode == bd.Mode.ADD and pieces and len(context.part.solids()) > pieces:  # bug sweep R13
@@ -812,6 +838,8 @@ def helpers(tracker):
         else:
             if amount is None or amount == 0:
                 raise SketchError("the extrude has no distance")
+            if abs(amount) < MIN_MM:  # OCCT's prism fails below its confusion tolerance (bug sweep R16)
+                raise SketchError(f"the extrude distance ({amount:g} mm) is too small: at least {MIN_MM:g} mm")
             direction = n * amount
             faces = list(to_extrude)
             if taper and len(faces) > 1:  # drafted one by one, neighbours leave a V-groove between them
@@ -838,6 +866,12 @@ def helpers(tracker):
         sk = getattr(profiles, "_bs_sketch", None)
         if sk is None:
             return bd.revolve(profiles, axis=axis, revolution_arc=revolution_arc, clean=clean, mode=mode)
+        if abs(revolution_arc) < 1e-9:  # it made a full turn (bug sweep R14)
+            raise SketchError("the revolve has no angle")
+        for f in profiles:
+            if _crosses_axis(f, axis, sk.plane.z_dir):  # OCCT: raw StdFail_NotDone (bug sweep R6)
+                raise SketchError("the area crosses the axis it turns about: the revolve would pass through itself "
+                                  "(split the area along the axis)")
         sign = 1 if revolution_arc >= 0 else -1
         angle = revolution_arc % (sign * 360.0)
         angle = sign * 360.0 if angle == 0 else angle
@@ -1041,7 +1075,7 @@ def _prism(face, direction, sk, taper):
     try:
         drafted = solid.draft(sides, neutral, taper)
     except Exception as e:
-        raise SketchError(f"the taper of {taper:g}° failed ({type(e).__name__}): try a smaller angle") from None
+        raise SketchError(f"OCCT could not draft the sides by {taper:g}° on this area: try a smaller angle") from None
     from OCP.BRepCheck import BRepCheck_Analyzer
     if not BRepCheck_Analyzer(drafted.wrapped).IsValid() or drafted.volume <= 0:  # used as is, a cut removed nothing
         raise SketchError(f"the taper of {taper:g}° gives an invalid solid on this area: try a smaller angle")
