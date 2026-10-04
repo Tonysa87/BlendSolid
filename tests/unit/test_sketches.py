@@ -225,6 +225,27 @@ def test_partial_revolve_has_start_and_end_caps():
     assert 'face("revolve_1", "start")' in r.face_refs and 'face("revolve_1", "end")' in r.face_refs
 
 
+def test_tapered_sides_swept_by_the_face_edges_are_border():
+    # R8: they were named "end" like the top cap
+    r = run(BOX + '    with sketch(on_face(face("box_1", "+Z"))) as sketch_1:  # feature: sketch_1\n'
+                  '        sketch_1.l = Line((0.0, -20.0), (0.0, 20.0))\n'
+                  '    extrude(regions(sketch_1, (10.0, 0.0)), amount=5.0, taper=5.0)  # feature: extrude_1\n')
+    refs = [t for t in r.face_refs if '"extrude_1"' in t]
+    assert refs.count('face("extrude_1", "end")') == 1 and 'face("extrude_1", "l")' in refs
+    assert sum('face("extrude_1", "border", near=' in t for t in refs) == 3 and len(refs) == 5
+
+
+def test_partial_revolve_touching_its_axis_has_an_end_cap():
+    # R9: the region's edge on the axis named the end cap after the rectangle
+    r = run('    with sketch(Plane.XZ) as sketch_1:  # feature: sketch_1\n'
+            '        sketch_1.r = Pos(2.0, 5.0) * Rectangle(4.0, 10.0)\n'
+            '        sketch_1.axis = Line((0.0, 20.0), (0.0, 30.0))\n'
+            '    revolve(regions(sketch_1, (2.0, 5.0)), axis=sketch_1.axis("axis"), revolution_arc=90.0)'
+            '  # feature: revolve_1\n'
+            '    fillet(edges_of(face("revolve_1", "end")), radius=0.5)  # feature: fillet_1\n')
+    assert 'face("revolve_1", "start")' in r.face_refs and r.volume < math.pi * 16 * 10 / 4
+
+
 def test_side_references_survive_an_upstream_change():
     def source(width):
         return (f"w = {width}\nwith BuildPart() as part:\n" + BOX +
@@ -318,6 +339,17 @@ def test_union_up_to_next_with_nothing_ahead_is_an_error():
               "result = part.part\n")
     r = runner.run_script(source)
     assert not r.ok and "nothing ahead" in r.error and r.line == 7
+
+
+@pytest.mark.parametrize("direction", ["", "dir=-sketch_1.plane.z_dir, "])
+def test_union_up_to_last_inside_the_material_is_an_error(direction):
+    # R15: it added nothing (later only a warning); up to next already refused it
+    r = runner.run_script("with BuildPart() as part:\n" + BOX +
+                          '    with sketch(Plane.XY.offset(10)) as sketch_1:  # feature: sketch_1\n'
+                          '        sketch_1.c = Circle(3.0)\n'
+                          f'    extrude(regions(sketch_1, (0.0, 0.0)), {direction}until=Until.LAST)  # feature: e_1\n'
+                          "result = part.part\n")
+    assert not r.ok and "all inside the part" in r.error and r.line == 5
 
 
 def test_union_up_to_a_slanted_face_is_exact():
@@ -420,6 +452,41 @@ def test_rib_stands_out_of_the_face():
             '        sketch_1.path_1 = path((-10.0, 0.0), (10.0, 0.0))\n'
             '    groove(sketch_1.path_1, width=2.0, depth=3.0, mode=Mode.ADD)  # feature: rib_1\n')
     assert abs(r.volume - 8000 - 2 * 3 * 20) < 1e-6
+
+
+@pytest.mark.parametrize("profile, section", [("rect", 6.0), ("v", 3.0), ("round", 6.0 - (2 - math.pi / 2))])
+def test_rib_past_the_face_edge_leaves_nothing_below_the_face(profile, section):
+    # G7: the 0.5 mm a rib sinks into its face hung below the face plane where the path runs past the part
+    r = run(BOX + '    with sketch(on_face(face("box_1", "+Z"))) as sketch_1:  # feature: sketch_1\n'
+                  '        sketch_1.path_1 = path((-30.0, 0.0), (30.0, 0.0))\n'
+                  f'    groove(sketch_1.path_1, width=2.0, depth=3.0, profile="{profile}", mode=Mode.ADD)'
+                  '  # feature: rib_1\n')
+    assert abs(r.volume - (24000 + section * 60)) < 1e-6
+
+
+@pytest.mark.parametrize("points", ["(0.0, 0.0), (10.0, 0.0), arc_to((7.0, 3.0)), (7.0, -5.0)",  # tangent run
+                                    "(0.0, 0.0), (10.0, 0.0), (10.0, 5.0), (5.0, -5.0)",
+                                    "(0.0, 0.0), (10.0, 0.0), (10.0, 5.0), (5.0, 0.0)"])  # ends on itself
+def test_groove_along_a_path_crossing_itself_is_refused(points):
+    # G4: BRepCheck accepted the self-overlapping sweep of a tangent run that crosses itself
+    r = runner.run_script("with BuildPart() as part:\n" + BOX +
+                          '    with sketch(on_face(face("box_1", "+Z"))) as sketch_1:  # feature: sketch_1\n'
+                          f'        sketch_1.path_1 = path({points})\n'
+                          '    groove(sketch_1.path_1, width=1.0, depth=2.0)  # feature: groove_1\n'
+                          "result = part.part\n")
+    assert not r.ok and "crosses or touches itself" in r.error and r.line == 5
+
+
+def test_a_join_touching_the_part_along_an_edge_warns():
+    # R13: the half of a circle outside the top face, extruded up, touches the box only along its edge
+    r = run(BOX + '    with sketch(on_face(face("box_1", "+Z"))) as sketch_1:  # feature: sketch_1\n'
+                  '        sketch_1.c = Pos(20.0, 0.0) * Circle(5.0)\n'
+                  '    extrude(regions(sketch_1, (23.0, 0.0)), amount=5.0)  # feature: extrude_1\n')
+    assert any("doesn't merge with the part" in text and "2 separate solids" in text for _, text in r.warnings)
+    r = run(BOX + '    with sketch(on_face(face("box_1", "+Z"))) as sketch_1:  # feature: sketch_1\n'
+                  '        sketch_1.c = Pos(20.0, 0.0) * Circle(5.0)\n'
+                  '    extrude(regions(sketch_1, (17.0, 0.0)), amount=5.0)  # feature: extrude_1\n')
+    assert not r.warnings
 
 
 def test_closed_path_groove():

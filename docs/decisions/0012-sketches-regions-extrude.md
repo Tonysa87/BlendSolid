@@ -87,3 +87,7 @@ edits (Autodesk forum, FUS-227038). Neither tells the user. So:
   seed is not checked (scripts written by hand or before this addendum).
 - Two areas with the same description (a zigzag line crossing a rectangle) are still told apart by the point
   alone: the description is a check, not a full identity.
+
+Roles, same session (bug sweep R8, R9): a side face swept by an edge of the face the sketch lies on (a region
+bounded by the face's border, tapered) gets the role `border` (it was `end`, like the top cap); a region edge on
+a revolve's axis sweeps nothing and names no face (its midpoint lay on the end cap, which took the entity's name).

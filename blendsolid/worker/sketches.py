@@ -384,15 +384,24 @@ def _inside_point(face):
 
 # -- roles of the faces an extrude or revolve of regions brings in ----------------------------------------------------
 
-def _side_roles(solid, sketch, region_faces, roles):
-    """Name each face of `solid` swept by a region edge after the sketch entity it comes from."""
+BORDER = "border"  # the role of a side face swept by an edge of the face a sketch lies on
+
+
+def _side_roles(solid, sketch, region_faces, roles, axis=None):
+    """Name each face of `solid` swept by a region edge after the sketch entity it comes from (BORDER: an edge of
+    the sketch's face). Edges on a revolve's `axis` sweep nothing (their midpoint lies on the end cap too)."""
     from build123d import Vertex
     points = []
     for face in region_faces:
         for e in face.edges():
             name = sketch.entity_of(e)
+            if name is None and sketch.face_local() is not None:
+                name = BORDER
+            placed = sketch.placed(e)
+            if axis is not None and all(_off_axis(placed.position_at(t), axis) < ON_FACE_MM for t in (0, 0.5, 1)):
+                continue
             if name is not None:
-                points.append((Vertex(*sketch.placed(e).position_at(0.5)), name))
+                points.append((Vertex(*placed.position_at(0.5)), name))
     for f in solid.faces():
         if f.wrapped in roles:
             continue
@@ -400,6 +409,11 @@ def _side_roles(solid, sketch, region_faces, roles):
             if f.distance_to(p) < ON_FACE_MM:
                 roles[f.wrapped] = name
                 break
+
+
+def _off_axis(point, axis):
+    d = point - axis.position
+    return (d - axis.direction * d.dot(axis.direction)).length
 
 
 def _cap_roles(solid, sketch, direction, roles):
@@ -765,9 +779,13 @@ def helpers(tracker):
         context = bd.BuildPart._get_context("extrude")
         if context is not None:
             before = context.part.volume if context.part is not None else 0.0
+            pieces = len(context.part.solids()) if context.part is not None else 0
             context._add_to_context(*solids, clean=clean, mode=mode)
             _check_boolean(before, context.part.volume if context.part is not None else 0.0,
                            sum(s.volume for s in solids), mode, tracker)
+            if mode == bd.Mode.ADD and pieces and len(context.part.solids()) > pieces:  # bug sweep R13
+                tracker.warn(f"this feature doesn't merge with the part (it lies apart, or touches it only along an "
+                             f"edge or at a point): the part is now {len(context.part.solids())} separate solids")
         return bd.Part(bd.Compound(solids).wrapped)
 
     def extrude(to_extrude=None, amount=None, dir=None, until=None, target=None, both=False, taper=0.0,
@@ -832,7 +850,7 @@ def helpers(tracker):
             for f in s.faces():
                 if f.geom_type == bd.GeomType.PLANE and f.distance_to(inside) < ON_FACE_MM:
                     roles[f.wrapped] = "start"
-            _side_roles(s, sk, [local], roles)
+            _side_roles(s, sk, [local], roles, axis)
             for f in s.faces():
                 if f.wrapped not in roles:
                     roles[f.wrapped] = "end"
@@ -851,6 +869,8 @@ def helpers(tracker):
         if width <= 0 or (profile != "circle" and depth <= 0):
             raise SketchError("a groove needs a width and a depth")
         edges = sk.entities[name]
+        if _crosses_itself(edges):  # BRepCheck accepts the swept solid overlapping itself (bug sweep G4)
+            raise SketchError(f"the path {name} crosses or touches itself: a groove along it would overlap itself")
         wire = sk.placed(bd.Wire(edges) if len(edges) > 1 else bd.Wire([edges[0]]))
         n = sk.plane.z_dir
         cut = mode != bd.Mode.ADD
@@ -861,6 +881,8 @@ def helpers(tracker):
         def profile_at(point, tangent):
             return _profile_wire(profile, width, depth, over, _Place(point, n.cross(tangent).normalized(), up, tangent))
         solid = _sweep(wire, profile_at, n, corners)
+        if not cut and over and profile != "circle":  # a pipe is centred on its path: its lower half is its own
+            solid = _trim_sunk(solid, sk.plane, n, over)
         roles = tracker.roles
         for f in solid.faces():
             roles[f.wrapped] = "wall"
@@ -868,6 +890,52 @@ def helpers(tracker):
 
     return {"sketch": sketch, "on_face": on_face, "regions": regions, "area": Area, "extrude": extrude, "revolve": revolve,
             "path": path, "arc_to": arc_to, "groove": groove}
+
+
+def _crosses_itself(edges):
+    """Does a sketch curve cross or touch itself? General Fuse of its edges splits an edge where another meets
+    it, and a touch at a vertex gives that vertex more than two edges."""
+    from OCP.BOPAlgo import BOPAlgo_Builder
+    from OCP.TopAbs import TopAbs_EDGE, TopAbs_VERTEX
+    from OCP.TopExp import TopExp
+    from OCP.collections import IndexedDataMap_TopoDS_Shape_List_TopoDS_Shape_TopTools_ShapeMapHasher as Ancestors
+    if len(edges) < 2 and not edges[0].is_closed:
+        return False
+    builder = BOPAlgo_Builder()
+    for e in edges:
+        builder.AddArgument(e.wrapped)
+    builder.SetFuzzyValue(FUZZY_MM)
+    builder.Perform()
+    if builder.HasErrors():
+        return False  # let the sweep report what it can't do
+    ancestors = Ancestors()
+    TopExp.MapShapesAndAncestors_s(builder.Shape(), TopAbs_VERTEX, TopAbs_EDGE, ancestors)
+    found = sum(ancestors.FindFromIndex(i).Size() for i in range(1, ancestors.Extent() + 1))
+    if found != 2 * len(edges):  # each edge has two ends (a closed edge: one vertex listed twice)
+        return True
+    return any(ancestors.FindFromIndex(i).Size() > 2 for i in range(1, ancestors.Extent() + 1))
+
+
+def _trim_sunk(rib, plane, n, over):
+    """A rib on a face sinks `over` mm below the sketch plane to fuse; where its path runs past the part, that
+    sunk strip would hang in the air below the plane: it is kept only inside the part (bug sweep G7)."""
+    import build123d as bd
+    context = bd.BuildPart._get_context("groove")
+    part = context.part_local if context is not None else None
+    if part is None:
+        return rib
+    frame = bd.Plane(origin=plane.origin, x_dir=plane.x_dir, z_dir=n)
+    box = rib.bounding_box()
+    size = 2 * box.diagonal + 1.0
+    c = frame.to_local_coords(box.center())
+    slab = frame.location * bd.Pos(c.X - size / 2, c.Y - size / 2, -2 * over) * bd.Solid.make_box(size, size, 2 * over)
+    hanging = slab.cut(part)
+    if not hanging.solids():
+        return rib
+    trimmed = rib.cut(hanging).solids()
+    if len(trimmed) != 1:  # the sunk strip held the rib together: keep it whole rather than split it
+        return rib
+    return trimmed[0]
 
 
 def _check_boolean(before, after, tool, mode, tracker):
@@ -926,8 +994,11 @@ def _until(face, target, n, until, mode):
                 raise SketchError("up to next: nothing ahead of the area to stop at")
             return found
         beyond = [g for g in gaps if g.distance_to(end_cap) < touch]
-        if len(beyond) == len(gaps) and not pieces(prism & target):
-            raise SketchError("up to last: nothing ahead of the area to stop at")
+        if len(beyond) == len(gaps):
+            if not pieces(prism & target):
+                raise SketchError("up to last: nothing ahead of the area to stop at")
+            raise SketchError("up to last: the way from the area to the last face is all inside the part, it adds "
+                              "nothing (try the other direction, or a cut)")  # bug sweep R15
         return pieces(prism - beyond) if beyond else [prism]
     material = sorted(pieces(prism & target), key=lambda m: m.distance_to(face))
     if not material:
