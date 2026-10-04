@@ -551,7 +551,7 @@ def test_groove_along_a_smooth_run_crossing_itself_is_refused(points):
                           f'        sketch_1.path_1 = path({points})\n'
                           '    groove(sketch_1.path_1, width=1.0, depth=2.0)  # feature: groove_1\n'
                           "result = part.part\n")
-    assert not r.ok and "crosses or touches itself" in r.error and r.line == 5
+    assert not r.ok and "crosses itself or comes back within" in r.error and r.line == 5
 
 
 @pytest.mark.parametrize("points, length", [("(-10.0, 0.0), (10.0, 0.0), (0.0, 10.0), (0.0, -10.0)",
@@ -812,3 +812,36 @@ def test_round_groove_depth_error_tells_the_numbers_apart():
                           '  # feature: groove_1\n'
                           "result = part.part\n")
     assert not r.ok and "(0.9999999 mm)" in r.error and "(1 mm)" in r.error
+
+
+def test_a_wrong_union_of_the_sweep_pieces_is_refused():
+    # session 15: OCCT fused these pieces (a run turning back on itself through a sharp corner) into a valid solid
+    # of 0.015 mm³ where point-membership integration gives 7.17 mm³; pieces must lie inside the union and the
+    # union inside the pieces
+    r = runner.run_script(
+        "with BuildPart() as part:\n"
+        "    with sketch(Plane.XY) as sketch_1:  # feature: sketch_1\n"
+        "        sketch_1.path_1 = path((7.88377, -3.737602), (11.445385, -5.82052), (12.815378, -6.621724), "
+        "arc_to((15.086257, -9.180108)), (15.070111, -10.612284), arc_to((14.683044, -9.864023)))\n"
+        '    groove(sketch_1.path_1, width=0.912416, depth=1.026785, profile="v", corners="mitre", mode=Mode.ADD)'
+        "  # feature: rib_1\n"
+        "result = part.part\n")
+    assert not r.ok or abs(r.volume - 7.17) < 0.3, (r.error, r.volume)
+
+
+def test_a_smooth_stretch_coming_back_within_the_width_is_refused():
+    # session 15: arcs tangent inside an arc, a V rib 4.4 mm wide: OCCT's one-go sweep overlapped itself, BRepCheck
+    # passed, the volume was 10% short
+    r = runner.run_script(
+        "with BuildPart() as part:\n"
+        "    with sketch(Plane.XY) as sketch_1:  # feature: sketch_1\n"
+        "        sketch_1.path_1 = path((3.071372, 8.810365), (-10.261066, 9.238603), arc_to((-10.957385, 9.293478)), "
+        "arc_to((-14.100835, -8.562851)), arc_to((-19.340133, -1.503174)), (3.071372, 8.810365))\n"
+        '    groove(sketch_1.path_1, width=4.399503, depth=1.25679, profile="v", corners="mitre", mode=Mode.ADD)'
+        "  # feature: rib_1\n"
+        "result = part.part\n")
+    assert not r.ok and "comes back within the groove's width" in r.error
+    # a U-turn of radius above half the width is fine
+    run(BOX + '    with sketch(on_face(face("box_1", "+Z"))) as sketch_1:  # feature: sketch_1\n'
+              '        sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), arc_to((0.0, 3.0)), (-10.0, 3.0))\n'
+              '    groove(sketch_1.path_1, width=2.0, depth=1.0)  # feature: groove_1\n')

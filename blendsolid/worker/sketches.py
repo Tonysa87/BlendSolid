@@ -25,6 +25,8 @@ A sketch is a feature of its own: a plane and named build123d objects drawn in t
 """
 import math
 
+import numpy as np
+
 HOOK_FEATURE = "__bs_sketch__"
 ON_EDGE_MM = 1e-4       # a seed this close to a region's boundary is doubtful (warning)
 ON_FACE_MM = 1e-4       # a sketch edge this close to a solid's face swept it
@@ -669,7 +671,8 @@ SMALL_TURN = math.radians(5)  # a mitre OCCT can't build at a corner turning les
 
 def _round_corner(profile_at, point, before, after, normal, turn, reach):
     """The round corner piece: the profile's half on the outside of the turn (inside, the runs overlap) turned
-    about the corner point's normal."""
+    about the corner point's normal. (Next to a run shorter than the profile is wide the inside half's wedge
+    sticks out past that run and is missing: bug sweep G12.)"""
     from build123d import Axis, Face, Plane, Solid, Wire
     sign = 1.0 if before.cross(after).dot(normal) > 0 else -1.0
     outside = before.cross(normal) * sign  # a left turn's outside is on the path's right
@@ -770,9 +773,34 @@ def _fused(pieces):
             solids = shape.clean().solids() if shape is not None else []
         except Exception:
             continue
-        if len(solids) == 1 and BRepCheck_Analyzer(solids[0].wrapped).IsValid():
+        if len(solids) == 1 and BRepCheck_Analyzer(solids[0].wrapped).IsValid() and _union_ok(pieces, solids[0]):
             return Solid(solids[0].wrapped)
     raise SketchError("the profile can't follow this path (a corner or an arc too tight for its width?)")
+
+
+def _union_ok(pieces, union, rel=1e-4):
+    """Is `union` the union of `pieces`? OCCT's fuse of heavily overlapping pieces (runs crossing each other, a
+    corner turning back) can return a valid solid that is wrong — missing most of a piece, or with material of
+    none (session 15: 38 of 117 newly accepted fuzz paths, measured against point-membership integration). So:
+    max piece <= volume <= sum of pieces, nothing of any piece outside it, nothing of it outside every piece."""
+    volume = union.volume
+    sizes = [p.volume for p in pieces]
+    tol = rel * max(sum(sizes), 1e-12)
+    if not max(sizes) - tol <= volume <= sum(sizes) + tol:
+        return False
+    try:
+        for p in pieces:
+            outside = p.cut(union)
+            if outside is not None and outside.volume > tol:
+                return False
+        rest = union
+        for p in pieces:
+            rest = rest.cut(p)
+            if rest is None or not rest.solids():
+                return True
+        return rest.volume <= tol
+    except Exception:  # OCCT can't even check: don't trust it
+        return False
 
 
 # -- the script helpers -------------------------------------------------------------------------------------------
@@ -977,9 +1005,11 @@ def helpers(tracker):
         local = bd.Wire(edges) if len(edges) > 1 else bd.Wire([edges[0]])
         # OCCT sweeps each smooth run in one go and BRepCheck accepts a run's sweep overlapping itself (bug sweep
         # G4); runs crossing each other are swept apart and fused, which is fine
-        if any(_crosses_itself(run.edges()) for run in _runs(local)[0]):
-            raise SketchError(f"a smooth stretch of the path {name} crosses or touches itself: a groove along it "
-                              f"would overlap itself (put a sharp corner between the stretches that cross)")
+        for run in _runs(local)[0]:
+            if _crosses_itself(run.edges()) or _band_overlaps(run, width / 2):
+                raise SketchError(f"a smooth stretch of the path {name} crosses itself or comes back within the "
+                                  f"groove's width ({width:g} mm): the groove would overlap itself there (put a "
+                                  f"sharp corner between the stretches that meet, or narrow the groove)")
         wire = sk.placed(local)
         n = sk.plane.z_dir
         cut = mode != bd.Mode.ADD
@@ -1023,6 +1053,36 @@ def _crosses_itself(edges):
     if found != 2 * len(edges):  # each edge has two ends (a closed edge: one vertex listed twice)
         return True
     return any(ancestors.FindFromIndex(i).Size() > 2 for i in range(1, ancestors.Extent() + 1))
+
+
+def _band_overlaps(run, half):
+    """Does the band `half` mm either side of a smooth run (local XY) overlap itself? OCCT sweeps a run in one go
+    and BRepCheck accepts the swept solid overlapping itself, with a wrong volume (session 15: arcs tangent inside
+    an arc, -10%). It does where the run turns tighter than `half`, or where two of its points farther apart along
+    it than a half turn of that radius come within twice `half` of each other."""
+    from build123d import GeomType
+    from scipy.spatial import cKDTree
+    pts, along = [], []
+    total = 0.0
+    for e in run.edges():
+        if e.geom_type == GeomType.CIRCLE and e.radius < half * (1 - 1e-9):
+            return True
+        n = max(2, math.ceil(e.length / (half / 4)) + 1)
+        for k in range(n if e is run.edges()[-1] else n - 1):
+            p = e.position_at(k / (n - 1))
+            pts.append((p.X, p.Y))
+            along.append(total + e.length * k / (n - 1))
+        total += e.length
+    pts, along = np.asarray(pts), np.asarray(along)
+    near = math.pi * half + half / 2
+    closed = run.is_closed
+    for i, j in cKDTree(pts).query_pairs(2 * half * (1 - 1e-6)):
+        gap = abs(along[i] - along[j])
+        if closed:
+            gap = min(gap, total - gap)
+        if gap > near:
+            return True
+    return False
 
 
 def _trim_sunk(rib, plane, n, over):
