@@ -52,6 +52,8 @@ def _make_operator(prim):
 
     annotations["matrix"] = FloatVectorProperty(size=16, options={"HIDDEN", "SKIP_SAVE"})
     annotations["placed"] = BoolProperty(options={"HIDDEN", "SKIP_SAVE"})  # use `matrix`, not the 3D cursor
+    # chosen in the pie: start where the pie was opened (Shift+A and the sidebar start at the 3D cursor)
+    annotations["from_pie"] = BoolProperty(options={"HIDDEN", "SKIP_SAVE"})
 
     def execute(self, context):
         matrix = Matrix([self.matrix[i * 4:i * 4 + 4] for i in range(4)]) if self.placed else None
@@ -101,7 +103,8 @@ class _Placement:
         runtime.warm_up()
         region, rv3d = context.region, context.region_data
         factor = part.unit_factor(context.scene)
-        matrix, origin = context.scene.cursor.matrix.normalized(), pies.take_origin(context)
+        matrix = context.scene.cursor.matrix.normalized()
+        origin = pies.take_origin(context) if op.from_pie else None
         if origin is not None:  # where the pie was opened: the face under it, else the 3D cursor's plane
             ray = ops_draw.mouse_ray(context, origin)
             plane, _, _ = ops_draw.pick(context, *ray, near=ops_draw._near_rays(context, origin))

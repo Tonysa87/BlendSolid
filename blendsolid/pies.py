@@ -19,9 +19,9 @@ _origin = None  # where the pie was last opened: (area pointer, (x, y) region pi
 ORIGIN_SECONDS = 30.0  # a command chosen this soon after opening the pie still starts where it was opened
 
 
-def remember_origin(context, event):
+def remember_origin(context, pixel):
     global _origin
-    _origin = (context.area.as_pointer(), (event.mouse_region_x, event.mouse_region_y), time.monotonic())
+    _origin = (context.area.as_pointer(), pixel, time.monotonic())
 
 
 def take_origin(context):
@@ -92,7 +92,7 @@ class BLENDSOLID_OT_call_pie(bpy.types.Operator):
         return context.mode == "OBJECT" and context.area is not None and context.area.type == "VIEW_3D"
 
     def invoke(self, context, event):
-        remember_origin(context, event)
+        remember_origin(context, (event.mouse_region_x, event.mouse_region_y))
         bpy.ops.wm.call_menu_pie("INVOKE_DEFAULT", name=PIE)
         return {"FINISHED"}
 
@@ -110,7 +110,7 @@ class BLENDSOLID_OT_pie_or_menu(bpy.types.Operator):
     def invoke(self, context, event):
         self._key = event.type
         self._start = (event.mouse_x, event.mouse_y)
-        remember_origin(context, event)
+        self._pixel = (event.mouse_region_x, event.mouse_region_y)
         context.window_manager.modal_handler_add(self)
         return {"RUNNING_MODAL"}
 
@@ -121,6 +121,7 @@ class BLENDSOLID_OT_pie_or_menu(bpy.types.Operator):
         if event.type in {"MOUSEMOVE", "INBETWEEN_MOUSEMOVE"}:
             dx, dy = event.mouse_x - self._start[0], event.mouse_y - self._start[1]
             if dx * dx + dy * dy >= drag_threshold(context) ** 2:
+                remember_origin(context, self._pixel)  # only a pie has an origin: not Blender's context menu
                 bpy.ops.wm.call_menu_pie("INVOKE_DEFAULT", name=PIE)
                 return {"FINISHED"}
         if event.type == "ESC":
@@ -157,7 +158,7 @@ class VIEW3D_MT_blendsolid_pie_add(bpy.types.Menu):
     def draw(self, context):
         pie = self.layout.menu_pie()
         for kind, prim in primitives.PRIMITIVES.items():
-            pie.operator(f"blendsolid.add_{kind}", text=prim.label, icon=ops_add.ICONS[kind])
+            pie.operator(f"blendsolid.add_{kind}", text=prim.label, icon=ops_add.ICONS[kind]).from_pie = True
         pie.operator("blendsolid.new_part", icon="FILE_NEW")
 
 
