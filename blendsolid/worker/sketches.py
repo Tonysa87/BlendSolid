@@ -379,8 +379,9 @@ def arc_to(end):
 
 
 CLOSE_MM = 1e-6  # a closed path's last point this near its start ends there
-STRAIGHT = 1e-5  # sin of the angle between an arc's tangent and its chord below which it is a line (radius > 5e4 x chord)
-KINK = 1e-5  # radians: a line leaving the path's tangent by less goes along it (its end moves by up to 1e-5 x its length)
+STRAIGHT = 1e-6  # sin of the angle between an arc's tangent and its chord below which it is a line (radius > 5e5 x chord)
+KINK = 1e-6  # radians: a line leaving the path's tangent by less goes along it (its end moves by up to 1e-6 x its length;
+# more moved a point before a 0.001 mm segment enough to turn the arc after it: bug sweep rerun, 2026-10-04)
 
 
 def path(start, *segments, closed=False):
@@ -403,8 +404,10 @@ def path(start, *segments, closed=False):
                 raise SketchError("a path can't start with an arc: its tangent comes from the segment before it")
             tangent = edges[-1].tangent_at(1)
             chord = end - here
-            if abs(tangent.cross(chord).Z) <= STRAIGHT * chord.length:
-                edge = Edge.make_line(here, end)  # along its tangent the arc is a line (as the preview draws it)
+            if abs(tangent.cross(chord).Z) <= STRAIGHT * chord.length:  # the arc is a line (as the preview draws it)
+                if chord.dot(tangent) > 0:  # exactly along its tangent: a hair off it is a corner OCCT can't sweep
+                    end = here + tangent * chord.dot(tangent)
+                edge = Edge.make_line(here, end)  # straight back: a 180° turn, which a groove refuses clearly
             else:
                 edge = Edge.make_tangent_arc(here, tangent, end)
         else:
@@ -575,8 +578,11 @@ def _sweep_by_runs(runs, sharp, profile_at, normal, corners):
         length = 2 * reach / math.cos(turn / 2) + 1.0
         ahead = Solid.extrude(Face(profile_at(point, before)), before * length)
         behind = Solid.extrude(Face(profile_at(point, after)), after * -length)
-        common = ahead.intersect(behind)
-        solids = common.solids() if common is not None else []
+        try:
+            common = ahead.intersect(behind)
+            solids = common.solids() if common is not None else []
+        except ValueError:  # "Null TopoDS_Shape object"
+            solids = []
         if len(solids) == 1:
             pieces.append(_valid_sweep(solids[0]))
         elif turn < SMALL_TURN:  # nearly coaxial pipes: OCCT finds no common part; the round piece differs by ~turn^3

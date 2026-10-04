@@ -531,3 +531,20 @@ def test_a_fillet_on_a_round_cornered_groove():
             '    fillet(edge_between(face("groove_1", "wall"), face("groove_1", "wall"), near=(-5.0, 0.0, 8.0)), '
             'radius=0.2)  # feature: fillet_1\n')
     assert r.volume < 8000
+
+
+@pytest.mark.parametrize("face, points, groove, volume", [
+    # a near-straight arc (sin 4e-6) turned into a line a hair off its tangent: a micro-corner OCCT can't sweep
+    ("+Z", "(-11.005622, -6.050002), (-11.037672, -5.98361), (-10.97514, -5.953424), arc_to((-9.911976, -5.440201))",
+     'width=1.828698, depth=2.754514, profile="v", corners="round", mode=Mode.ADD', 8003.8442),
+    # a 5.7e-6 rad kink snapped by moving a point 1e-5 mm, before a 0.001 mm segment: the arc after it turned
+    ("-Y", "(4.053926, 1.141709), (3.914217, 0.888261), (2.75228, -1.219645), (2.753019, -1.220319), "
+           "arc_to((5.203252, 0.383503)), closed=True",
+     'width=1.803477, depth=2.110572, profile="circle", corners="round", mode=Mode.ADD', 8016.3285),
+])
+def test_rounding_fixes_leave_real_geometry_alone(face, points, groove, volume):
+    # the groove sweep's rerun of the path fixes (2026-10-04); volumes from an independent 2D band integration
+    r = run(GROOVE_BOX + f'    with sketch(on_face(face("box_1", "{face}"))) as sketch_1:  # feature: sketch_1\n'
+            f'        sketch_1.path_1 = path({points})\n'
+            f'    groove(sketch_1.path_1, {groove})  # feature: rib_1\n')
+    assert abs(r.volume - volume) < 1e-3, r.volume
