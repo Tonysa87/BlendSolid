@@ -251,3 +251,15 @@ tools/test.sh           # unit tests (Blender's Python) + Blender tests (blender
   every call (identity tests like `e is run.edges()[-1]` are always False).
 - On multi-metre parts float32 welding joins the ends of OCCT's micro-edges (6e-5 mm): `tessellate._drop_repeats`.
 - BRepMesh can leave a face without triangulation: the display falls back to the lenient recovery, never fails.
+
+## Known pitfalls (session 16, STEP/IGES/BREP I/O)
+
+- **build123d's `clean()` changes its input in place** (UnifySameDomain; on by default in `insert()` and every
+  BuildPart operation): a corpus solid inserted into an empty BuildPart became invalid, and so did the cached copy.
+  Shapes reused across runs are re-read each run (`exchange.DECODED` keeps bytes); imports use `insert(..., clean=False)`.
+- OCP `IGESCAFControl_Writer(WorkSession, "MM")` writes untrimmed infinite faces: use the default constructor with
+  `write.iges.brep.mode` = 1 (MSBO solids). XDE colours are linear RGB (`Quantity_TOC_RGB`), as Blender's.
+- XDE `AddShape` of a located shape adds an instance of a product: set the name and colour on both labels (readers
+  take the product's); two items sharing a TShape share one product, so differently named ones need a copy.
+- After `bpy.data.batch_remove(objects)`, `view_layer.objects` yields `None` until `view_layer.update()`.
+- `tools/mesh_shot.py x out.png --step FILE` shows the display mesh of a CAD file's solids (`--part N` for one).

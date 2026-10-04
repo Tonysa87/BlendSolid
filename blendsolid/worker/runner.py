@@ -6,6 +6,9 @@ in error messages). "matrices" holds one 3x4 row-major
 transform (millimetres) per object showing that part (linked duplicates), from the part's own frame to the frame
 of the part that references it. ref() builds the part (or takes it from the shape cache, by tag) and returns it
 placed there: one shape, or a compound of every placement.
+
+An imported solid is `imported("<blob id>")` (ADR 0016): the request carries `blobs` ({id: base64 text}) for the
+part and every part it uses; exchange.DECODED keeps decoded shapes by id.
 """
 import math
 import time
@@ -15,6 +18,7 @@ from dataclasses import dataclass, field
 import numpy as np
 
 import blends
+import exchange
 import progress
 import provenance
 import tessellate
@@ -112,7 +116,7 @@ def _location(matrix, label):
     return Location(trsf)
 
 
-def _make_ref(deps, cache, depth):
+def _make_ref(deps, cache, depth, blobs):
     by_id = {d["id"]: d for d in deps}
 
     def ref(part_id):
@@ -125,7 +129,8 @@ def _make_ref(deps, cache, depth):
             if depth >= MAX_DEPTH:
                 raise RefError(f"{label} uses parts that use each other too deeply")
             try:
-                shape = _build(dep["source"], f"<ref {part_id}>", dep.get("deps") or [], cache, depth + 1)
+                shape = _build(dep["source"], f"<ref {part_id}>", dep.get("deps") or [], cache, depth + 1,
+                               blobs=blobs)
             except RefError:
                 raise  # already names the part that failed (a nested ref)
             except Exception as e:
@@ -142,6 +147,31 @@ def _make_ref(deps, cache, depth):
     return ref
 
 
+INVALID_IMPORT = "the imported solid is not valid (BRepCheck): booleans and fillets on it may fail"
+
+
+def _make_imported(blobs, tracker):
+    def imported(blob_id):
+        text = blobs.get(blob_id)
+        if text is None:  # Blender checks blobs before sending (deps.py): a malformed request
+            raise RefError(f"imported({blob_id!r}): its shape's data was not sent with this script")
+        try:
+            shape, valid = exchange.DECODED.get(blob_id, text)
+        except exchange.ExchangeError as e:
+            raise RefError(f"this part can't be built: {e}") from None
+        if not valid:
+            tracker.warn(INVALID_IMPORT)
+            tracker.invalid_import = True
+        from build123d import Solid
+        from OCP.TopAbs import TopAbs_SOLID
+        if shape.ShapeType() != TopAbs_SOLID:
+            raise RefError(f"imported({blob_id!r}) is not a solid")
+        from OCP.TopoDS import TopoDS
+        return Solid(TopoDS.Solid(shape))
+
+    return imported
+
+
 def _result_shape(ns, tracker=None):
     if "result" not in ns:
         raise ResultError("the script must assign the final shape to `result`")
@@ -155,14 +185,16 @@ def _result_shape(ns, tracker=None):
     return shape
 
 
-def _build(source, filename, deps, cache, depth=0, tracker=None):
-    """Exec `source` (ref() and the face/edge references available) and return its `result` shape. A canonical
-    script runs with the provenance hook, which fills `tracker`. Raises whatever the script raises."""
+def _build(source, filename, deps, cache, depth=0, tracker=None, blobs=None):
+    """Exec `source` (ref(), imported() and the face/edge references available) and return its `result` shape. A
+    canonical script runs with the provenance hook, which fills `tracker`. Raises whatever the script raises."""
     tracker = provenance.Tracker() if tracker is None else tracker
     tracker.filename = filename
     code = provenance.instrument(source, filename) or compile(source, filename, "exec")
     ns = provenance.namespace(tracker)
-    ns["ref"] = _make_ref(deps, cache, depth)
+    blobs = {} if blobs is None else blobs
+    ns["ref"] = _make_ref(deps, cache, depth, blobs)
+    ns["imported"] = _make_imported(blobs, tracker)
     exec(code, ns)
     tracker.flush()
     return _result_shape(ns, tracker)
@@ -172,14 +204,15 @@ def _sketch_display(tracker):
     return [sk.display() for sk in tracker.sketches if sk.name is not None]
 
 
-def run_script(source, lin_defl=0.1, ang_defl=0.3, deps=(), tag=None, cache=None):
-    """`deps`: the parts ref() may use (see the module docstring). `tag`: when given, the built shape is
-    cached under it, so parts that use this one don't rebuild it."""
+def run_script(source, lin_defl=0.1, ang_defl=0.3, deps=(), tag=None, cache=None, blobs=None):
+    """`deps`: the parts ref() may use, `blobs`: the imported shapes imported() may use (see the module
+    docstring). `tag`: when given, the built shape is cached under it, so parts that use this one don't rebuild
+    it."""
     cache = SHAPES if cache is None else cache
     t0 = time.perf_counter()
     try:
         tracker = provenance.Tracker()
-        shape = _build(source, SCRIPT_NAME, list(deps or ()), cache, tracker=tracker)
+        shape = _build(source, SCRIPT_NAME, list(deps or ()), cache, tracker=tracker, blobs=blobs or {})
     except SyntaxError as e:
         return RunResult(False, f"SyntaxError: {e.msg}", e.lineno)
     except SystemExit:
@@ -208,7 +241,7 @@ def run_script(source, lin_defl=0.1, ang_defl=0.3, deps=(), tag=None, cache=None
         info = tessellate.check(wrapped)
         if info["solids"] == 0:
             return RunResult(False, "`result` contains no solid")
-        if not info["valid"]:
+        if not info["valid"] and not tracker.invalid_import:  # an invalid import is shown, with its warning
             return RunResult(False, "`result` is not a valid solid (BRepCheck failed)")
         progress.note("meshing the part for display")
         mesh = tessellate.display_mesh(wrapped, lin_defl, ang_defl)
@@ -233,3 +266,21 @@ def run_script(source, lin_defl=0.1, ang_defl=0.3, deps=(), tag=None, cache=None
     except Exception as e:
         # tessellate.check/tessellate (and any OCCT call here) must never take down the worker process.
         return RunResult(False, f"{type(e).__name__}: {e}")
+
+
+def build(source, deps=(), blobs=None, tag=None, cache=None, label="a part"):
+    """The exact shape of a part script (for export): from the shape cache by `tag`, else built and cached.
+    Raises exchange.ExchangeError naming `label` when the script fails or gives no valid solid."""
+    cache = SHAPES if cache is None else cache
+    shape = cache.get(tag) if tag is not None else None
+    if shape is None:
+        try:
+            tracker = provenance.Tracker()
+            shape = _build(source, SCRIPT_NAME, list(deps or ()), cache, tracker=tracker, blobs=blobs or {})
+        except Exception as e:
+            raise exchange.ExchangeError(f"{label} can't be built: {type(e).__name__}: {e}") from None
+        if shape is None or tessellate.check(shape.wrapped)["solids"] == 0:
+            raise exchange.ExchangeError(f"{label} has no solid to export")
+        if tag is not None:
+            cache.put(tag, shape)
+    return shape

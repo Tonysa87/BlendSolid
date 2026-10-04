@@ -15,5 +15,8 @@ license = ["SPDX:GPL-3.0-or-later"]
 # tools/build_extension.py narrows this to the one platform of each zip
 platforms = ["windows-x64", "linux-x64", "macos-arm64"]
 
+[permissions]
+files = "Import and export STEP, IGES and BREP files"
+
 [build]
 paths_exclude_pattern = ["__pycache__/", "*.pyc"]

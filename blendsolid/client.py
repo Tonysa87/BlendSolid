@@ -129,10 +129,18 @@ class WorkerClient:
 
     # -- requests ----------------------------------------------------------------------------------------
 
-    def submit(self, key, source, tag, lin_defl=0.1, ang_defl=0.3, deps=None):
-        """`deps`: the parts the script's ref() calls may use (see worker/runner.py), JSON-serializable."""
-        self._pending[key] = {"type": "run", "key": key, "tag": tag, "source": source,
-                              "lin_defl": lin_defl, "ang_defl": ang_defl, "deps": deps or []}
+    def submit(self, key, source, tag, lin_defl=0.1, ang_defl=0.3, deps=None, blobs=None):
+        """`deps`: the parts the script's ref() calls may use, `blobs`: the imported shapes its imported() calls
+        may use (see worker/runner.py), JSON-serializable."""
+        self._queue(key, {"type": "run", "key": key, "tag": tag, "source": source, "lin_defl": lin_defl,
+                          "ang_defl": ang_defl, "deps": deps or [], "blobs": blobs or {}})
+
+    def submit_exchange(self, key, request):
+        """An "import" or "export" request (worker/server.py _exchange); answered by an "io" event with `key`."""
+        self._queue(key, {**request, "key": key, "tag": None})
+
+    def _queue(self, key, request):
+        self._pending[key] = request
         self._pending.move_to_end(key)
         if self.state == "stopped":
             self.start()
@@ -178,7 +186,7 @@ class WorkerClient:
                         what = header.get("what") or ""
                         self._progress = (what, header.get("line")) if what else None  # "": the step is done
                     continue
-                elif kind == "result":
+                elif kind in ("result", "io"):
                     header.update(arrays)
                     self._running = None
                     self._progress = None

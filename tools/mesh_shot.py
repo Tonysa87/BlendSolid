@@ -4,7 +4,9 @@ from a few views, to look at what the worker made — a run without errors can s
 Run with Blender's Python (no bpy):
     PY=~/blender/blender-5.2.2-linux-x64/5.2/python/bin/python3.13
     "$PY" tools/mesh_shot.py part.py out.png [--tol 1.0] [--face N] [--views iso,top,front] [--size 900]
-`part.py` is a part script (as the worker runs it). `--face N[,M...]` zooms on those faces (BRep face ids, as the
+`part.py` is a part script (as the worker runs it); `--blobs blobs.json` gives the {id: base64} of its imported()
+solids (ADR 0016), `--step FILE` makes the script from a STEP/IGES/BREP file's solids instead (`part.py` is then
+ignored: pass any name; `--part N` picks one, default all side by side). `--face N[,M...]` zooms on those faces (BRep face ids, as the
 display mesh numbers them) and dims the others; `--face curved` zooms on every face that isn't flat. Triangles and
 quads with a corner under 1 degree are tinted red, under 5 degrees orange; back faces are purple.
 """
@@ -137,9 +139,29 @@ def main():
     ap.add_argument("--face", default=None)
     ap.add_argument("--views", default="iso,iso2,top")
     ap.add_argument("--size", type=int, default=900)
+    ap.add_argument("--blobs", default=None)
+    ap.add_argument("--step", default=None)
+    ap.add_argument("--part", type=int, default=None)
     a = ap.parse_args()
     import runner
-    r = runner.run_script(open(a.script).read(), a.tol, 0.3)
+    blobs = {}
+    if a.blobs:
+        import json
+        blobs = json.load(open(a.blobs))
+    if a.step:
+        import exchange
+        data = exchange.read(a.step)
+        blobs = data["blobs"]
+        chosen = data["parts"] if a.part is None else [data["parts"][a.part]]
+        lines = ["with BuildPart() as part:"]
+        for i, p in enumerate(chosen):
+            m = ", ".join(repr(x) for x in p["matrix"])
+            lines.append(f"    insert(_place(imported({p['blob']!r}), [{m}]), clean=False)")
+        script = ("def _place(s, m):\n    import exchange\n    return Solid(exchange.placed(s.wrapped, m))\n\n"
+                  + "\n".join(lines) + "\nresult = part.part\n")
+    else:
+        script = open(a.script).read()
+    r = runner.run_script(script, a.tol, 0.3, blobs=blobs)
     if not r.ok:
         sys.exit(f"the script failed: {r.error} (line {r.line})")
     v = r.verts.astype(np.float64)

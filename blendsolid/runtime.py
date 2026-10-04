@@ -5,6 +5,7 @@ hash stored on its mesh. Parameter edits, script edits, undo/redo and file loads
 single path; nothing is decided in undo handlers (evaluated data isn't ready there — spike finding).
 """
 import atexit
+import time
 from collections import OrderedDict
 
 import bpy
@@ -24,6 +25,9 @@ _meshes = OrderedDict()  # (part id, script hash) -> the worker's result applied
 _ids = {}       # object name -> the part id the entries above were made for (see _forget_other_part)
 _shown = {}     # object name -> (part id, script hash) of the mesh this session last put on the part; the part id
                 # tells a new part from a deleted or renamed one that had its name
+_EXCHANGE = "\0exchange:"  # key prefix of import/export requests (not object names: those can't hold "\0")
+_exchanged = {}  # exchange key -> its answer, until exchange() takes it
+_exchange_count = 0
 
 
 def client():
@@ -171,10 +175,46 @@ def _mirror_to_siblings(primary, siblings, source, tag):
             part.set_error(sib, primary.blendsolid_error, primary.blendsolid_error_line, part.error_tag(primary))
 
 
+def _exchange_event(event):
+    """Keep the answer to an exchange() request, or the crash that ended it; True if `event` is only that (a
+    crash also concerns the parts it dropped: _handle() still sees it)."""
+    if event["type"] == "io":
+        _exchanged[event["key"]] = event
+        return True
+    if event["type"] == "crashed":
+        for key in [event.get("key")] + [k for k, _ in event.get("dropped", [])]:
+            if isinstance(key, str) and key.startswith(_EXCHANGE):
+                _exchanged[key] = {**event, "key": key}
+    return False
+
+
+def exchange(request):
+    """Send an "import" or "export" request (ADR 0016) to the worker and wait for its "io" answer, reconciling
+    parts meanwhile (the answer may queue behind a part being computed). Blocking: for operators, which run on
+    Blender's thread anyway; the worker's job timeout bounds the wait. Returns the answer, ok or not."""
+    global _exchange_count
+    _exchange_count += 1
+    key = f"{_EXCHANGE}{_exchange_count}"
+    try:
+        client().submit_exchange(key, request)
+    except (WorkerStartError, FileNotFoundError) as e:
+        return {"type": "io", "ok": False, "error": f"Cannot start the geometry worker: {e}"}
+    while key not in _exchanged:
+        tick()
+        if key not in _exchanged:
+            time.sleep(0.01)
+    event = _exchanged.pop(key)
+    if event["type"] == "crashed":
+        return {"type": "io", "ok": False, "error": f"The geometry worker failed: {event['error']}"}
+    return event
+
+
 def _poll_events(factor):
     if _client is None:
         return
     for event in _client.poll():
+        if _exchange_event(event):
+            continue
         try:
             _handle(event, factor)
         except Exception as e:  # one malformed/unexpected event must not stop the others from being applied
@@ -251,7 +291,8 @@ def tick():
 
             if worker_error is None:
                 try:
-                    client().submit(obj.name, source, tag, lin_defl=tol, deps=resolved.deps)
+                    client().submit(obj.name, source, tag, lin_defl=tol, deps=resolved.deps,
+                                    blobs=resolved.blob_data())
                 except (WorkerStartError, FileNotFoundError) as e:  # FileNotFoundError: no worker libraries
                     worker_error = e
             if worker_error is not None:

@@ -242,6 +242,23 @@ def references(source):
         return []
 
 
+_IMPORTED = re.compile(r"""\bimported\(\s*["']([0-9a-f]{32})["']\s*\)""")
+
+
+def imports(source):
+    """Every imported("<blob id>") the script uses (ADR 0016), in order, without duplicates. A cheap scan (the
+    reconcile tick runs it on every part): a blob id is 32 hex digits, so a match can't be anything else."""
+    if "imported(" not in source:
+        return []
+    return list(dict.fromkeys(_IMPORTED.findall(source)))
+
+
+def import_spec(blob_id):
+    """The feature that inserts an imported solid (ADR 0016). clean=False: the file's faces as they are
+    (build123d's clean() merged faces of a corpus solid into an invalid one)."""
+    return FeatureSpec("import", (), f'insert(imported("{blob_id}"), clean=False)')
+
+
 def next_name(existing_names, prefix):
     """`<prefix>_<n>` with n one more than the highest n already used with that prefix."""
     pattern = re.compile(rf"^{re.escape(prefix)}_(\d+)$")

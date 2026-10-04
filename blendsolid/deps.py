@@ -14,7 +14,7 @@ then not submitted, and error_tag() gives it a tag that changes as soon as the s
 """
 from dataclasses import dataclass, field
 
-from . import part, script_model, trust
+from . import blobs, part, script_model, trust
 
 class DepError(Exception):
     """A reference that can't be resolved; str(e) is for the user."""
@@ -24,6 +24,11 @@ class DepError(Exception):
 class Resolved:
     tag: str
     deps: list = field(default_factory=list)  # WorkerClient.submit(deps=...)
+    blobs: dict = field(default_factory=dict)  # blob id -> blob Text, of the part and the parts it uses (ADR 0016)
+
+    def blob_data(self):
+        """WorkerClient.submit(blobs=...): read only when submitting (a blob can be hundreds of KB)."""
+        return {blob_id: blobs.data(text) for blob_id, text in self.blobs.items()}
 
 
 def part_index(groups=None):
@@ -64,12 +69,27 @@ def error_tag(source, factor, message):
     return part.tag_for(source, factor, [f"error:{message}"])
 
 
+def _blobs_of(script, source, label=None):
+    """{blob id: blob Text} of the imported() calls in `source` (ADR 0016); raises DepError when one is missing.
+    The ids are in the script text, so the tag already covers the blobs' contents."""
+    found = {}
+    for blob_id in script_model.imports(source):
+        text = blobs.find(script, blob_id)
+        if text is None:
+            whose = "Its" if label is None else f"'{label}' can't be used: its"
+            raise DepError(f"{whose} imported shape's data is missing from this file (it was deleted or not "
+                           f"appended): undo (Ctrl+Z) or import the file again")
+        found[blob_id] = text
+    return found
+
+
 def resolve(obj, source, factor, index, memo=None, stack=()):
-    """Resolved(tag, deps) for part `obj` whose script is `source`. `index`: part_index(); `memo`: a dict
+    """Resolved(tag, deps, blobs) for part `obj` whose script is `source`. `index`: part_index(); `memo`: a dict
     shared across one tick (dependency results by part id). Raises DepError."""
     ids = references(source)
+    own_blobs = _blobs_of(obj.blendsolid_script, source)
     if not ids:
-        return Resolved(part.tag_for(source, factor))
+        return Resolved(part.tag_for(source, factor), blobs=own_blobs)
     memo = {} if memo is None else memo
     own = part.part_id(obj)
     chain = (*stack, own)
@@ -85,6 +105,8 @@ def resolve(obj, source, factor, index, memo=None, stack=()):
             if kept is None:
                 raise DepError("This part uses a cutter part that no longer exists: undo its deletion (Ctrl+Z) or "
                                "Remove its cut (BlendSolid panel, Booleans)")
+            kept, kept_blobs = kept
+            own_blobs.update(kept_blobs)
             deps.append(kept)
             keys.append(f"{pid}:{kept['tag']}:" + ";".join(_matrix_key(m) for m in kept["matrices"]))
             continue
@@ -101,17 +123,19 @@ def resolve(obj, source, factor, index, memo=None, stack=()):
             memo[pid] = sub
         if isinstance(sub, DepError):
             raise DepError(f"'{dep.name}' can't be used: {sub}")
+        own_blobs.update(sub.blobs)
         matrices = [relative_matrix(obj, o, factor) for o in instances]
         # "name": for the worker's messages only (ADR 0002: users know parts by name); not part of the tag
         deps.append({"id": pid, "name": dep.name, "tag": sub.tag, "source": part.source_of(dep),
                      "matrices": matrices, "deps": sub.deps})
         keys.append(f"{pid}:{sub.tag}:" + ";".join(_matrix_key(m) for m in matrices))
-    return Resolved(part.tag_for(source, factor, keys), deps)
+    return Resolved(part.tag_for(source, factor, keys), deps, own_blobs)
 
 
 def _deleted_cutter(obj, pid, factor):
-    """The dependency entry of cutter `pid`, deleted but with its script kept and its placement remembered by
-    obj, or None. Raises DepError when it can't be used as it is (untrusted, or itself using other parts)."""
+    """(dependency entry, its blobs) of cutter `pid`, deleted but with its script kept and its placement
+    remembered by obj, or None. Raises DepError when it can't be used as it is (untrusted, or itself using other
+    parts)."""
     text, last = part.script_of_part(pid), part.last_cutter(obj, pid)
     if text is None or last is None:
         return None
@@ -123,8 +147,8 @@ def _deleted_cutter(obj, pid, factor):
     if references(source):
         raise DepError(f"This part uses '{name}', which was deleted and uses other parts: restore it (BlendSolid "
                        f"panel, Booleans)")
-    return {"id": pid, "name": name, "tag": part.tag_for(source, factor), "source": source, "matrices": matrices,
-            "deps": [], "deleted": True}
+    return ({"id": pid, "name": name, "tag": part.tag_for(source, factor), "source": source, "matrices": matrices,
+             "deps": [], "deleted": True}, _blobs_of(text, source, name))
 
 
 @dataclass(frozen=True)
@@ -164,7 +188,7 @@ def tag_of(obj, factor=None, index=None):
     error_tag). A full scan when `index` isn't given: for UI code and event handling, not per-tick loops."""
     factor = part.unit_factor() if factor is None else factor
     source = part.source_of(obj)
-    if not references(source):
+    if not references(source) and not script_model.imports(source):
         return part.tag_for(source, factor)
     try:
         return resolve(obj, source, factor, part_index() if index is None else index).tag

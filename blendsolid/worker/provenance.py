@@ -133,6 +133,7 @@ class Tracker:
         import sketches
         self.roles = sketches._Roles()  # brought-in faces whose role their feature knows (extrudes of sketches)
         self.sketches = []        # sketches.Sketch objects in script order (their features name them)
+        self.invalid_import = False  # an imported() solid failed BRepCheck (runner.INVALID_IMPORT)
 
     def warn(self, message):
         """Record a warning on the script line being run (the innermost frame of the part script)."""

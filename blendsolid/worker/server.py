@@ -82,6 +82,29 @@ def exit_with_parent(parent_pid):
         _exit_with_parent_posix(parent_pid)
 
 
+def _exchange(header):
+    """Answer an "import" ({"path"}) or "export" ({"path", "items": [{"name", "source", "deps", "blobs", "tag",
+    "matrix", "color"}]}) request with an "io" reply (ADR 0016)."""
+    import exchange
+    import runner
+    reply = {"type": "io", "job": header["job"], "key": header["key"], "ok": True, "error": ""}
+    try:
+        if header["type"] == "import":
+            reply.update(exchange.read(header["path"]))
+        else:
+            items = []
+            for item in header["items"]:
+                shape = runner.build(item["source"], item.get("deps") or (), item.get("blobs") or {}, item.get("tag"),
+                                     label=f"'{item['name']}'")
+                items.append({"shape": exchange.placed(shape.wrapped, item["matrix"]), "name": item["name"],
+                              "color": item.get("color")})
+            exchange.write(header["path"], items)
+            reply["count"] = len(items)
+    except exchange.ExchangeError as e:
+        reply.update(ok=False, error=str(e))
+    return reply
+
+
 def main():
     port, libs = int(sys.argv[1]), sys.argv[2]
     parent_pid = int(sys.argv[4]) if len(sys.argv) > 4 and sys.argv[4] else os.getppid()
@@ -122,7 +145,7 @@ def main():
                 try:
                     r = runner.run_script(header["source"], header.get("lin_defl", 0.1),
                                           header.get("ang_defl", 0.3), deps=header.get("deps") or (),
-                                          tag=header["tag"])
+                                          tag=header["tag"], blobs=header.get("blobs") or {})
                 finally:
                     progress.send = None
                 reply = {"type": "result", "job": header["job"], "key": header["key"], "tag": header["tag"],
@@ -135,6 +158,8 @@ def main():
                            "corner_normals": r.corner_normals, "edges": r.edges, "edge_ids": r.edge_ids,
                            "edge_sharp": r.edge_sharp} if r.ok else None)
                 protocol.send_message(conn, reply, arrays)
+            elif kind in ("import", "export"):
+                protocol.send_message(conn, _exchange(header))
             else:
                 protocol.send_message(conn, {"type": "error", "error": f"unknown request {kind!r}"})
         except Exception as e:
@@ -142,7 +167,13 @@ def main():
             # itself, so a single malformed request can't take the whole worker process down with it. A
             # failed "run" is answered as a `result` (ok=False) so the client leaves "busy" immediately;
             # `error` is reserved for requests of an unknown type.
-            if kind == "run":
+            if kind in ("import", "export"):
+                try:
+                    protocol.send_message(conn, {"type": "io", "job": header.get("job"), "key": header.get("key"),
+                                                 "ok": False, "error": f"{type(e).__name__}: {e}"})
+                except Exception:
+                    return 1
+            elif kind == "run":
                 reply = {"type": "result", "job": header.get("job"), "key": header.get("key"),
                          "tag": header.get("tag"), "ok": False, "error": f"{type(e).__name__}: {e}",
                          "line": None, "volume": 0.0, "faces": 0, "timing": {}}
