@@ -457,8 +457,8 @@ def tessellate_with_normals(shape, lin_defl=0.1, ang_defl=0.3):
                      if rev is not None and "circle" in rev.ends else 1)
     edges = edge_map(shape)
     if not _plausible(shape, edges):
-        raise RuntimeError("the result has an edge far longer than the part itself (a known OCCT fillet failure): "
-                           "try another radius")
+        raise RuntimeError("the result has an edge far longer than the part itself (a known OCCT failure, seen after "
+                           "fillets): try another radius or size")
     layout = meshing.plan(faces, edges, kinds, rings, lin_defl, seg_angle)
     fallback = None
     verts, tris, tri_face, normals, offset = [], [], [], [], 0
@@ -525,11 +525,16 @@ def _plausible(shape, edges):
                     for i in range(1, vertices.Extent() + 1)]).reshape(-1, 3)
     props = GProp_GProps()
     BRepGProp.VolumeProperties_s(shape, props)
-    if props.Mass() < 0:
+    mass = props.Mass()
+    if mass < 0:
         return False  # inside out: the same broken fillet results have a negative volume
-    # the part's size: its vertices' extent, or the side of a cube of its volume (a torus has one vertex)
-    diagonal = max(float(np.linalg.norm(pts.max(axis=0) - pts.min(axis=0))) if len(pts) else 0.0,
-                   props.Mass() ** (1 / 3))
+    # the part's size: its vertices' extent, the side of a cube of its volume (a torus has one vertex), or twice its
+    # material's RMS distance from its centre of mass (a revolved ring's vertices all sit on its seam). Not a
+    # bounding box: the broken edges themselves would enlarge it.
+    inertia = props.MatrixOfInertia()
+    trace = inertia.Value(1, 1) + inertia.Value(2, 2) + inertia.Value(3, 3)
+    diagonal = max(float(np.linalg.norm(pts.max(axis=0) - pts.min(axis=0))) if len(pts) else 0.0, mass ** (1 / 3),
+                   2 * math.sqrt(max(trace, 0.0) / (2 * mass)) if mass > 0 else 0.0)
     for e in edges:
         if not BRep_Tool.Degenerated_s(e) and GCPnts_AbscissaPoint.Length_s(BRepAdaptor_Curve(e)) > 20 * diagonal + 1.0:
             return False

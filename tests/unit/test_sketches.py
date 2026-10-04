@@ -394,3 +394,14 @@ def test_snap_points_are_exact_vertices_midpoints_and_centres():
     assert pts[(10.0, 0.0, 20.0)] == 2  # the hole's centre on the top face
     assert r.snaps.dtype == np.float64 and (20.0, 15.0, 20.0, 0.0) in [tuple(row) for row in r.snaps]  # exact
     assert len(pts) == len(r.snaps)  # no duplicates
+
+
+def test_a_revolved_washer_has_a_display_mesh():
+    # every vertex of a revolved ring sits on its seam: the part's size taken from them was nothing, the volume's
+    # cube root small, and the full circle edge "far longer than the part" (bug sweep, 2026-10-04)
+    r = run('    with sketch(Plane.XZ) as sketch_1:  # feature: sketch_1\n'
+            '        sketch_1.r = Pos(21.0, 0.5) * Rectangle(2.0, 1.0)\n'
+            '        sketch_1.axis = Line((0.0, -5.0), (0.0, 5.0))\n'
+            '    revolve(regions(sketch_1, (21.0, 0.5)), axis=sketch_1.axis("axis"), revolution_arc=360.0)'
+            '  # feature: revolve_1\n')
+    assert r.volume == pytest.approx(2 * math.pi * 21 * 2, rel=1e-9) and len(r.loops) > 0
