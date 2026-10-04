@@ -1015,6 +1015,8 @@ def _arc_outline(centre, rel, nvec, dist, lines, margin):
         j = int(np.argmin(s))
         hits.append(centre + s[j] * d)
         side_of.append(j)
+    if not min(side_of[0], side_of[-1]) <= min(side_of) <= max(side_of) <= max(side_of[0], side_of[-1]):
+        return None  # a ray between the ends hits a side outside theirs: no single polyline between them
     # the polyline from the first node's hit to the last's, through the corners of the sides in between
     poly, params = [hits[0]], [0.0]
     for j in range(side_of[0], side_of[-1], -1 if side_of[-1] < side_of[0] else 1):

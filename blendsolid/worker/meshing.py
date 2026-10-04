@@ -513,6 +513,8 @@ def trimmed(face_info, edges, periods, grid=True):
         xyzs.append(xyz)
         segs.extend((offset + k, offset + (k + 1) % n) for k in range(n))
         offset += n
+    if not uvs:
+        return None  # no boundary to mesh from (seen on a sliver face OCCT left in a tapered cut)
     uv, xyz = np.concatenate(uvs), np.concatenate(xyzs)
     scale = np.array(face_info.scale, dtype=np.float64)
     if grid:

@@ -405,3 +405,24 @@ def test_a_revolved_washer_has_a_display_mesh():
             '    revolve(regions(sketch_1, (21.0, 0.5)), axis=sketch_1.axis("axis"), revolution_arc=360.0)'
             '  # feature: revolve_1\n')
     assert r.volume == pytest.approx(2 * math.pi * 21 * 2, rel=1e-9) and len(r.loops) > 0
+
+
+@pytest.mark.parametrize("body", [
+    # a collar ray between the arc's ends hit a side outside theirs: IndexError in tessellate._arc_outline
+    '    Box(25.7, 27.6, 42.3, align=(Align.CENTER, Align.CENTER, Align.MIN))  # feature: box_1\n'
+    '    with sketch(on_face(face("box_1", "-X"))) as sketch_1:  # feature: sketch_1\n'
+    '        sketch_1.circle_1 = Pos(-2.8661, -16.583829) * Circle(10.91376)\n'
+    '        sketch_1.poly_2 = Polygon((-6.516436, -21.100483), (-18.734237, -24.433119), (-16.751573, -27.601121), '
+    'align=None)\n'
+    '    extrude(regions(sketch_1, (-2.773331, -16.460478)), amount=0.733)  # feature: extrude_1\n',
+    # a face without a boundary loop to mesh from: ValueError in meshing.trimmed
+    '    Cylinder(29.3, 12.5, align=(Align.CENTER, Align.CENTER, Align.MIN))  # feature: cyl_1\n'
+    '    with sketch(on_face(face("cyl_1", "+Z"))) as sketch_1:  # feature: sketch_1\n'
+    '        sketch_1.rect_2 = Pos(-10.665063, -4.511171) * Rectangle(37.269874, 42.124223)\n'
+    '    extrude(regions(sketch_1, (-26.168268, -18.852565)), amount=-5.691, taper=3.0, mode=Mode.SUBTRACT)'
+    '  # feature: extrude_1\n',
+])
+def test_display_mesh_errors_are_not_raw_python_errors(body):
+    # valid solids whose display mesh raised IndexError / ValueError (bug sweep, 2026-10-04)
+    r = runner.run_script(f"with BuildPart() as part:\n{body}result = part.part\n")
+    assert r.ok or not r.error.startswith(("IndexError", "ValueError")), r.error
