@@ -106,7 +106,12 @@ geometric result verified with numbers.
    click confirms with object scale 1, Esc leaves nothing), step 6 (Fillet: drag past the limit stops at the max,
    test6.blend's error label, a new fillet on a failing part refused; ask whether fillet_3-5 in test6 were
    attempts to change fillet_2's radius), a quick re-check of `s14_rib.blend`, and what the fixes changed in the
-   GUI. Short steps, in Italian.
+   GUI. Short steps, in Italian. Session 15 adds: (a) R11 — Sketch a Rectangle on a Box's top face, Extrude Sketch
+   it up, then make the rectangle narrower in the sidebar (its width parameter) until the clicked point falls
+   outside it: the part shows an error "another area is under the point … pick the area again" instead of
+   extruding the rest of the face; (b) Groove with Profile Round and V, Corners Round: look at the wireframe of
+   the round corners (a clean fan, not a dense grid of slivers); (c) the sidebar's warning box is now titled
+   "Warnings" (it also lists "couldn't be meshed from the edges" when a face falls back).
 7. **The rest of 3a needed before the checkpoint:** the UI pass (queue item 3: tasks 3-8) and STEP/IGES/BREP
    import/export (real parts to work on); then the usage checkpoint.
 8. **Deferred until the checkpoint has spoken** (each stays in the ledger with its reason): R1 and the rest of R3

@@ -332,3 +332,20 @@ def test_revolve_refuses_a_failing_part_before_the_axis_click(clean, monkeypatch
     context = types.SimpleNamespace(area=types.SimpleNamespace(type="VIEW_3D"), region_data=object())
     assert ops_extrude.BLENDSOLID_OT_revolve.invoke(op, context, None) == {"CANCELLED"}
     assert reports and "fails" in reports[0]
+
+
+def test_narrowing_the_rectangle_past_the_extruded_point_is_an_error(box):
+    # R11 as the maintainer will try it: the extrude picked the rectangle at (4, 0); narrowed to 6 mm the point lies
+    # in the rest of the face, which was extruded silently before
+    sketch("RECTANGLE", (-5.0, -5.0), (5.0, 5.0), target=box.name, plane='on_face(face("box_1", "+Z"))')
+    wait_for(lambda: up_to_date(box))
+    assert bpy.ops.blendsolid.extrude("EXEC_DEFAULT", True, target=box.name, sketch="sketch_1", seed=(4.0, 0.0),
+                                      amount=5.0, operation="ADD") == {"FINISHED"}
+    wait_for(lambda: up_to_date(box))
+    source = part.source_of(box)
+    assert 'area((4.0, 0.0), inside=("face", "rect_1"))' in source and box.blendsolid_error == ""
+    width = [line for line in source.splitlines() if line.startswith("sketch_1_rect_1_width")]
+    assert width, source
+    box.blendsolid_script.from_string(source.replace(width[0], "sketch_1_rect_1_width = 6.0"))
+    wait_for(lambda: box.blendsolid_error != "")
+    assert "pick the area again" in box.blendsolid_error
