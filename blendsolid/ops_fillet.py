@@ -39,8 +39,9 @@ class BLENDSOLID_OT_fillet(bpy.types.Operator):
                                                          "(edge_between(...), edges_of(face(...)))")
     radius: FloatProperty(name="Radius", default=2.0, min=0.001, precision=3, step=10,
                           description="Fillet radius, or chamfer length, in millimetres")
-    chamfer: BoolProperty(name="Chamfer", default=False, description="A flat chamfer instead of a round fillet")
-    # SKIP_SAVE: every chamfer starts equal (Blender would otherwise reuse the last call's values)
+    # SKIP_SAVE: a call starts as a fillet, a chamfer as equal (Blender would otherwise reuse the last call's values)
+    chamfer: BoolProperty(name="Chamfer", default=False, options={"SKIP_SAVE"},
+                          description="A flat chamfer instead of a round fillet")
     chamfer_mode: EnumProperty(name="Type", items=CHAMFER_MODES, default="EQUAL", options={"SKIP_SAVE"},
                                description="How the chamfer's size is given")
     length2: FloatProperty(name="Length 2", default=2.0, min=0.001, precision=3, step=10, options={"SKIP_SAVE"},

@@ -20,8 +20,10 @@ _inflight = {}  # object name -> script hash being computed
 _failed = {}    # object name -> script hash that failed (not resubmitted until the script changes)
 _synced = {}    # object name -> script hash its blendsolid_params were last synced from
 _MESHES = 24    # worker results kept for undo/redo (a result is a whole display mesh)
-_meshes = OrderedDict()  # (object name, script hash) -> the worker's result applied to that part
-_shown = {}     # object name -> script hash of the mesh this session last put on the part
+_meshes = OrderedDict()  # (part id, script hash) -> the worker's result applied to that part
+_ids = {}       # object name -> the part id the entries above were made for (see _forget_other_part)
+_shown = {}     # object name -> (part id, script hash) of the mesh this session last put on the part; the part id
+                # tells a new part from a deleted or renamed one that had its name
 
 
 def client():
@@ -54,6 +56,7 @@ def reset_state():
     _synced.clear()
     _meshes.clear()
     _shown.clear()
+    _ids.clear()
     from . import picking
     picking.clear_cache()  # keyed by mesh session_uid: stale entries only grow across files
 
@@ -64,6 +67,17 @@ def force(obj):
     _synced.pop(obj.name, None)
     if part.HASH_KEY in obj.data:
         del obj.data[part.HASH_KEY]
+
+
+def _forget_other_part(obj):
+    """Runtime state is keyed by object name: when a name now belongs to another part (the one that had it was
+    deleted, renamed or cancelled), forget what was recorded for that name, or the new part inherits it: its
+    parameters taken as synced, its script as failed or computing (bug sweep, 2026-10-04)."""
+    pid = part.part_id(obj)
+    if _ids.get(obj.name, pid) != pid:
+        for state in (_inflight, _failed, _synced, _shown):
+            state.pop(obj.name, None)
+    _ids[obj.name] = pid
 
 
 def _local_object(name):
@@ -102,19 +116,20 @@ def _handle(event, factor):
     if kind == "result" and event["ok"]:
         _failed.pop(key, None)
         part.apply_result(obj, event, factor)
-        _remember(key, tag, event)
+        _remember(obj, tag, event)
     else:
         _failed[key] = tag
         message = event["error"] if kind == "result" else f"The geometry worker crashed: {event['error']}"
         part.set_error(obj, message, event.get("line"), tag)
 
 
-def _remember(name, tag, event):
-    _meshes[(name, tag)] = event
-    _meshes.move_to_end((name, tag))
+def _remember(obj, tag, event):
+    pid = part.part_id(obj)
+    _meshes[(pid, tag)] = event
+    _meshes.move_to_end((pid, tag))
     while len(_meshes) > _MESHES:
         _meshes.popitem(last=False)
-    _shown[name] = tag
+    _shown[obj.name] = (pid, tag)
 
 
 def _restore_mesh(obj, tag, factor):
@@ -122,16 +137,20 @@ def _restore_mesh(obj, tag, factor):
     as soon as it has written the script, before the worker's result arrives: undoing to the step of a part just
     added gave an empty mesh, and the Adjust Last Operation panel (undo, then the operator again) showed it while
     the new result computed (the maintainer's GUI test, 2026-09-29). A mesh other than the one this session last
-    put on the part gets the script's own result back, if it is still kept, else that last mesh while the script
-    computes. Returns whether it applied one."""
-    shown = _shown.get(obj.name)
-    if shown is None or part.applied_hash(obj) == shown:
+    put on the part gets the script's own result back, if it is still kept; a mesh that never got a result (a step
+    pushed before the first one) gets that last mesh while the script computes. A mesh that did keeps it: it is
+    that step's last good result, and the only one a failing script will ever have. Returns whether it applied
+    one."""
+    pid, shown = _shown.get(obj.name, (None, None))
+    if shown is None or pid != part.part_id(obj) or part.applied_hash(obj) == shown:
         return False
-    event = _meshes.get((obj.name, tag)) or _meshes.get((obj.name, shown))
+    event = _meshes.get((pid, tag))
+    if event is None and part.applied_hash(obj) is None:
+        event = _meshes.get((pid, shown))
     if event is None:
         return False
     part.apply_result(obj, event, factor)
-    _shown[obj.name] = event["tag"]
+    _shown[obj.name] = (pid, event["tag"])
     return True
 
 
@@ -184,6 +203,8 @@ def tick():
     worker_error = None  # once the worker itself fails to start, don't retry it for every other part
     for objs in sorted(groups.values(), key=lambda g: g[0].name):
         obj, siblings = objs[0], objs[1:]
+        for o in objs:
+            _forget_other_part(o)
         source = tag = None
         try:
             source = part.source_of(obj)

@@ -8,7 +8,7 @@ import bpy
 import pytest
 
 from blendsolid import part, runtime, trust
-from conftest import up_to_date, wait_for
+from conftest import mm3, up_to_date, wait_for
 
 
 def new_part(name="Part"):
@@ -236,3 +236,58 @@ def test_undo_and_redo_panel_keep_showing_the_part(clean):
     assert dims(name) == (40.0, 30.0, 20.0)  # the box while the chamfer computes, before any tick
     wait_for(lambda: up_to_date(bpy.data.objects[name]))
     assert len(bpy.data.objects[name].data.vertices) == 10
+
+
+def test_undo_to_a_failing_script_keeps_that_steps_mesh(clean):
+    # a failing script is never recomputed into a mesh: undoing to it must leave the step's own mesh (its last good
+    # result), not the kept mesh of the step undone from (bug sweep, 2026-10-04: the r 5 fillet stayed shown on the
+    # r 50 script that fails)
+    bpy.ops.ed.undo_push()
+    bpy.ops.blendsolid.add_box("EXEC_DEFAULT", True)
+    name = bpy.context.view_layer.objects.active.name
+    wait_for(lambda: up_to_date(bpy.data.objects[name]))
+    ref = 'edge_between(face("box_1", "+X"), face("box_1", "+Z"))'
+    bpy.ops.blendsolid.fillet("EXEC_DEFAULT", True, target=name, references=ref, radius=50.0)
+    wait_for(lambda: bpy.data.objects[name].blendsolid_error != "")
+    obj = bpy.data.objects[name]
+    obj.blendsolid_params["fillet_1_radius"].value = 5.0
+    bpy.ops.ed.undo_push(message="radius 5")
+    wait_for(lambda: up_to_date(bpy.data.objects[name]))
+    assert mm3(bpy.data.objects[name]) < 24000 - 1
+    runtime.tick()
+    bpy.ops.ed.undo()
+    obj = bpy.data.objects[name]
+    wait_for(lambda: bpy.data.objects[name].blendsolid_error != "")
+    assert mm3(bpy.data.objects[name]) == pytest.approx(24000, rel=1e-6)
+
+
+def test_a_new_part_never_shows_a_deleted_namesakes_mesh(clean):
+    # runtime keeps meshes by object name: a new part named like a deleted one got its mesh back (bug sweep,
+    # 2026-10-04), and kept it for good when its own script failed
+    bpy.ops.ed.undo_push()
+    bpy.ops.blendsolid.add_box("EXEC_DEFAULT", True)
+    old = bpy.context.view_layer.objects.active
+    name = old.name
+    wait_for(lambda: up_to_date(old))
+    bpy.data.objects.remove(old)
+    new = part.new_part(bpy.context, "result = Box(10, 10, 10) / 0\n", name=name)
+    assert new.name == name
+    bpy.ops.ed.undo_push()
+    runtime._on_undo()  # what an undo/redo step runs
+    runtime.tick()
+    assert len(new.data.polygons) == 0
+    wait_for(lambda: new.blendsolid_error != "")
+    assert len(new.data.polygons) == 0
+
+
+def test_a_new_part_gets_its_own_error_after_a_failing_namesake(clean):
+    # the deleted part's "failed" record (by name, same script hash) kept the new one from ever being computed:
+    # no error shown, no parameters (bug sweep, 2026-10-04)
+    source = "size = 10.0\nwith BuildPart() as part:\n    Box(size, size, size / 0)  # feature: box_1\nresult = part.part\n"
+    old = part.new_part(bpy.context, source, name="Fails")
+    wait_for(lambda: old.blendsolid_error != "")
+    bpy.data.objects.remove(old)
+    new = part.new_part(bpy.context, source, name="Fails")
+    assert new.name == "Fails"
+    wait_for(lambda: new.blendsolid_error != "", timeout=10.0)
+    assert "ZeroDivisionError" in new.blendsolid_error
