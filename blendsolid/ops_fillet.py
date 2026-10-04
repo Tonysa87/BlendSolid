@@ -40,13 +40,14 @@ class BLENDSOLID_OT_fillet(bpy.types.Operator):
     radius: FloatProperty(name="Radius", default=2.0, min=0.001, precision=3, step=10,
                           description="Fillet radius, or chamfer length, in millimetres")
     chamfer: BoolProperty(name="Chamfer", default=False, description="A flat chamfer instead of a round fillet")
-    chamfer_mode: EnumProperty(name="Type", items=CHAMFER_MODES, default="EQUAL",
+    # SKIP_SAVE: every chamfer starts equal (Blender would otherwise reuse the last call's values)
+    chamfer_mode: EnumProperty(name="Type", items=CHAMFER_MODES, default="EQUAL", options={"SKIP_SAVE"},
                                description="How the chamfer's size is given")
-    length2: FloatProperty(name="Length 2", default=2.0, min=0.001, precision=3, step=10,
+    length2: FloatProperty(name="Length 2", default=2.0, min=0.001, precision=3, step=10, options={"SKIP_SAVE"},
                            description="The chamfer's length along the second face, in millimetres")
-    angle: FloatProperty(name="Angle", default=45.0, min=0.1, max=89.9, precision=2, step=100,
+    angle: FloatProperty(name="Angle", default=45.0, min=0.1, max=89.9, precision=2, step=100, options={"SKIP_SAVE"},
                          description="The chamfer's angle to the first face, in degrees")
-    flip: BoolProperty(name="Flip", default=False,
+    flip: BoolProperty(name="Flip", default=False, options={"SKIP_SAVE"},
                        description="Measure the first length on the other face")
 
     def draw(self, context):

@@ -274,3 +274,16 @@ def test_the_fillet_tool_leaves_parts_it_cannot_edit_alone(default_part, monkeyp
     event = SimpleNamespace(type="LEFTMOUSE", value="RELEASE", ctrl=False, shift=False)
     assert cls.modal(op, bpy.context, event) == {"CANCELLED"}
     assert not ops_fillet._dragging and part.source_of(default_part) == source
+
+
+def test_a_new_chamfer_starts_equal(default_part):
+    # the chamfer's Type, Length 2, Angle and Flip were kept from the last call (Blender reuses an operator's last
+    # values): a drag after one Two Distances chamfer wrote another, unlike its preview (bug sweep, 2026-10-04)
+    top = 'edge_between(face("box_1", "+Z"), face("box_1", "-Y"))'
+    side = 'edge_between(face("box_1", "+X"), face("box_1", "-Y"))'
+    assert bpy.ops.blendsolid.fillet("EXEC_DEFAULT", True, target=default_part.name, references=top, radius=1.0,
+                                     chamfer=True, chamfer_mode="TWO", length2=3.0) == {"FINISHED"}
+    assert bpy.ops.blendsolid.fillet("EXEC_DEFAULT", True, target=default_part.name, references=side, radius=1.5,
+                                     chamfer=True) == {"FINISHED"}  # as the tool's release calls it
+    last = [line for line in part.source_of(default_part).splitlines() if "chamfer(" in line][-1]
+    assert "length2" not in last and "angle" not in last, last
