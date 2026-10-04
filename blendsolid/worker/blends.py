@@ -25,6 +25,8 @@ from OCP.TopExp import TopExp
 from OCP.TopoDS import TopoDS
 from OCP.collections import IndexedDataMap_TopoDS_Shape_List_TopoDS_Shape_TopTools_ShapeMapHasher as AncestorMap
 
+import progress
+
 STEPS = 12      # halvings of the failing size: the limit is found to size / 4096
 BUDGET = 2.0    # seconds for the size search (each try is a whole fillet of the part)
 SLIVER = 0.05   # mm: an edge this short next to the rounded edges is a sliver left by an earlier feature
@@ -169,6 +171,7 @@ def _checked(name, make, objects, size, search):
              and all(isinstance(e, bd.Edge) for e in edges))  # else build123d's own error
     if solid:
         _refuse_unroundable(target, edges)
+    progress.note(f"making the {name}")
     try:
         out = make()
     except (ValueError, Standard_Failure, StdFail_NotDone) as e:
@@ -182,8 +185,9 @@ def _checked(name, make, objects, size, search):
         if _valid(context._obj if context is not None else out):
             return out
     base = bd.Part(target.wrapped)
-    tried, largest = _search(lambda s: _attempt(lambda: search(base, edges, s)), size)
     what = f"{name} {'radius' if name == 'fillet' else 'length'}"
+    progress.note(f"looking for the largest {what} that works (the {name} failed at {_fmt(size)} mm)")
+    tried, largest = _search(lambda s: _attempt(lambda: search(base, edges, s)), size)
     sliver = _sliver(target, edges) if largest < 0.01 * size else None
     raise BlendError(_explain(what, size, len(edges), tried, largest, sliver))
 

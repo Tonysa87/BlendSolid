@@ -34,6 +34,7 @@ class WorkerClient:
         self._proc = self._conn = self._stderr = None
         self._pending = OrderedDict()  # key -> request header
         self._running = None           # (job, key, tag, started_at)
+        self._progress = None          # (what, script line) the running job last said it does (worker progress.py)
         self._ready_at = None
         self._next_job = 1
 
@@ -156,6 +157,7 @@ class WorkerClient:
             return
         self.submitted += 1
         self._running = (job, key, req["tag"], time.monotonic())
+        self._progress = None
         self.state = "busy"
 
     # -- events ------------------------------------------------------------------------------------------
@@ -171,9 +173,14 @@ class WorkerClient:
                 if kind == "ready":
                     self.info = header
                     self.state = "idle"
+                elif kind == "progress":  # what the running job does next (worker progress.py)
+                    if self._running and header.get("job") == self._running[0]:
+                        self._progress = (header.get("what") or "", header.get("line"))
+                    continue
                 elif kind == "result":
                     header.update(arrays)
                     self._running = None
+                    self._progress = None
                     self.state = "idle"
                 elif kind == "fatal":
                     events.append(self._crash(header["error"]))
@@ -187,7 +194,11 @@ class WorkerClient:
         if self._proc.poll() is not None:
             events.append(self._crash(f"the worker exited with code {self._proc.returncode}"))
         elif self._running and now - self._running[3] > self.job_timeout:
-            events.append(self._crash(f"the recompute timed out after {self.job_timeout:.0f} s"))
+            what, line = self._progress or ("", None)
+            event = self._crash(f"the recompute timed out after {self.job_timeout:.0f} s"
+                                + (f" while {what}" if what else ""))
+            event["line"] = line  # the script line the worker hung on, if it said
+            events.append(event)
         elif self.state == "starting" and now - self._ready_at > self.ready_timeout:
             events.append(self._crash(f"the worker was not ready after {self.ready_timeout:.0f} s"))
         return events

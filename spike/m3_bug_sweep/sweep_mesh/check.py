@@ -5,7 +5,9 @@ import sys
 import time
 import contextlib
 
-sys.path[:0] = ["/home/tony/Projects/BlendSolid/blendsolid/worker", "/home/tony/Projects/BlendSolid/.dev/worker_libs"]
+import os
+ROOT = os.environ.get("BS_ROOT", "/home/tony/Projects/BlendSolid")
+sys.path[:0] = [ROOT + "/blendsolid/worker", ROOT + "/.dev/worker_libs"]
 import numpy as np
 import runner
 import tessellate

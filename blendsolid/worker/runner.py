@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 import numpy as np
 
 import blends
+import progress
 import provenance
 import tessellate
 
@@ -209,6 +210,7 @@ def run_script(source, lin_defl=0.1, ang_defl=0.3, deps=(), tag=None, cache=None
             return RunResult(False, "`result` contains no solid")
         if not info["valid"]:
             return RunResult(False, "`result` is not a valid solid (BRepCheck failed)")
+        progress.note("meshing the part for display")
         mesh = tessellate.display_mesh(wrapped, lin_defl, ang_defl)
         planes = tessellate.face_planes(wrapped)
         snaps = tessellate.snap_points(wrapped)

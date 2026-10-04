@@ -89,6 +89,20 @@ def test_timeout_kills_the_worker():
         c.stop()
 
 
+def test_timeout_names_what_the_worker_said_it_was_doing():
+    # M13: a fillet search hanging in OCCT only said "timed out"; the worker's last progress note names it
+    c = WorkerClient(paths.python_executable(), paths.server_script(), paths.worker_libs(),
+                     paths.pycache_dir("blendsolid"), job_timeout=1.0)
+    try:
+        c.submit("A", "import time, progress\nprogress.note('testing a hang')\ntime.sleep(30)\n"
+                      "result = Box(1, 1, 1)\n", "slow")
+        (r,) = results(collect(c, 1, timeout=60))
+        assert r["type"] == "crashed" and "timed out after 1 s while testing a hang" in r["error"]
+        assert r["line"] == 2
+    finally:
+        c.stop()
+
+
 def test_coalescing_per_key(client):
     client.submit("A", "import time\ntime.sleep(1.5)\nresult = Box(1, 1, 1)\n", "a1")
     collect_until_busy(client)

@@ -451,53 +451,104 @@ def _orient(p, a, b, c):
 
 
 def _recover(q, tris, constraints, budget=200000):
-    """Make every constraint segment an edge of the triangulation by flipping the edges that cross it (Sloan).
-    Returns the triangles, or None if a segment can't be recovered or the work passes `budget` edge visits
-    (the caller falls back: pathological boundaries must not hang the worker)."""
+    """Make every constraint segment an edge of the triangulation by flipping the edges that cross it (Sloan 1993:
+    walk from one end to list the crossing edges, flip them until none crosses). Returns the triangles, or None if
+    a segment can't be recovered (it runs through another node) or the work passes `budget` flips (the caller
+    falls back: pathological boundaries must not hang the worker)."""
+    from collections import deque
     tris = [tuple(int(x) for x in t) for t in tris]
     for t_i, t in enumerate(tris):
         if _orient(q, *t) < 0:
             tris[t_i] = (t[0], t[2], t[1])
-    em = {}
+    em = {}               # directed edge -> its triangle (CCW)
+    around = {}           # node -> its triangles
     for i, (a, b, c) in enumerate(tris):
         for x, y in ((a, b), (b, c), (c, a)):
             em[(x, y)] = i
+        for v in (a, b, c):
+            around.setdefault(v, set()).add(i)
 
     def put(i, t):
+        for v in tris[i]:
+            around[v].discard(i)
         for x, y in ((t[0], t[1]), (t[1], t[2]), (t[2], t[0])):
             em[(x, y)] = i
+        for v in t:
+            around.setdefault(v, set()).add(i)
         tris[i] = t
-    missing = [(a, b) for a, b in constraints if (a, b) not in em and (b, a) not in em]
-    work = 0
-    for a, b in missing:
-        while (a, b) not in em and (b, a) not in em:
-            flipped = False
-            for (x, y), i in list(em.items()):
-                work += 1
-                if work > budget:
-                    return None
-                if x > y or (y, x) not in em or len({x, y} & {a, b}) or em.get((x, y)) != i:
-                    continue
-                if not (_orient(q, a, b, x) * _orient(q, a, b, y) < 0 and _orient(q, x, y, a) * _orient(q, x, y, b) < 0):
-                    continue
-                j = em[(y, x)]
-                u = [v for v in tris[i] if v not in (x, y)][0]
-                w = [v for v in tris[j] if v not in (x, y)][0]
-                if _orient(q, u, w, x) * _orient(q, u, w, y) >= 0:
-                    continue  # the quad u-x-w-y isn't convex: this flip would fold
-                t1, t2 = (u, x, w), (w, y, u)
-                if _orient(q, *t1) < 0:
-                    t1 = (u, w, x)
-                if _orient(q, *t2) < 0:
-                    t2 = (w, u, y)
-                for key in ((x, y), (y, x)):
-                    em.pop(key, None)
-                put(i, t1)
-                put(j, t2)
-                flipped = True
+
+    def crosses(a, b, x, y):
+        return _orient(q, a, b, x) * _orient(q, a, b, y) < 0 and _orient(q, x, y, a) * _orient(q, x, y, b) < 0
+
+    def crossing_edges(a, b):
+        """The edges segment a-b crosses, walking from a; None if it runs through a node."""
+        start = None
+        for i in around.get(a, ()):
+            k = tris[i].index(a)
+            x, y = tris[i][(k + 1) % 3], tris[i][(k + 2) % 3]
+            if crosses(a, b, x, y):
+                start = (x, y)
                 break
-            if not flipped:
+            for v in (x, y):  # a node on the open segment: it can't become one edge
+                if v != b and _orient(q, a, b, v) == 0 and \
+                        0 < (q[v] - q[a]) @ (q[b] - q[a]) < (q[b] - q[a]) @ (q[b] - q[a]):
+                    return None
+        if start is None:
+            return None
+        out, (x, y) = [start], start
+        for _ in range(len(tris)):
+            j = em.get((y, x))
+            if j is None:
                 return None
+            w = [v for v in tris[j] if v not in (x, y)][0]
+            if w == b:
+                return out
+            if _orient(q, a, b, w) == 0:
+                return None
+            x, y = (w, y) if crosses(a, b, w, y) else (x, w)
+            out.append((x, y))
+        return None
+
+    work = 0
+    for a, b in constraints:
+        a, b = int(a), int(b)
+        if (a, b) in em or (b, a) in em:
+            continue
+        found = crossing_edges(a, b)
+        if found is None:
+            return None
+        queue = deque(found)
+        stuck = 0
+        while queue:
+            work += 1
+            if work > budget:
+                return None
+            x, y = queue.popleft()
+            i, j = em.get((x, y)), em.get((y, x))
+            if i is None or j is None:
+                continue  # flipped away already
+            u = [v for v in tris[i] if v not in (x, y)][0]
+            w = [v for v in tris[j] if v not in (x, y)][0]
+            if _orient(q, u, w, x) * _orient(q, u, w, y) >= 0:  # the quad u-x-w-y isn't convex: later
+                queue.append((x, y))
+                stuck += 1
+                if stuck > len(queue) + 1:
+                    return None
+                continue
+            stuck = 0
+            t1, t2 = (u, x, w), (w, y, u)
+            if _orient(q, *t1) < 0:
+                t1 = (u, w, x)
+            if _orient(q, *t2) < 0:
+                t2 = (w, u, y)
+            for key in ((x, y), (y, x)):
+                em.pop(key, None)
+            put(i, t1)
+            put(j, t2)
+            if {u, w} != {a, b} and crosses(a, b, u, w):
+                queue.append((u, w))
+        if (a, b) not in em and (b, a) not in em:
+            return None
     return np.asarray(tris, dtype=np.int64)
 
 

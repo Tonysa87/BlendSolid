@@ -1143,6 +1143,8 @@ def _prism(face, direction, sk, taper):
     neutral = Plane(origin=sk.plane.origin, x_dir=sk.plane.x_dir, z_dir=n)
     inset = direction.length * math.tan(math.radians(taper))
     _check_taper_section(face, neutral, inset, taper, direction.length)
+    import progress
+    progress.note(f"drafting the sides by {taper:g}°")  # OCCT's draft can hang (bug sweep R1)
     try:
         drafted = solid.draft(sides, neutral, taper)
     except Exception as e:
