@@ -451,3 +451,51 @@ def test_a_taper_that_cant_be_built_is_a_clear_error(body, why):
     assert not r.ok and r.line is not None and r.error.startswith("SketchError"), (r.error, r.line, r.volume)
     if why == "vanish":
         assert "closes" in r.error
+
+
+@pytest.mark.parametrize("points, removed", [
+    ("(-10.0, 0.0), (-10.0, 0.0), (10.0, 0.0)", 2 * 2 * 20),  # a double click: StdFail_NotDone
+    ("(-10.0, 0.0), (0.0, 0.0), arc_to((0.0, 0.0)), (10.0, 0.0)", 2 * 2 * 20),  # an arc to where it is
+    ("(-10.0, 0.0), (0.0, 0.0), arc_to((10.0, 0.0))", 2 * 2 * 20),  # straight ahead: gp_Dir::Cross() error
+    ("(-10.0, 0.0), (0.0, 0.0), arc_to((10.0, 0.000001))", 2 * 2 * 20),  # radius 5e7: the circle groove went wrong
+    ("(-5.0, -5.0), (5.0, -5.0), (5.0, 5.0), (-5.0, 5.0), (-5.0000005, -5.0), closed=True", 2 * 2 * 40),  # 5e-7 gap
+])
+def test_paths_at_the_rounding_limit(points, removed):
+    # bug sweep, 2026-10-04: raw OCCT errors, a closing corner left open, a near-straight arc's wrong groove
+    r = run(GROOVE_BOX + '    with sketch(on_face(face("box_1", "+Z"))) as sketch_1:  # feature: sketch_1\n'
+            f'        sketch_1.path_1 = path({points})\n'
+            '    groove(sketch_1.path_1, width=2.0, depth=2.0)  # feature: groove_1\n')
+    assert abs(8000 - r.volume - removed) < 1e-3, (8000 - r.volume, removed)
+
+
+@pytest.mark.parametrize("y", ["0.001", "0.00002", "0.0000005"])
+@pytest.mark.parametrize("profile, removed", [("rect", 80.0), ("circle", 10 * math.pi), ("v", 40.0)])
+def test_grooves_through_rounding_level_kinks(y, profile, removed):
+    # bug sweep, 2026-10-04: a kink of 1e-7..1e-3 rad (6-decimal points) made a circle groove's mitre empty
+    # (AttributeError, null shape); the volume is the straight groove's to within the kink
+    r = run(GROOVE_BOX + '    with sketch(on_face(face("box_1", "+Z"))) as sketch_1:  # feature: sketch_1\n'
+            f'        sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), (10.0, {y}))\n'
+            f'    groove(sketch_1.path_1, width=2.0, depth=2.0, profile="{profile}")  # feature: groove_1\n')
+    assert abs(8000 - r.volume - removed) < 1e-3, (8000 - r.volume, removed)
+
+
+def test_a_kink_below_rounding_is_swept_along_and_cut_exactly():
+    # a 2.2e-7 rad kink: the groove *added* material (OCCT's boolean broken by near-coplanar faces); on -Y
+    r = run(GROOVE_BOX + '    with sketch(on_face(face("box_1", "-Y"))) as sketch_1:  # feature: sketch_1\n'
+            '        sketch_1.path_1 = path((9.701073, 3.73751), (10.88196, 6.526477), (12.863058, 11.20535), '
+            '(8.23183, 7.192943))\n'
+            '    groove(sketch_1.path_1, width=3.615984, depth=2.107803)  # feature: groove_1\n')
+    assert abs(r.volume - 7935.3748) < 1e-3
+    r = run(GROOVE_BOX + '    with sketch(on_face(face("box_1", "+Z"))) as sketch_1:  # feature: sketch_1\n'
+            '        sketch_1.path_1 = path((-15.0, 0.0), (-10.0, 0.0), (0.0, 0.000005), arc_to((0.0, 12.0)))\n'
+            '    groove(sketch_1.path_1, width=4.0, depth=2.0, profile="v")  # feature: groove_1\n')
+    assert r.volume < 8000  # was "Null TopoDS_Shape object"
+
+
+def test_a_half_round_rib_off_any_face():
+    # Plane.XY (no face: no overshoot) and depth = width / 2: the profile's straight sides had zero length
+    # (StdFail_NotDone, bug sweep 2026-10-04)
+    r = run('    with sketch(Plane.XY) as sketch_1:  # feature: sketch_1\n'
+            '        sketch_1.path_1 = path((0.0, 0.0), (10.0, 0.0))\n'
+            '    groove(sketch_1.path_1, width=2.0, depth=1.0, profile="round", mode=Mode.ADD)  # feature: rib_1\n')
+    assert r.volume == pytest.approx(math.pi / 2 * 10, rel=1e-9)

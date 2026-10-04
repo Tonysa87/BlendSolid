@@ -378,6 +378,11 @@ def arc_to(end):
     return ArcTo(end)
 
 
+CLOSE_MM = 1e-6  # a closed path's last point this near its start ends there
+STRAIGHT = 1e-5  # sin of the angle between an arc's tangent and its chord below which it is a line (radius > 5e4 x chord)
+KINK = 1e-5  # radians: a line leaving the path's tangent by less goes along it (its end moves by up to 1e-5 x its length)
+
+
 def path(start, *segments, closed=False):
     """A wire in the sketch plane from `start` through `segments`: points (straight lines to them) and
     arc_to(point) (arcs tangent to the previous segment); `closed` adds a line back to the start (or ends there when
@@ -385,21 +390,35 @@ def path(start, *segments, closed=False):
     from build123d import Edge, Vector, Wire
     here = Vector(float(start[0]), float(start[1]), 0.0)
     first = here
+    ends = [Vector(*seg.end, 0.0) if isinstance(seg, ArcTo) else Vector(float(seg[0]), float(seg[1]), 0.0)
+            for seg in segments]
+    if closed and ends and (ends[-1] - first).length <= CLOSE_MM:
+        ends[-1] = first  # 6-decimal points miss the start by up to 5e-7 mm: a gap would leave the wire open
     edges = []
-    for seg in segments:
+    for seg, end in zip(segments, ends):
+        if (end - here).length < 1e-9:
+            continue  # a double click, or an arc to where the path already is
         if isinstance(seg, ArcTo):
-            end = Vector(*seg.end, 0.0)
             if not edges:
                 raise SketchError("a path can't start with an arc: its tangent comes from the segment before it")
-            edge = Edge.make_tangent_arc(here, edges[-1].tangent_at(1), end)
+            tangent = edges[-1].tangent_at(1)
+            chord = end - here
+            if abs(tangent.cross(chord).Z) <= STRAIGHT * chord.length:
+                edge = Edge.make_line(here, end)  # along its tangent the arc is a line (as the preview draws it)
+            else:
+                edge = Edge.make_tangent_arc(here, tangent, end)
         else:
-            end = Vector(float(seg[0]), float(seg[1]), 0.0)
+            if edges:  # leaving the path's tangent by a rounding-level kink: along the tangent (a kink that small
+                tangent = edges[-1].tangent_at(1)  # makes OCCT's sweeps and booleans fail; bug sweep 2026-10-04)
+                along = (end - here).dot(tangent)
+                if along > 0 and abs(tangent.cross(end - here).Z) <= KINK * along:
+                    end = here + tangent * along
+                    if (ends[-1] - end).length <= CLOSE_MM:
+                        ends[-1] = end  # a closing point moved with it
             edge = Edge.make_line(here, end)
-        if (end - here).length < 1e-9:
-            continue
         edges.append(edge)
         here = end
-    if closed and (here - first).length > 1e-6:
+    if closed and (here - first).length > CLOSE_MM:
         edges.append(Edge.make_line(here, first))
     if not edges:
         raise SketchError("a path needs at least two different points")
@@ -432,12 +451,12 @@ def _profile_wire(profile, width, depth, over, place):
         r = width / 2
         if depth < r:
             raise SketchError(f"a round groove's depth ({depth:g} mm) must be at least half its width ({r:g} mm)")
-        pts = [place((-r, over)), place((-r, -depth + r))]
-        edges = [Edge.make_line(pts[0], pts[1]),
-                 Edge.make_three_point_arc(place((-r, -depth + r)), place((0.0, -depth)), place((r, -depth + r))),
-                 Edge.make_line(place((r, -depth + r)), place((r, over))),
-                 Edge.make_line(place((r, over)), place((-r, over)))]
-        return Wire(edges)
+        arc = Edge.make_three_point_arc(place((-r, -depth + r)), place((0.0, -depth)), place((r, -depth + r)))
+        top = Edge.make_line(place((r, over)), place((-r, over)))
+        if over == depth - r:  # a half disc: no straight sides
+            return Wire([arc, top])
+        return Wire([Edge.make_line(place((-r, over)), place((-r, -depth + r))), arc,
+                     Edge.make_line(place((r, -depth + r)), place((r, over))), top])
     return Wire.make_polygon([place(p) for p in _profile_points(profile, width, depth, over)], close=True)
 
 
@@ -481,6 +500,8 @@ def _pipe(wire, profile_wire, normal, corners):
     if not maker.IsDone():
         raise SketchError("the profile can't follow this path (a corner or an arc too tight for its width?)")
     maker.MakeSolid()
+    if maker.Shape().IsNull():
+        raise SketchError("the profile can't follow this path (a corner or an arc too tight for its width?)")
     return _valid_sweep(Solid(maker.Shape()))
 
 
@@ -494,6 +515,23 @@ def _valid_sweep(solid):
 
 SHARP = 1e-6  # radians between two edges' tangents at their common point: more is a sharp corner
 MITRE_MAX_TURN = math.radians(170)  # a mitre's spike grows as 1 / cos(turn / 2): sharper turns need round corners
+
+
+SMALL_TURN = math.radians(5)  # a mitre OCCT can't build at a corner turning less is built round instead
+
+
+def _round_corner(profile_at, point, before, after, normal, turn, reach):
+    """The round corner piece: the profile's half on the outside of the turn (inside, the runs overlap) turned
+    about the corner point's normal."""
+    from build123d import Axis, Face, Plane, Solid, Wire
+    sign = 1.0 if before.cross(after).dot(normal) > 0 else -1.0
+    outside = before.cross(normal) * sign  # a left turn's outside is on the path's right
+    half = Plane(origin=point, x_dir=outside, z_dir=before)
+    face = Face(profile_at(point, before)).intersect(
+        Face(Wire.make_polygon([half.from_local_coords(p) for p in
+                                ((0, -reach), (reach, -reach), (reach, reach), (0, reach))], close=True)))
+    face = face.faces()[0] if not isinstance(face, Face) else face
+    return _valid_sweep(Solid.revolve(face, sign * math.degrees(turn), Axis(point, normal)))
 
 
 def _runs(wire):
@@ -522,21 +560,14 @@ def _sweep_by_runs(runs, sharp, profile_at, normal, corners):
     """The sweep as the union of its runs (swept by OCCT, no sharp corner inside) and of a piece at each sharp
     corner: a mitre is where the two runs' straight extensions overlap (exact for profiles symmetric about the
     path, as every groove profile is), a round corner the profile turned about the corner point's normal."""
-    from build123d import Axis, Face, Plane, Solid, Wire
+    from build123d import Face, Solid
     pieces = [_pipe(w, profile_at(w.position_at(0), w.tangent_at(0)), normal, corners) for w in runs]
     box = profile_at(runs[0].position_at(0), runs[0].tangent_at(0)).bounding_box()
     reach = (box.max - box.min).length  # more than the profile reaches from the path
     for point, before, after in sharp:
         turn = math.radians(before.get_angle(after))
-        if corners == "round":  # the profile's half on the outside of the turn (inside, the runs overlap)
-            sign = 1.0 if before.cross(after).dot(normal) > 0 else -1.0
-            outside = before.cross(normal) * sign  # a left turn's outside is on the path's right
-            half = Plane(origin=point, x_dir=outside, z_dir=before)
-            face = Face(profile_at(point, before)).intersect(
-                Face(Wire.make_polygon([half.from_local_coords(p) for p in
-                                        ((0, -reach), (reach, -reach), (reach, reach), (0, reach))], close=True)))
-            face = face.faces()[0] if not isinstance(face, Face) else face
-            pieces.append(_valid_sweep(Solid.revolve(face, sign * math.degrees(turn), Axis(point, normal))))
+        if corners == "round":
+            pieces.append(_round_corner(profile_at, point, before, after, normal, turn, reach))
             continue
         if turn > MITRE_MAX_TURN:
             raise SketchError(f"a corner of the path turns {math.degrees(turn):.0f}°: too sharp to mitre, use round "
@@ -544,7 +575,14 @@ def _sweep_by_runs(runs, sharp, profile_at, normal, corners):
         length = 2 * reach / math.cos(turn / 2) + 1.0
         ahead = Solid.extrude(Face(profile_at(point, before)), before * length)
         behind = Solid.extrude(Face(profile_at(point, after)), after * -length)
-        pieces.append(_valid_sweep(Solid(ahead.intersect(behind).solids()[0].wrapped)))
+        common = ahead.intersect(behind)
+        solids = common.solids() if common is not None else []
+        if len(solids) == 1:
+            pieces.append(_valid_sweep(solids[0]))
+        elif turn < SMALL_TURN:  # nearly coaxial pipes: OCCT finds no common part; the round piece differs by ~turn^3
+            pieces.append(_round_corner(profile_at, point, before, after, normal, turn, reach))
+        else:
+            raise SketchError("the profile can't be mitred at a corner of this path: try round corners")
     solid = pieces[0].fuse(*pieces[1:]).clean() if len(pieces) > 1 else pieces[0]
     solids = solid.solids()
     if len(solids) != 1:
