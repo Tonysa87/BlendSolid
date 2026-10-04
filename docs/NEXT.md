@@ -72,31 +72,37 @@ from remote).** Start with `git fetch` (docs-only research branches are merged i
   some faces (a volume check of tapers against offset sections was measured and dropped for that); rounding
   fixes must stay at the rounding level (1e-6 rad) or they move real geometry.
 
-### Plan (assessed at the end of session 14; follow it in order)
-Principles from the docs: a failure is never silent (CLAUDE.md), references never re-bind silently (ADR 0009,
-3a criterion 3), every geometric result verified with numbers, display mesh quality is a bar the maintainer
-holds high. The maintainer asked for the bugs to be fixed *before* the next build, but a build should not wait
-for the long mesh-quality work.
-1. **Silent wrong results first** (ledger): R11 (a region seed silently lands in another region after an upstream
-   change — research how Onshape/Fusion identify sketch regions first; ADR 0012's fallback: identify regions by
-   their bounding entity names); R12 (regions tapered one by one leave a V-groove: taper their union);
-   G7 (a rib's overshoot hangs below the face beyond its edge); G4 (a self-crossing tangent run passes: check the
-   path in 2D before sweeping); R13, R15, R8, R9.
-2. **Clear messages instead of raw ones:** R6, R14, R16, B12, G9, G10, G11 (cheap).
+### Plan (agreed with the maintainer at the end of session 14; follow it in order)
+Goal: reach the **3a usage checkpoint** (the maintainer models 2-3 real objects) as soon as possible, fixing first
+only what would make that test misleading: wrong results without an error, raw errors, and mesh defects seen on
+almost every groove. The checkpoint, not the fuzzers, orders what comes after it. Principles from the docs: a
+failure is never silent (CLAUDE.md), references never re-bind silently (ADR 0009, 3a criterion 3), every
+geometric result verified with numbers.
+1. **Silent wrong results** (ledger `docs/research/2026-10-04-bug-sweep.md`): R11 (a region seed silently lands in
+   another region after an upstream change — research how Onshape/Fusion identify sketch regions first; ADR
+   0012's fallback: identify regions by their bounding entity names); R12 (regions tapered one by one leave a
+   V-groove: taper their union); G7 (a rib's overshoot hangs below the face beyond its edge); G4 (a self-crossing
+   tangent run passes: check the path in 2D before sweeping); R13, R15, R8, R9.
+2. **Clear messages instead of raw ones:** R6, R14, R16, B12, G9, G10, G11, the G1 residue.
 3. **Display mesh, loud failures:** M3, M4, M5 (open or wrong meshes), M13 (blend hangs: at least a clear error).
    Fuzz with `spike/m3_bug_sweep/sweep_mesh/check.py` before/after; bump `part.MESH_FORMAT` on any mesh change.
-4. **Build for the maintainer:** full tests, `tools/gui_check.py` on Linux, Windows zip, install **only if the
+4. **Display mesh quality, only what shows on almost every groove:** M1 (sliver fans and folds: a tfi face demoted
+   to a trimmed grid keeps its edge counts) and M2 (partial cones ~8x too many columns; also M12's excess). Same
+   fuzz before/after; measure, don't eyeball (ADR 0010).
+5. **Build for the maintainer:** full tests, `tools/gui_check.py` on Linux, Windows zip, install **only if the
    portable Blender is closed** (`powershell.exe Get-Process blender`; never kill it), smoke PASS, update this file.
-5. **Display mesh quality:** M1, M2, M7 (slivers/folds/excess on V and round-corner grooves, mitre ends), then M6,
-   M8, M9, M10, M11, M12; the same fuzz before/after; measure, don't eyeball (ADR 0010).
-6. **R1 and the rest of R3** (taper hang; wrong drafts past a partly vanishing outline): write a design note or
-   ADR (own drafted prism with conic edges, or risky OCCT calls in a disposable subprocess) before coding.
-7. **When the maintainer is back:** GUI step 5b (E > Add > Box: mouse scales in round steps, Ctrl = grid steps, a
+6. **When the maintainer is back:** GUI step 5b (E > Add > Box: mouse scales in round steps, Ctrl = grid steps, a
    click confirms with object scale 1, Esc leaves nothing), step 6 (Fillet: drag past the limit stops at the max,
    test6.blend's error label, a new fillet on a failing part refused; ask whether fillet_3-5 in test6 were
-   attempts to change fillet_2's radius), and a quick re-check of `s14_rib.blend`. Short steps, in Italian.
-8. Then the queue below (fillet editing if confirmed, UI pass tasks 3-8, sketch features, rest of 3a: STEP I/O,
-   the 3a acceptance criterion, the usage checkpoint, merge `m3a`).
+   attempts to change fillet_2's radius), a quick re-check of `s14_rib.blend`, and what the fixes changed in the
+   GUI. Short steps, in Italian.
+7. **The rest of 3a needed before the checkpoint:** the UI pass (queue item 3: tasks 3-8) and STEP/IGES/BREP
+   import/export (real parts to work on); then the usage checkpoint.
+8. **Deferred until the checkpoint has spoken** (each stays in the ledger with its reason): R1 and the rest of R3
+   (taper hang — the worker is killed after 120 s with a message — and drafts wrong past a partly vanishing
+   outline: needs a design note first), M6-M11 (rarer mesh defects), the remaining fuzz edge cases, and the
+   sketch features of queue item 4 (snaps to edges, typed length, corner radius per vertex...): the
+   maintainer's use decides which are needed.
 
 **Queue (after the plan above):**
 1. Fix what the maintainer's test finds (one fix at a time, rebuild + install, re-check only what changed).
