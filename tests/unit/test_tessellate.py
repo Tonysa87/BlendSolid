@@ -789,3 +789,46 @@ def test_a_face_brepmesh_cannot_mesh_never_fails_the_part():
     r = runner.run_script(src)
     assert r.ok and abs(r.volume - 5.14613513647428) < 1e-6
     assert any("couldn't be meshed" in text for _, text in r.warnings)
+
+
+def test_recovery_never_returns_a_triangulation_missing_a_segment():
+    # the review of session 15: a segment made by an earlier recovery's flips was not protected, a later crossing
+    # segment flipped it away and the triangulation came back without it (no fallback, no warning)
+    import meshing
+    from scipy.spatial import Delaunay
+    q = np.array([[0.7871883014933592, 0.37916770161681146], [0.0011128282665912037, 0.07721263037320047],
+                  [0.25819554029508796, 0.7860245435940177], [0.7255148478041038, 0.41525647663042653],
+                  [0.46576071959888576, 0.1317349524520316], [0.43717483095612275, 0.8899522294082882],
+                  [0.5863523040467593, 0.9916087872479262], [0.15480972478621846, 0.3059921355476296],
+                  [0.316672241810657, 0.597092359398031], [0.9614721153035438, 0.24379913773054895],
+                  [0.2915302509715233, 0.8969335014162161], [0.2615017850393424, 0.7191881822392573],
+                  [0.4067655189024867, 0.2810000725179177], [0.666079744937865, 0.1516096337793016],
+                  [0.4597275443370773, 0.1046918795730476]])
+    assert meshing._recover(q, Delaunay(q).simplices, [(1, 4), (12, 1), (4, 7)]) is None  # (12, 1) crosses (4, 7)
+
+
+@pytest.mark.parametrize("where", ["(0.0, 0.0, 20.0)", "(20.0, 0.0, 10.0)"])
+def test_a_ball_dimple_is_drawn_on_its_sphere_and_closed(where):
+    # the review of session 15: on the top face the hemisphere got the whole sphere's mesh (its upper half standing
+    # out of the part, 42 open edges); on a side face the half sphere was one column wide, drawn flat (3.3 mm off)
+    import runner
+    src = ("with BuildPart() as part:\n"
+           "    Box(40, 30, 20, align=(Align.CENTER, Align.CENTER, Align.MIN))  # feature: box_1\n"
+           f"    with Locations({where}):\n"
+           "        Sphere(5.0, mode=Mode.SUBTRACT)\n"
+           "result = part.part\n")
+    shape = runner._build(src, runner.SCRIPT_NAME, [], runner.ShapeCache()).wrapped
+    m = tessellate.display_mesh(shape, 1.0, ANG)
+    pairs, _ = sides(m)
+    _, counts = np.unique(pairs, axis=0, return_counts=True)
+    assert (counts == 2).all()
+    v = m.verts.astype(np.float64)
+    c = np.array(eval(where))
+    on_sphere = np.abs(np.linalg.norm(v - c, axis=1) - 5.0) < 1e-4
+    assert on_sphere.sum() > 40  # the sphere's nodes lie on it ...
+    inside_box = (np.abs(v[:, 0]) <= 20 + 1e-6) & (np.abs(v[:, 1]) <= 15 + 1e-6) & (v[:, 2] <= 20 + 1e-6)
+    assert inside_box.all()  # ... and nothing stands out of the part
+    for s, n, f in zip(np.concatenate([[0], np.cumsum(m.poly_sizes)[:-1]]), m.poly_sizes, m.poly_face):
+        if on_sphere[m.loops[s:s + n]].all():
+            centre = v[m.loops[s:s + n]].mean(axis=0)
+            assert 5.0 - np.linalg.norm(centre - c) < 0.5  # every polygon close to the surface (tolerance 1 mm)

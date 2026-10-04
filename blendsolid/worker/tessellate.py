@@ -418,8 +418,11 @@ def snap_points(shape):
 
 
 def _self_contained(rev):
-    """A full sphere or torus shares no circle with another face: its grid needs nothing from BRepMesh."""
-    return rev is not None and rev.kind in (GeomAbs_Sphere, GeomAbs_Torus)
+    """A full sphere or torus shares no circle with another face: its grid needs nothing from its edges. A sphere
+    cut by a plane through a parallel (a ball dimple in a face) ends on a circle: it is a revolution like any other
+    (it got the whole sphere's geodesic mesh, never welded to its circle: the upper half stood out of the part,
+    session 15 review)."""
+    return rev is not None and rev.kind in (GeomAbs_Sphere, GeomAbs_Torus) and "circle" not in rev.ends
 
 
 def tessellate(shape, lin_defl=0.1, ang_defl=0.3):

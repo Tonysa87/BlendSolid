@@ -110,16 +110,17 @@ def surface_steps(surf, uv_box, lin_defl, ang_defl, samples=7):
             for side, d2, length in ((0, p.D2U(), a), (1, p.D2V(), b)):
                 k = abs(d2.Dot(n)) / (length * length)
                 if k > 1e-9:
-                    asked[side].append(min(math.sqrt(8 * lin_defl / k), ang_defl / k) / length)
+                    asked[side].append((math.sqrt(8 * lin_defl / k) / length, ang_defl / k / length))
+    # curved both ways, a cell's two sags add up at its middle: each direction's sag limit gets half the
+    # deviation's square (bug sweep M8: tori at 1.9x the tolerance); the angle limit stays
+    sag = 1 / math.sqrt(2) if all(asked) else 1.0
+    asked = [[min(s * sag, a) for s, a in d] for d in asked]
     steps = tuple(max(min(d), float(np.median(d)) / 4) * sc if d else math.inf for d, sc in zip(asked, scale))
     # Curved both ways: cells at most _ASPECT times longer one way than the other, but the long way never split
     # into more than _ASPECT_SPLIT times the cells its own curvature asks (a 0.7 mm fillet along a 1.1 m arc
     # would otherwise get thousands of columns); then at most _MAX_CELLS across the face each way (Rhino caps its
     # initial grid the same way).
     if all(math.isfinite(s) for s in steps):
-        # curved both ways, a cell's two sags add up at its middle: each direction gets half the deviation's
-        # square (bug sweep M8: tori at 1.9x the tolerance)
-        steps = tuple(s / math.sqrt(2) for s in steps)
         low = min(steps)
         steps = tuple(min(s, max(_ASPECT * low, s / _ASPECT_SPLIT)) for s in steps)
     extent = ((u1 - u0) * scale[0], (v1 - v0) * scale[1])
@@ -231,6 +232,19 @@ def face_need(face_info, use, info):
     if inv < 1e-15:
         return 1
     return max(1, min(_MAX_EDGE, math.ceil(info.length * inv - 1e-6)))
+
+
+def _pole_need(face_info, use):
+    """Intervals a four-sided grid asks of a side collapsed to a point (a sphere patch's pole): the columns its
+    (u, v) span needs at the face's widest (its opposite side is a pole too, or a curve already counted). With 1,
+    a half sphere cut from a box's side was one column wide and drawn flat (3.3x the tolerance, session 15
+    review)."""
+    su, sv = face_info.step
+    (u0, v0), _ = _p2d(use.pcurve, use.first)
+    (u1, v1), _ = _p2d(use.pcurve, use.last)
+    a = abs(u1 - u0) * face_info.scale[0] / su if math.isfinite(su) else 0.0
+    b = abs(v1 - v0) * face_info.scale[1] / sv if math.isfinite(sv) else 0.0
+    return max(1, min(_MAX_EDGE, math.ceil(math.hypot(a, b) - 1e-6)))
 
 
 def _p2d(pcurve, t):
@@ -528,6 +542,7 @@ def _recover(q, tris, constraints, budget=200000, strict=True):
     for a, b in constraints:
         a, b = int(a), int(b)
         if (a, b) in em or (b, a) in em:
+            fixed.add((min(a, b), max(a, b)))  # made by an earlier recovery's flips: protected from now on
             continue
         found = crossing_edges(a, b)
         if found is None or (strict and any((min(x, y), max(x, y)) in fixed for x, y in found)):
@@ -573,6 +588,8 @@ def _recover(q, tris, constraints, budget=200000, strict=True):
                 continue
             return None
         fixed.add((min(a, b), max(a, b)))
+    if strict and any((int(a), int(b)) not in em and (int(b), int(a)) not in em for a, b in constraints):
+        return None  # never a triangulation silently missing a boundary segment
     return np.asarray(tris, dtype=np.int64)
 
 
@@ -759,6 +776,8 @@ def plan(faces, edge_list, kinds, ring_counts, lin_defl, ang_defl):
                 for use in loop:
                     e = edges[use.edge]
                     e.count = max(e.count, face_need(fi, use, e))
+                    if fi.kind == "tfi" and e.degenerate:
+                        e.count = max(e.count, _pole_need(fi, use))
         elif fi.kind == "revolution":
             circles = [use.edge for loop in fi.loops for use in loop
                        if not edges[use.edge].degenerate and not _is_seam(use, fi)]
