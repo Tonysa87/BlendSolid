@@ -453,10 +453,22 @@ class _Place:
         return self.origin + self.lateral * p[0] + self.up * p[1]
 
 
-def _sweep(wire, profile_wire, normal, corners):
-    """The solid swept by `profile_wire` along `wire`, the profile kept square to the plane of normal `normal`
-    (binormal mode: build123d's sweep(normal=) fixes the trihedron instead), sharp corners mitred or rounded
-    (build123d's default Transformed transition gives invalid solids there)."""
+def _sweep(wire, profile_at, normal, corners):
+    """The solid swept by the profile along `wire`, kept square to the plane of normal `normal`, sharp corners
+    mitred or rounded. `profile_at(point, tangent)` is the profile wire placed square to the path there.
+    OCCT sweeps a path without sharp corners in one go; at a sharp corner its transitions aren't reliable (a mitre
+    right after an arc raises StdFail_NotDone, or gives a solid overlapping itself that BRepCheck accepts: the
+    maintainer's GUI test, 2026-10-04), so a path with sharp corners is swept run by run (_sweep_by_runs)."""
+    runs, sharp = _runs(wire)
+    if not sharp:
+        return _pipe(wire, profile_at(wire.position_at(0), wire.tangent_at(0)), normal, corners)
+    return _sweep_by_runs(runs, sharp, profile_at, normal, corners)
+
+
+def _pipe(wire, profile_wire, normal, corners):
+    """OCCT's sweep of `profile_wire` along the whole `wire` (binormal mode: build123d's sweep(normal=) fixes the
+    trihedron instead), sharp corners mitred or rounded (build123d's default Transformed transition gives invalid
+    solids there)."""
     from build123d import Solid
     from OCP.BRepBuilderAPI import BRepBuilderAPI_TransitionMode as Mode
     from OCP.BRepOffsetAPI import BRepOffsetAPI_MakePipeShell
@@ -469,12 +481,75 @@ def _sweep(wire, profile_wire, normal, corners):
     if not maker.IsDone():
         raise SketchError("the profile can't follow this path (a corner or an arc too tight for its width?)")
     maker.MakeSolid()
-    solid = Solid(maker.Shape())
+    return _valid_sweep(Solid(maker.Shape()))
+
+
+def _valid_sweep(solid):
     from OCP.BRepCheck import BRepCheck_Analyzer
     if not BRepCheck_Analyzer(solid.wrapped).IsValid() or solid.volume <= 0:
         raise SketchError("the profile swept along this path isn't a valid solid (does the path cross itself, or "
                           "turn tighter than the profile is wide?)")
     return solid
+
+
+SHARP = 1e-6  # radians between two edges' tangents at their common point: more is a sharp corner
+MITRE_MAX_TURN = math.radians(170)  # a mitre's spike grows as 1 / cos(turn / 2): sharper turns need round corners
+
+
+def _runs(wire):
+    """The wire's runs (wires of edges joined tangentially) and its sharp corners (point, tangent before, tangent
+    after); a closed wire whose ends join tangentially makes its last run go on into its first."""
+    from build123d import Wire
+    edges = wire.edges()
+    runs, sharp = [[edges[0]]], []
+    for e in edges[1:]:
+        before, after = runs[-1][-1].tangent_at(1), e.tangent_at(0)
+        if math.radians(before.get_angle(after)) > SHARP:
+            runs.append([e])
+            sharp.append((e.position_at(0), before, after))
+        else:
+            runs[-1].append(e)
+    if wire.is_closed:
+        before, after = edges[-1].tangent_at(1), edges[0].tangent_at(0)
+        if math.radians(before.get_angle(after)) > SHARP:
+            sharp.append((edges[0].position_at(0), before, after))
+        elif len(runs) > 1:
+            runs[0] = runs.pop() + runs[0]
+    return [Wire(run) for run in runs], sharp
+
+
+def _sweep_by_runs(runs, sharp, profile_at, normal, corners):
+    """The sweep as the union of its runs (swept by OCCT, no sharp corner inside) and of a piece at each sharp
+    corner: a mitre is where the two runs' straight extensions overlap (exact for profiles symmetric about the
+    path, as every groove profile is), a round corner the profile turned about the corner point's normal."""
+    from build123d import Axis, Face, Plane, Solid, Wire
+    pieces = [_pipe(w, profile_at(w.position_at(0), w.tangent_at(0)), normal, corners) for w in runs]
+    box = profile_at(runs[0].position_at(0), runs[0].tangent_at(0)).bounding_box()
+    reach = (box.max - box.min).length  # more than the profile reaches from the path
+    for point, before, after in sharp:
+        turn = math.radians(before.get_angle(after))
+        if corners == "round":  # the profile's half on the outside of the turn (inside, the runs overlap)
+            sign = 1.0 if before.cross(after).dot(normal) > 0 else -1.0
+            outside = before.cross(normal) * sign  # a left turn's outside is on the path's right
+            half = Plane(origin=point, x_dir=outside, z_dir=before)
+            face = Face(profile_at(point, before)).intersect(
+                Face(Wire.make_polygon([half.from_local_coords(p) for p in
+                                        ((0, -reach), (reach, -reach), (reach, reach), (0, reach))], close=True)))
+            face = face.faces()[0] if not isinstance(face, Face) else face
+            pieces.append(_valid_sweep(Solid.revolve(face, sign * math.degrees(turn), Axis(point, normal))))
+            continue
+        if turn > MITRE_MAX_TURN:
+            raise SketchError(f"a corner of the path turns {math.degrees(turn):.0f}°: too sharp to mitre, use round "
+                              "corners")
+        length = 2 * reach / math.cos(turn / 2) + 1.0
+        ahead = Solid.extrude(Face(profile_at(point, before)), before * length)
+        behind = Solid.extrude(Face(profile_at(point, after)), after * -length)
+        pieces.append(_valid_sweep(Solid(ahead.intersect(behind).solids()[0].wrapped)))
+    solid = pieces[0].fuse(*pieces[1:]).clean() if len(pieces) > 1 else pieces[0]
+    solids = solid.solids()
+    if len(solids) != 1:
+        raise SketchError("the profile can't follow this path (a corner or an arc too tight for its width?)")
+    return _valid_sweep(solids[0])
 
 
 # -- the script helpers -------------------------------------------------------------------------------------------
@@ -600,14 +675,14 @@ def helpers(tracker):
         edges = sk.entities[name]
         wire = sk.placed(bd.Wire(edges) if len(edges) > 1 else bd.Wire([edges[0]]))
         n = sk.plane.z_dir
-        start, tangent = wire.position_at(0), wire.tangent_at(0)
-        lateral = n.cross(tangent).normalized()
         cut = mode != bd.Mode.ADD
         up = n if cut else -n  # a rib is a groove turned over: its "depth" goes out of the plane
         on_part = getattr(sk.plane, "_bs_face", None) is not None
         over = OVERSHOOT if (cut or on_part) else 0.0  # a rib on a face sinks a little into it to fuse
-        solid = _sweep(wire, _profile_wire(profile, width, depth, over, _Place(start, lateral, up, tangent)), n,
-                       corners)
+
+        def profile_at(point, tangent):
+            return _profile_wire(profile, width, depth, over, _Place(point, n.cross(tangent).normalized(), up, tangent))
+        solid = _sweep(wire, profile_at, n, corners)
         roles = tracker.roles
         for f in solid.faces():
             roles[f.wrapped] = "wall"

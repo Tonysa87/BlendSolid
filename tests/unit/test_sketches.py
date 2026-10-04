@@ -304,6 +304,38 @@ def test_round_groove_and_pipe_rib():
     assert r.volume > 8000 and abs(r.volume - 8000 - math.pi * 2.25 * PATH_LENGTH / 2) < 0.05 * 8 * PATH_LENGTH
 
 
+# a sharp corner right after an arc: OCCT's mitred pipe (RightCorner) raises StdFail_NotDone there (the maintainer's
+# GUI test, 2026-10-04: a Round rib along a path of arcs and corners on a Box's side), or overlaps itself (this path)
+ARC_CORNER_PATH = ('    with sketch(on_face(face("box_1", "+Z"))) as sketch_1:  # feature: sketch_1\n'
+                   '        sketch_1.path_1 = path((-15.0, -5.0), (5.0, -5.0), arc_to((5.0, 5.0)), (5.0, 8.0))\n')
+# the 2 mm band of that path: line 20, half annulus r 4..6, line 3, plus the mitre's outer square at (5, 5)
+# minus the inner overlap of the arc's band with the last line's (x in 5..6, y >= 5 inside r 6 around (5, 0))
+ARC_CORNER_AREA = 2 * 20 + 2 * 5 * math.pi + 2 * 3 + 1 - (0.5 * math.sqrt(35) + 18 * math.asin(1 / 6) - 5)
+
+
+@pytest.mark.parametrize("profile", ["rect", "round", "v"])
+@pytest.mark.parametrize("corners", ["mitre", "round"])
+def test_rib_with_a_sharp_corner_after_an_arc(profile, corners):
+    r = run(GROOVE_BOX + ARC_CORNER_PATH +
+            f'    groove(sketch_1.path_1, width=2.0, depth=2.0, profile="{profile}", corners="{corners}", mode=Mode.ADD)'
+            '  # feature: rib_1\n')
+    assert r.volume > 8000
+    if profile == "rect":  # a round corner: a quarter disc r 1 outside the corner instead of the mitre's square
+        area = ARC_CORNER_AREA if corners == "mitre" else ARC_CORNER_AREA - 1 + math.pi / 4
+        assert abs(r.volume - 8000 - 2 * area) < 1e-3, (r.volume - 8000, 2 * area)
+
+
+def test_the_maintainers_rib_along_arcs_and_corners():
+    # s14_rib.blend: OCCT's mitred pipe raised StdFail_NotDone on this path, for every profile
+    r = run('    Box(5000.0, 5000.0, 5000.0, align=(Align.CENTER, Align.CENTER, Align.MIN))  # feature: box_1\n'
+            '    with sketch(on_face(face("box_1", "+X"))) as sketch_1:  # feature: sketch_1\n'
+            '        sketch_1.path_1 = path((-2000.0, 4500.0), (-2000.0, 3000.0), (-1000.0, 3000.0), '
+            'arc_to((-1000.0, 4000.0)), (-1000.0, 4500.0), (500.0, 4500.0), arc_to((500.0, 3000.0)), (500.0, 2000.0), '
+            '(-1000.0, 2000.0), (-1000.0, 1000.0), arc_to((0.0, 1000.0)))\n'
+            '    groove(sketch_1.path_1, width=150.0, depth=150.0, profile="round", mode=Mode.ADD)  # feature: rib_1\n')
+    assert r.volume > 5000.0 ** 3
+
+
 def test_rib_stands_out_of_the_face():
     r = run(GROOVE_BOX +
             '    with sketch(on_face(face("box_1", "+Z"))) as sketch_1:  # feature: sketch_1\n'
