@@ -612,7 +612,7 @@ def _profile_wire(profile, width, depth, over, place):
             raise SketchError(f"a round groove's depth ({a} mm) must be at least half its width ({b} mm)")
         arc = Edge.make_three_point_arc(place((-r, -depth + r)), place((0.0, -depth)), place((r, -depth + r)))
         top = Edge.make_line(place((r, over)), place((-r, over)))
-        if over == depth - r:  # a half disc: no straight sides
+        if abs(over - (r - depth)) < 1e-12:  # the arc reaches the top: a half disc, no straight sides
             return Wire([arc, top])
         return Wire([Edge.make_line(place((-r, over)), place((-r, -depth + r))), arc,
                      Edge.make_line(place((r, -depth + r)), place((r, over))), top])

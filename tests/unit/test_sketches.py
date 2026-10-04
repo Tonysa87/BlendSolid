@@ -660,6 +660,15 @@ def test_a_grooves_overshoot_cuts_nothing_above_its_plane(body, removed):
     assert abs(24000 - r.volume - removed) < 1e-6
 
 
+def test_round_groove_deeper_than_its_half_width_by_the_overshoot():
+    # found by the session 15 gallery: width 3, depth 2 put depth - r equal to the 0.5 mm overshoot, taken for "a
+    # half disc" (the arc's ends 1 mm below the top line): raw "Edges are disconnected"
+    r = run(BOX + '    with sketch(on_face(face("box_1", "+Z"))) as sketch_1:  # feature: sketch_1\n'
+                  '        sketch_1.path_1 = path((-10.0, 0.0), (10.0, 0.0))\n'
+                  '    groove(sketch_1.path_1, width=3.0, depth=2.0, profile="round")  # feature: groove_1\n')
+    assert abs(24000 - r.volume - 20 * (3.0 * 0.5 + math.pi * 1.5 ** 2 / 2)) < 1e-6
+
+
 def test_closed_path_groove():
     r = run(GROOVE_BOX +
             '    with sketch(on_face(face("box_1", "+Z"))) as sketch_1:  # feature: sketch_1\n'
