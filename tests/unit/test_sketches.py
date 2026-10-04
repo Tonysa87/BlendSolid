@@ -170,6 +170,19 @@ def test_taper_gives_planes_and_exact_volume(taper):
     assert len([t for t in r.face_refs if t.startswith('face("extrude_1", "r"')]) == 4
 
 
+def test_taper_of_adjacent_regions_drafts_their_outline():
+    # R12: two halves of a rectangle tapered one by one left a V-groove along the line between them
+    whole = run(BOX + '    with sketch(on_face(face("box_1", "+Z"))) as sketch_1:  # feature: sketch_1\n'
+                      '        sketch_1.r = Rectangle(20.0, 10.0)\n'
+                      '    extrude(regions(sketch_1, (0.0, 0.0)), amount=5.0, taper=5.0)  # feature: extrude_1\n')
+    halves = run(BOX + '    with sketch(on_face(face("box_1", "+Z"))) as sketch_1:  # feature: sketch_1\n'
+                       '        sketch_1.r = Rectangle(20.0, 10.0)\n'
+                       '        sketch_1.l = Line((0.0, -5.0), (0.0, 5.0))\n'
+                       '    extrude(regions(sketch_1, (-5.0, 0.0), (5.0, 0.0)), amount=5.0, taper=5.0)'
+                       '  # feature: extrude_1\n')
+    assert abs(halves.volume - whole.volume) < 1e-6 and halves.faces == whole.faces
+
+
 def test_taper_of_an_l_shape_keeps_sharp_corners():
     r = run(BOX + '    with sketch(on_face(face("box_1", "+Z"))) as sketch_1:  # feature: sketch_1\n'
                   '        sketch_1.l = Polygon((0, 0), (10, 0), (10, 4), (4, 4), (4, 10), (0, 10), align=None)\n'

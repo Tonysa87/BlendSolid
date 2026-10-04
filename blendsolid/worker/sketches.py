@@ -795,9 +795,12 @@ def helpers(tracker):
             if amount is None or amount == 0:
                 raise SketchError("the extrude has no distance")
             direction = n * amount
-            parts = [(f, direction) for f in to_extrude]
+            faces = list(to_extrude)
+            if taper and len(faces) > 1:  # drafted one by one, neighbours leave a V-groove between them
+                faces = _merged(faces)
+            parts = [(f, direction) for f in faces]
             if both:
-                parts += [(f, -direction) for f in to_extrude]
+                parts += [(f, -direction) for f in faces]
             solids = [_prism(f, d, sk, taper) for f, d in parts]
             if len(solids) > 1:
                 fused = solids.pop().fuse(*solids)
@@ -940,6 +943,13 @@ def _until_next():
 def _translation(v):
     from build123d import Location
     return Location(v)
+
+
+def _merged(faces):
+    """Adjacent coplanar faces merged into one (their shared edges dropped): what a taper drafts as one outline."""
+    from build123d import Face
+    fused = faces[0].fuse(*faces[1:]).clean()
+    return [Face(f.wrapped) for f in fused.faces()]
 
 
 def _prism(face, direction, sk, taper):
