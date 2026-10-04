@@ -137,7 +137,11 @@ class WorkerClient:
 
     def submit_exchange(self, key, request):
         """An "import" or "export" request (worker/server.py _exchange); answered by an "io" event with `key`."""
-        self._queue(key, {**request, "key": key, "tag": None})
+        try:
+            self._queue(key, {**request, "key": key, "tag": None})
+        except Exception:
+            self._pending.pop(key, None)  # reported as failed: it must not run when the worker starts later
+            raise
 
     def _queue(self, key, request):
         self._pending[key] = request
@@ -204,7 +208,8 @@ class WorkerClient:
             events.append(self._crash(f"the worker exited with code {self._proc.returncode}"))
         elif self._running and now - self._running[3] > self.job_timeout:
             what, line = self._progress or ("", None)
-            event = self._crash(f"the recompute timed out after {self.job_timeout:.0f} s"
+            work = "the recompute" if self._running[2] is not None else "reading or writing the file"
+            event = self._crash(f"{work} timed out after {self.job_timeout:.0f} s"
                                 + (f" while {what}" if what else ""))
             event["line"] = line  # the script line the worker hung on, if it said
             events.append(event)

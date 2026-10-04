@@ -1,6 +1,6 @@
 # Where we are / what's next (bookmark)
 
-Updated: 2026-10-04, session 15 end (milestone 3a in progress, branch `m3a`, pushed to GitHub). Read this first when resuming, then "Next step".
+Updated: 2026-10-04, session 16 (milestone 3a in progress, branch `m3a`, pushed to GitHub). Read this first when resuming, then "Next step".
 
 ## State
 - **Milestone 0 (spike):** done — `SPIKE_REPORT.md`.
@@ -53,6 +53,14 @@ Updated: 2026-10-04, session 15 end (milestone 3a in progress, branch `m3a`, pus
 
 ## Next step — resume exactly here
 **Session 15 (2026-10-04, autonomous, the maintainer away and reading from the phone) did plan steps 1-5 below.**
+**Session 16 (2026-10-04, autonomous) built STEP/IGES/BREP import/export (plan step 7, second half): ADR 0016,
+commit 23f4bfd** — File > Import / Export > "CAD (.step, .iges, .brep) – BlendSolid"; one part per solid
+(`insert(imported("<blob id>"), clean=False)`, the shape a compressed BRep blob in a hidden Text owned by the
+part's script), assemblies as nested collections, repeated products as linked duplicates, colours as materials,
+invalid solids shown with a warning; export of the selected or all visible non-cutter parts from their scripts.
+Corpus: 18/18 files, 0 errors (6 invalid solids warned), import ≤ 2.5 s, meshing of the 150-part board 27 s
+(2 cores). 450 unit + 289 Blender tests. Not yet: an independent review (running at the end of session 16), the
+groove/taper rerun results, a build + install, the GUI check below (step 6 (d)).
 Start with `git fetch`, then plan step 6 (the maintainer's GUI test) when they are back.
 
 ### What session 15 did (details and commits: the ledger `docs/research/2026-10-04-bug-sweep.md`)
@@ -111,7 +119,10 @@ geometric result verified with numbers.
    click confirms with object scale 1, Esc leaves nothing), step 6 (Fillet: drag past the limit stops at the max,
    test6.blend's error label, a new fillet on a failing part refused; ask whether fillet_3-5 in test6 were
    attempts to change fillet_2's radius), a quick re-check of `s14_rib.blend`, and what the fixes changed in the
-   GUI. Short steps, in Italian. Session 15 adds: (a) R11 — Sketch a Rectangle on a Box's top face, Extrude Sketch
+   GUI. Short steps, in Italian. Session 16 adds (d): File > Import > CAD on one of the maintainer's STEP files
+   (e.g. the bearing): parts in a collection named after the file, colours, repeated balls as linked duplicates;
+   a fillet on an imported part's edge; File > Export > CAD back to STEP and open it in another CAD program if
+   they have one. Session 15 adds: (a) R11 — Sketch a Rectangle on a Box's top face, Extrude Sketch
    it up, then make the rectangle narrower in the sidebar (its width parameter) until the clicked point falls
    outside it: the part shows an error "another area is under the point … pick the area again" instead of
    extruding the rest of the face; (b) Groove with Profile Round and V, Corners Round: look at the wireframe of

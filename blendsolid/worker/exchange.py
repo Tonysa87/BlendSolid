@@ -71,11 +71,12 @@ class _Decoded:
         self.size, self._items = size, OrderedDict()
 
     def get(self, blob_id, text):
-        """(a new shape, valid) of a blob; unpacks and checks it (BRepCheck) once."""
+        """(a new shape, valid) of a blob; unpacks and checks it (BRepCheck) once per text: a blob Text edited
+        in Blender is checked again (a string compare; the hash only when it changed)."""
         item = self._items.get(blob_id)
-        if item is None:
+        if item is None or item[2] != text:
             raw = _unpack(blob_id, text)
-            item = (raw, _valid(_shape(raw)))
+            item = (raw, _valid(_shape(raw)), text)
             self._items[blob_id] = item
             while len(self._items) > self.size:
                 self._items.popitem(last=False)
@@ -330,8 +331,8 @@ FORMATS = {".step": "step", ".stp": "step", ".iges": "iges", ".igs": "iges", ".b
 def read(path):
     """{"name", "parts": [{"name", "blob", "product", "matrix", "color", "path"}], "blobs": {id: base64},
     "skipped", "invalid"}. Parts with the same "product" are instances of one solid (linked duplicates); "matrix"
-    places the blob's shape (3x4 row-major, mm); "color" is linear RGBA or None. A part's "path" lists the assemblies it sits in, outermost first, as [key, name] pairs (one key
-    per assembly instance)."""
+    places the blob's shape (3x4 row-major, mm); "color" is linear RGBA or None. A part's "path" lists the
+    assemblies it sits in, outermost first, as [key, name] pairs (one key per assembly instance)."""
     kind = FORMATS.get(os.path.splitext(path)[1].lower())
     if kind is None:
         raise ExchangeError(f"{os.path.basename(path)}: not a STEP, IGES or BREP file")
@@ -392,26 +393,30 @@ def _xde(items):
     shapes = XCAFDoc_DocumentTool.ShapeTool_s(doc.Main())
     colors = XCAFDoc_DocumentTool.ColorTool_s(doc.Main())
     shapes.SetAutoNaming_s(False)
-    looks = {}  # TShape -> (name, colour) of the product it became
+    products = {}  # TShape -> (product label, colour) it became
     for item in items:
-        shape, look = item["shape"], (item["name"], None if item.get("color") is None else tuple(item["color"][:3]))
-        if looks.setdefault(shape.TShape(), look) != look:
-            # one shape placed twice (linked duplicates) is one product; named or coloured differently, it needs a
-            # product of its own, since readers take the product's name and colour
+        shape, color = item["shape"], None if item.get("color") is None else tuple(item["color"][:3])
+        known = products.get(shape.TShape())
+        if known is not None and known[1] != color:
+            # one shape placed twice (linked duplicates) is one product; coloured differently, an instance needs a
+            # product of its own, since readers take the product's colour first
             from OCP.BRepBuilderAPI import BRepBuilderAPI_Copy
             from OCP.TopLoc import TopLoc_Location
             shape = BRepBuilderAPI_Copy(shape.Located(TopLoc_Location())).Shape().Moved(shape.Location())
-            looks[shape.TShape()] = look
+            known = None
         label = shapes.AddShape(shape, False)
-        product = TDF_Label()  # a placed shape is an instance (label) of a product: name and colour both
+        product = TDF_Label()  # a placed shape is an instance (label) of a product
+        has_product = XCAFDoc_ShapeTool.IsReference_s(label) and XCAFDoc_ShapeTool.GetReferredShape_s(label, product)
+        name = TCollection_ExtendedString(item["name"], True)  # True: UTF-8 (else byte by byte: "PiÃ¨ce")
+        TDataStd_Name.Set_s(label, name)
         labels = [label]
-        if XCAFDoc_ShapeTool.IsReference_s(label) and XCAFDoc_ShapeTool.GetReferredShape_s(label, product):
+        if has_product and known is None:  # the first instance names and colours the product
+            TDataStd_Name.Set_s(product, name)
             labels.append(product)
-        for lab in labels:
-            TDataStd_Name.Set_s(lab, TCollection_ExtendedString(item["name"]))
-            if item.get("color") is not None:
-                r, g, b = (min(1.0, max(0.0, float(v))) for v in item["color"][:3])
-                col = Quantity_Color(r, g, b, Quantity_TOC_RGB)
+            products[shape.TShape()] = (product, color)
+        if color is not None:
+            col = Quantity_Color(*(min(1.0, max(0.0, float(v))) for v in color), Quantity_TOC_RGB)
+            for lab in labels:
                 colors.SetColor(lab, col, XCAFDoc_ColorGen)
                 colors.SetColor(lab, col, XCAFDoc_ColorSurf)
     shapes.UpdateAssemblies()

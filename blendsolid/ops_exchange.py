@@ -21,6 +21,7 @@ FORMATS = [("STEP", "STEP (.step)", "STEP AP214 with part names and colours"),
            ("IGES", "IGES (.iges)", "IGES solids (MSBO) with part names and colours"),
            ("BREP", "BREP (.brep)", "OpenCASCADE's own format: exact shapes, no names or colours")]
 EXTENSIONS = {"STEP": ".step", "IGES": ".iges", "BREP": ".brep"}
+FORMAT_OF = {".step": "STEP", ".stp": "STEP", ".iges": "IGES", ".igs": "IGES", ".brep": "BREP", ".brp": "BREP"}
 
 
 def _matrix(values, factor):
@@ -75,33 +76,49 @@ def import_file(context, path):
     root = bpy.data.collections.new(answer["name"])
     context.collection.children.link(root)
     collections, materials, texts, firsts, objects = {}, {}, {}, {}, []
-    for item in parts:
-        coll = _collection(root, item["path"], collections)
-        first = firsts.get(item["product"])
-        if first is None:
-            blob = texts.get(item["blob"])
-            if blob is None:
-                blob = texts[item["blob"]] = blobs.store(item["blob"], answer["blobs"][item["blob"]], item["name"],
-                                                         path)
-            source, _ = script_model.new_script(script_model.import_spec(item["blob"]))
-            obj = part.new_part(context, source, item["name"])
-            blobs.attach(obj.blendsolid_script, blob)
-            context.collection.objects.unlink(obj)
-            coll.objects.link(obj)
-            firsts[item["product"]] = obj
-            if item["color"] is not None:
-                obj.data.materials.append(_material(item["color"], materials))
-        else:  # another instance of the same product: a linked duplicate (Alt+D)
-            obj = bpy.data.objects.new(first.name, first.data)
-            obj.blendsolid_script = first.blendsolid_script
-            coll.objects.link(obj)
-            if item["color"] is not None and first.data.materials and \
-                    tuple(round(c, 4) for c in item["color"]) != tuple(round(c, 4) for c in
-                                                                       first.data.materials[0].diffuse_color):
-                obj.material_slots[0].link = "OBJECT"  # this instance has its own colour
-                obj.material_slots[0].material = _material(item["color"], materials)
-        obj.matrix_world = _matrix(item["matrix"], factor)
-        objects.append(obj)
+    try:
+        for item in parts:
+            coll = _collection(root, item["path"], collections)
+            first = firsts.get(item["product"])
+            if first is None:
+                blob = texts.get(item["blob"])
+                if blob is None:
+                    blob = texts[item["blob"]] = blobs.store(item["blob"], answer["blobs"][item["blob"]],
+                                                             item["name"], path)
+                source, _ = script_model.new_script(script_model.import_spec(item["blob"]))
+                obj = part.new_part(context, source, item["name"])
+                blobs.attach(obj.blendsolid_script, blob)
+                context.collection.objects.unlink(obj)
+                coll.objects.link(obj)
+                firsts[item["product"]] = obj
+                if item["color"] is not None:
+                    obj.data.materials.append(_material(item["color"], materials))
+            else:  # another instance of the same product: a linked duplicate (Alt+D)
+                obj = bpy.data.objects.new(first.name, first.data)
+                obj.blendsolid_script = first.blendsolid_script
+                coll.objects.link(obj)
+                shared = first.data.materials[0] if first.data.materials else None
+                if item["color"] is not None and (shared is None or tuple(round(c, 4) for c in item["color"]) !=
+                                                  tuple(round(c, 4) for c in shared.diffuse_color)):
+                    if not first.data.materials:
+                        first.data.materials.append(None)  # a slot, empty for the instances without a colour
+                    obj.material_slots[0].link = "OBJECT"  # this instance has its own colour
+                    obj.material_slots[0].material = _material(item["color"], materials)
+            obj.matrix_world = _matrix(item["matrix"], factor)
+            objects.append(obj)
+    except Exception as e:
+        # never leave half an import behind (the operator is cancelled, so no undo step would remove it)
+        for obj in objects + [o for o in firsts.values() if o not in objects]:
+            script = obj.blendsolid_script
+            bpy.data.objects.remove(obj)
+            if script is not None and script.users == 0:
+                bpy.data.texts.remove(script)
+        for text in texts.values():
+            if text.users == 0:
+                bpy.data.texts.remove(text)
+        for coll in [*collections.values(), root]:
+            bpy.data.collections.remove(coll)
+        raise RuntimeError(f"The import failed: {type(e).__name__}: {e}") from e
     for obj in context.selected_objects:
         obj.select_set(False)
     for obj in objects:
@@ -201,14 +218,17 @@ class BLENDSOLID_OT_export_cad(bpy.types.Operator, ExportHelper):
                                             "isn't another part's cutter)")
 
     def check(self, context):
-        self.filename_ext = EXTENSIONS[self.file_format]
+        # a typed extension of the chosen format stays (.stp, .igs); changing the format swaps it
+        ext = os.path.splitext(self.filepath)[1].lower()
+        self.filename_ext = ext if FORMAT_OF.get(ext) == self.file_format else EXTENSIONS[self.file_format]
         return super().check(context)
 
     def execute(self, context):
-        self.filename_ext = EXTENSIONS[self.file_format]
-        path = bpy.path.ensure_ext(self.filepath, self.filename_ext)
-        if os.path.splitext(path)[1].lower() not in (".step", ".stp", ".iges", ".igs", ".brep", ".brp"):
-            path += self.filename_ext
+        ext = os.path.splitext(self.filepath)[1].lower()
+        if ext in FORMAT_OF:  # the file name's extension decides the format (ADR 0016)
+            self.file_format, path = FORMAT_OF[ext], self.filepath
+        else:
+            path = self.filepath + EXTENSIONS[self.file_format]
         try:
             report = export_file(context, path, export_parts(context, self.use_selection))
         except RuntimeError as e:

@@ -51,7 +51,8 @@ files) breaks when the `.blend` moves to another machine or OS.
 8. **Invalid solids are imported anyway** (BRepCheck fails on 3/18 corpus files): the part shows them with a
    warning — "the imported solid is not valid (BRepCheck): booleans and fillets on it may fail" — instead of
    the usual "`result` is not a valid solid" error; a feature that then fails, fails on its own line.
-9. **Export** (File > Export > CAD, one operator, format by extension or the Format menu): the selected parts, or
+9. **Export** (File > Export > CAD, one operator; a typed .step/.stp/.iges/.igs/.brep/.brp decides the format, else
+   the Format menu): the selected parts, or
    every visible part that no other part uses as a cutter; each placed by its `matrix_world` in millimetres
    (a scaled object's scale is applied to the exact shape), named after its object, coloured by its first
    material. STEP: XDE, AP214, names and colours; IGES: XDE (`IGESCAFControl_Writer`, MSBO solids); BREP: one
@@ -71,4 +72,6 @@ files) breaks when the `.blend` moves to another machine or OS.
   deleted); the tools never do this.
 - Per-face colours, layers, PMI and product metadata beyond the name are not imported; materials are one colour
   per part.
+- Linked duplicates are exported as instances of one product, named after the first (readers take the
+  product's name); an instance coloured differently gets a product of its own.
 - Every recompute sends the blob to the worker again (hundreds of KB, local socket); revisit only if measured slow.

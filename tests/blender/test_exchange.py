@@ -168,3 +168,37 @@ def test_corpus_assembly_instances_become_linked_duplicates(clean):
     assert all(o.blendsolid_error == "" and mm3(o) > 0 for o in objs)
     assert all(o.material_slots and o.material_slots[0].material for o in objs)
     assert {c.name for c in objs[0].users_collection}  # inside the file's collection tree
+
+
+@pytest.mark.parametrize("name, fmt, written", [("a.stp", "STEP", "a.stp"), ("b.igs", "STEP", "b.igs"),
+                                                ("c.brp", "STEP", "c.brp"), ("d", "IGES", "d.iges")])
+def test_the_typed_extension_decides_the_format(clean, tmp_path, name, fmt, written):
+    box = primitive("box", {"length": 40, "width": 30, "height": 20}, "Ext")
+    wait_for(lambda: up_to_date(box))
+    bpy.context.view_layer.update()
+    select(box)
+    bpy.ops.blendsolid.export_cad(filepath=str(tmp_path / name), file_format=fmt, use_selection=True)
+    assert sorted(os.listdir(tmp_path)) == [written]
+    head = open(tmp_path / written, "rb").read(80)
+    kind = {"a.stp": b"ISO-10303", "b.igs": b"S0000001", "c.brp": b"CASCADE", "d.iges": b"S0000001"}[written]
+    assert kind in head or kind in open(tmp_path / written, "rb").read(400)
+
+
+def test_an_instance_coloured_when_the_first_is_not(clean, tmp_path):
+    from blendsolid import ops_exchange, runtime
+    box = primitive("box", {"length": 40, "width": 30, "height": 20}, "Src")
+    wait_for(lambda: up_to_date(box))
+    path = str(tmp_path / "one.step")
+    export(path, box)
+    answer = runtime.exchange({"type": "import", "path": path})
+    item = answer["parts"][0]
+    answer["parts"] = [{**item, "color": None}, {**item, "color": [1.0, 0.0, 0.0, 1.0]}]
+    real = runtime.exchange
+    runtime.exchange = lambda request: answer
+    try:
+        objs, _ = ops_exchange.import_file(bpy.context, path)
+    finally:
+        runtime.exchange = real
+    assert objs[1].data == objs[0].data  # one product: linked duplicates
+    assert objs[0].material_slots[0].material is None
+    assert objs[1].material_slots[0].material.diffuse_color[:3] == pytest.approx((1, 0, 0))

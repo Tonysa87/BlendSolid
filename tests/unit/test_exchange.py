@@ -191,3 +191,31 @@ def test_build_for_export_uses_the_cache_and_names_failures():
     assert cache.get("t1") is shape
     with pytest.raises(exchange.ExchangeError, match="'Bad' can't be built"):
         runner.build("result = 1 / 0\n", cache=cache, label="'Bad'")
+
+
+def test_non_ascii_names_round_trip_in_step(tmp_path):
+    path = str(tmp_path / "names.step")
+    exchange.write(path, [{"shape": holed(), "name": "Pièce_ü_日本", "color": None}])
+    assert [p["name"] for p in exchange.read(path)["parts"]] == ["Pièce_ü_日本"]
+
+
+def test_instances_named_differently_stay_one_product_unless_coloured_differently(tmp_path):
+    shape = holed()  # Blender's linked duplicates: one shape, unique object names
+    path = str(tmp_path / "dups.step")
+    exchange.write(path, [{"shape": exchange.placed(shape, moved(40 * i, 0, 0)), "name": f"Pin.{i:03d}",
+                           "color": [0, 0, 1]} for i in range(3)])
+    data = exchange.read(path)
+    assert len(data["parts"]) == 3 and len({p["product"] for p in data["parts"]}) == 1
+    exchange.write(path, [{"shape": exchange.placed(shape, moved(0, 0, 0)), "name": "A", "color": [0, 0, 1]},
+                          {"shape": exchange.placed(shape, moved(40, 0, 0)), "name": "B", "color": [1, 0, 0]}])
+    data = exchange.read(path)
+    assert len({p["product"] for p in data["parts"]}) == 2
+    assert sorted(tuple(round(c, 6) for c in p["color"][:3]) for p in data["parts"]) == [(0, 0, 1), (1, 0, 0)]
+
+
+def test_an_edited_blob_text_is_checked_again(monkeypatch):
+    monkeypatch.setattr(exchange, "DECODED", exchange._Decoded())
+    blob_id, text = exchange.encode(holed())
+    exchange.DECODED.get(blob_id, text)
+    with pytest.raises(exchange.ExchangeError, match="damaged"):
+        exchange.DECODED.get(blob_id, text[:-8] + "AAAAAAAA")

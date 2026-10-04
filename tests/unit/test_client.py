@@ -261,3 +261,11 @@ def test_submit_with_dependencies(client):
     (r,) = results(collect(client, 1))
     assert r["ok"], r["error"]
     assert abs(r["volume"] - (1000.0 - 2 * 2 * 10)) < 1e-9
+
+
+def test_an_exchange_that_fails_to_start_the_worker_is_not_left_queued(tmp_path):
+    from blendsolid.client import WorkerClient, WorkerStartError
+    client = WorkerClient("/nonexistent/python", "server.py", str(tmp_path), start_timeout=2.0)
+    with pytest.raises((WorkerStartError, OSError)):
+        client.submit_exchange("\0exchange:1", {"type": "export", "path": "x.step", "items": []})
+    assert not client._pending  # else the export runs the next time a part starts the worker
