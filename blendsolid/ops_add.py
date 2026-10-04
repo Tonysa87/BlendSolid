@@ -149,6 +149,9 @@ class _Placement:
                 source, _ = script_model.new_script(primitives.feature_spec(self.prim.kind, values))
                 self.obj.blendsolid_script.from_string(source)
                 part.sync_params(self.obj, source)
+                # the worker's mesh at this size comes later: until then the mesh shown takes the scale, or the
+                # part pops back to the starting size for a moment
+                self.obj.data.transform(Matrix.Scale(self.size / self.written, 4))
             self.obj.scale = (1.0, 1.0, 1.0)
             return {"FINISHED"}
         if event.value == "PRESS" and self._type(event):

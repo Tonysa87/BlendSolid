@@ -142,3 +142,30 @@ def test_typed_size_keys_are_blender_event_types():
     assert set(ops_add.TYPED_KEYS) <= types, set(ops_add.TYPED_KEYS) - types
     assert sorted(v for k, v in ops_add.TYPED_KEYS.items() if k.startswith("NUMPAD_") and v.isdigit()) == \
         [str(i) for i in range(10)]
+
+
+def test_confirming_a_new_size_keeps_the_part_on_screen_at_that_size(clean, cursor):
+    # Add's placement shows the new size by scaling the object; on confirm the scale goes back to 1 and the script
+    # gets the size, but the worker's mesh at that size comes later: until then the old mesh at scale 1 showed the
+    # part small for a moment (the maintainer's GUI test, 2026-10-04: "da solid piccolo alla dimensione definita").
+    from types import SimpleNamespace
+
+    from blendsolid import ops_add
+    cursor.location, cursor.rotation_euler = (0, 0, 0), (0, 0, 0)
+    bpy.ops.blendsolid.add_box(**primitives.sized_values("box", 10.0))
+    obj = bpy.context.view_layer.objects.active
+    wait_for(lambda: up_to_date(obj))
+    placement = ops_add._Placement()
+    placement.prim, placement.obj, placement.handle, placement.typed = primitives.PRIMITIVES["box"], obj, None, "35"
+    placement.matrix = obj.matrix_world.copy()
+    placement.written, placement.size = 10.0, 35.0
+    obj.scale = (3.5, 3.5, 3.5)
+    area = SimpleNamespace(header_text_set=lambda text: None, tag_redraw=lambda: None)
+    op = SimpleNamespace()
+    event = SimpleNamespace(type="NUMPAD_ENTER", value="PRESS")
+    assert placement.modal(op, SimpleNamespace(area=area), event) == {"FINISHED"}
+    assert tuple(obj.scale) == (1.0, 1.0, 1.0)
+    assert not up_to_date(obj)  # the worker's mesh at 35 mm is still to come...
+    assert mm3(obj) == pytest.approx(35.0 ** 3, rel=1e-4)  # ...and the part already shows that size
+    wait_for(lambda: up_to_date(obj))
+    assert mm3(obj) == pytest.approx(35.0 ** 3, rel=1e-6)
