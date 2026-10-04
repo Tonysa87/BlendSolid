@@ -124,6 +124,7 @@ class BLENDSOLID_OT_extrude(bpy.types.Operator):
             return {"CANCELLED"}
         self._factor = part.unit_factor(context.scene)
         self._obj, self._sketch, self._uv = obj, sketch, uv
+        self._seed = sketching.seed_for(sketch, index, uv)
         plane = ops_sketch.plane_matrix(obj, sketch, self._factor)
         self._start = plane @ Vector((uv[0] * self._factor, uv[1] * self._factor, 0.0))
         self._plane = drawing._frame(self._start, plane.col[0].xyz, plane.col[2].xyz)
@@ -157,7 +158,7 @@ class BLENDSOLID_OT_extrude(bpy.types.Operator):
             self._end(context, None)
             if abs(self._amount) < 1e-3:
                 return {"CANCELLED"}
-            self.target, self.sketch, self.seed = self._obj.name, self._sketch["name"], self._uv
+            self.target, self.sketch, self.seed = self._obj.name, self._sketch["name"], self._seed
             self.amount = self._amount
             self.operation = auto_operation(self._solid, self._amount)
             self.extent, self.symmetric, self.taper = "DISTANCE", False, 0.0
@@ -181,8 +182,8 @@ class BLENDSOLID_OT_extrude(bpy.types.Operator):
         if abs(amount) < 1e-3:
             self._obj.blendsolid_script.from_string(self._source)
             return
-        spec = sketching.extrude_spec(self._sketch["name"], self._uv, amount, auto_operation(self._solid, amount),
-                                      bounds=sketching.region_bounds(self._sketch, self._uv))
+        spec = sketching.extrude_spec(self._sketch["name"], self._seed, amount, auto_operation(self._solid, amount),
+                                      bounds=sketching.region_bounds(self._sketch, self._seed))
         try:
             source, _ = script_model.append_feature(self._source, spec)
         except script_model.NotCanonical:
@@ -331,7 +332,7 @@ class BLENDSOLID_OT_revolve(bpy.types.Operator):
         found = pick_region(context, origin, direction)
         if found is None:
             return {"PASS_THROUGH"}
-        obj, sketch, uv, _ = found
+        obj, sketch, uv, index = found
         blocked = part.blocking_error(obj)
         if blocked:  # now, not after the axis click
             self.report({"ERROR"}, blocked)
@@ -339,7 +340,7 @@ class BLENDSOLID_OT_revolve(bpy.types.Operator):
         if not sketching.line_entities(sketch):
             self.report({"WARNING"}, "Draw a line in the sketch first: the area turns about it")
             return {"CANCELLED"}
-        self._obj, self._sketch, self._uv = obj, sketch, uv
+        self._obj, self._sketch, self._uv = obj, sketch, sketching.seed_for(sketch, index, uv)
         _revolving.clear()
         _revolving.append((obj, sketch))
         context.window_manager.modal_handler_add(self)

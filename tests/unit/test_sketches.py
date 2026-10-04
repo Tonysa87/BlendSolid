@@ -107,7 +107,7 @@ def test_regions_report_their_bounding_curves_and_sides():
                   '        sketch_1.rect_1 = Pos(5.0, 0.0) * Rectangle(10.0, 6.0)\n'
                   '        sketch_1.line_1 = Line((-30.0, 10.0), (30.0, 10.0))\n')
     bounds = sorted(str(g["bounds"]) for g in r.sketches[0]["regions"])
-    assert bounds == sorted([str({"rect_1": ["inside"]}),
+    assert bounds == sorted([str({"face": ["inside"], "rect_1": ["inside"]}),
                              str({"face": ["inside"], "line_1": ["right"], "rect_1": ["outside"]}),
                              str({"face": ["inside"], "line_1": ["left"]})])
 
@@ -118,18 +118,63 @@ def test_a_seed_that_lands_in_another_area_is_an_error():
     seed = '(6.0, 0.0)'
     assert _rect_seed(10.0, seed).ok  # a plain point: no check (scripts written before area())
     assert abs(_rect_seed(4.0, seed).volume - (24000 + (1200 - 24) * 5)) < 1e-6  # ... and the wrong area
-    picked = 'area((6.0, 0.0), inside="rect_1")'
+    picked = 'area((6.0, 0.0), inside=("face", "rect_1"))'
     r = _rect_seed(10.0, picked)
     assert r.ok and abs(r.volume - (24000 + 60 * 5)) < 1e-6 and not r.warnings
     r = _rect_seed(4.0, picked)
     assert not r.ok and r.line == 6
-    assert "outside rect_1" in r.error and "picked inside rect_1" in r.error and "pick the area again" in r.error
+    assert "is inside the face, outside rect_1, but the script describes it inside the face, inside rect_1" in r.error
+    assert "pick the area again" in r.error
 
 
-def test_an_area_that_gains_a_bounding_curve_warns():
-    # the rectangle grows past the face's edge: still inside rect_1, now also bounded by the face (clipped)
-    r = _rect_seed(60.0, 'area((6.0, 0.0), inside="rect_1")')
-    assert r.ok and any("now inside the face, inside rect_1" in text for _, text in r.warnings)
+def test_an_area_that_loses_or_gains_a_bounding_curve():
+    # the rectangle grows past the face's edge (clipped by it): the same area, silently
+    r = _rect_seed(60.0, 'area((6.0, 0.0), inside=("face", "rect_1"))')
+    assert r.ok and not r.warnings
+    # ... or covers the whole face: rect_1 no longer bounds the area but still contains it, a warning only
+    r = _rect_seed(10.0, 'area((6.0, 0.0), inside=("face", "rect_1"), left="line_9")')
+    assert r.ok and any("check that the right area is used" in text for _, text in r.warnings)
+
+
+def test_the_face_shrinking_under_the_area_is_an_error():
+    # the review of R11's fix: the face narrows instead of the rectangle; the face's side is always recorded
+    source = ("box_1_length = {}\nwith BuildPart() as part:\n"
+              '    Box(box_1_length, 30.0, 20.0, align=(Align.CENTER, Align.CENTER, Align.MIN))  # feature: box_1\n'
+              '    with sketch(on_face(face("box_1", "+Z"))) as sketch_1:  # feature: sketch_1\n'
+              '        sketch_1.rect_1 = Pos(15.0, 0.0) * Rectangle(10.0, 6.0)\n'
+              '    extrude(regions(sketch_1, area((17.0, 0.0), inside=("face", "rect_1"))), amount=5.0)'
+              '  # feature: extrude_1\n'
+              "result = part.part\n")
+    assert runner.run_script(source.format(40.0)).ok
+    r = runner.run_script(source.format(30.0))
+    assert not r.ok and "outside the face" in r.error
+
+
+def test_a_line_just_inside_the_face_edge_still_draws():
+    # the review of R11's fix: a face edge 2.5e-5 mm from a line was given to it and its side raised
+    for y in (14.99995, 14.9999, 15.00005):
+        r = run(BOX + '    with sketch(on_face(face("box_1", "+Z"))) as sketch_1:  # feature: sketch_1\n'
+                      f'        sketch_1.line_1 = Line((-20.0, {y}), (20.0, {y}))\n'
+                      '        sketch_1.line_2 = Line((0.0, -15.0), (0.0, 15.0))\n')
+        assert r.sketches[0]["regions"]
+
+
+@pytest.mark.parametrize("p", [9.0, 11.0, 12.0, 14.0])
+def test_bowtie_path_lobes_keep_their_description(p):
+    # the review of R11's fix: Face() of a self-crossing closed path is invalid and its inside arbitrary
+    def source(top, seed):
+        return ("with BuildPart() as part:\n" + BOX +
+                '    with sketch(on_face(face("box_1", "+Z"))) as sketch_1:  # feature: sketch_1\n'
+                f'        sketch_1.path_1 = path((0.0, 0.0), (10.0, {top}), (10.0, 0.0), (0.0, 10.0), closed=True)\n'
+                f'    extrude(regions(sketch_1, {seed}), amount=5.0)  # feature: extrude_1\n'
+                "result = part.part\n")
+    import sketches
+    r = runner.run_script(source(10.0, "(8.0, 5.0)"))
+    lobes = {g["inside"][0] > 5.0: g["bounds"] for g in r.sketches[0]["regions"] if g["area"] < 100}
+    assert lobes == {False: {"face": ["inside"], "path_1": ["left"]}, True: {"face": ["inside"], "path_1": ["right"]}}
+    area = sketches.Area((8.0, 5.0), inside="face", right="path_1")
+    r = runner.run_script(source(p, repr(area)))
+    assert r.ok and not r.warnings, r.error
 
 
 def test_area_seeds_of_open_curves():

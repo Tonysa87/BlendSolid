@@ -162,6 +162,21 @@ def region_bounds(sketch, seed):
     return None if index is None else sketch["regions"][index].get("bounds")
 
 
+SAGITTA = 0.011  # display polylines turn 5° per segment (worker CURVE_DEG): an arc bulges ~1.1% of a chord off it
+
+
+def seed_for(sketch, index, uv):
+    """The seed written for a click at `uv` in region `index` of `sketch` (display dict): the click itself, unless
+    it lies so near the region's boundary that the exact curve may put it in the next region (the display's
+    chords cut arcs short); then the region's own point inside, computed by the worker on the exact region."""
+    region = sketch["regions"][index]
+    for loop in region["loops"]:
+        for p, q in zip(loop, loop[1:] + loop[:1]):
+            if distance_to_segment(uv, p, q) <= SAGITTA * math.hypot(q[0] - p[0], q[1] - p[1]) + 1e-4:
+                return tuple(round(c, 6) + 0.0 for c in region["inside"])
+    return tuple(uv)
+
+
 def region_text(sketch, seed, bounds=None):
     """`regions(sketch_1, <seed>)` for the region of `sketch` (feature name) at `seed`: with `bounds`, the seed is
     `area((u, v), inside="rect_1", ...)` — the point and the curves bounding the picked area, so the worker

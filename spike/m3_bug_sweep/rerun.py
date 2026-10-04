@@ -18,10 +18,15 @@ kind = sys.argv[1] if len(sys.argv) > 1 else "grooves"
 cases = json.load(gzip.open(os.path.join(HERE, f"{'groove' if kind == 'grooves' else 'taper'}_cases.json.gz"), "rt"))
 
 
+# one thread per child, all pinned to 2 cores: OCCT and numpy otherwise took ~9 cores each at peaks (session 15)
+ENV = {**os.environ, "OMP_NUM_THREADS": "1", "OPENBLAS_NUM_THREADS": "1", "MKL_NUM_THREADS": "1",
+       "TBB_NUM_THREADS": "1"}
+
+
 def run(c):
     try:
-        o = subprocess.run(["nice", "-n", "10", PY, "-c", CHILD], input=c["src"], capture_output=True, text=True,
-                           timeout=90)
+        o = subprocess.run(["taskset", "-c", "2,3", "nice", "-n", "10", PY, "-c", CHILD], input=c["src"], capture_output=True, text=True,
+                           timeout=90, env=ENV)
         return c, json.loads(o.stdout.strip().splitlines()[-1])
     except Exception as e:  # no output: a crash (segfault) or a hang
         return c, {"ok": False, "error": f"RUNNER {type(e).__name__}", "volume": 0.0, "warnings": []}

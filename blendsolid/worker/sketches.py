@@ -95,7 +95,7 @@ class Sketch:
     body runs outside the part's builder (build123d objects there don't join the part), and each attribute
     assigned on the sketch is one entity: `sketch_1.rect_1 = Rectangle(...)`."""
 
-    _OWN = ("plane", "name", "used", "entities", "shapes", "_regions", "_token", "_loops", "_face_local")
+    _OWN = ("plane", "name", "used", "entities", "shapes", "_regions", "_token", "_loops", "_face_local", "_boxes")
 
     def __init__(self, plane):
         from build123d import Plane
@@ -110,6 +110,7 @@ class Sketch:
         self._token = None
         self._loops = {}      # name -> its closed wires, or None for an open entity (cached)
         self._face_local = None
+        self._boxes = None    # entity_of's (name, edge, bounding box) of every entity edge (cached)
 
     def __setattr__(self, name, value):
         if name in Sketch._OWN:
@@ -131,6 +132,7 @@ class Sketch:
         self.entities[name] = edges
         self.shapes[name] = value
         self._loops.pop(name, None)
+        self._boxes = None
         try:
             value._bs_sketch, value._bs_entity = self, name  # groove(sketch_1.path_1) finds its sketch
         except AttributeError:
@@ -187,40 +189,46 @@ class Sketch:
             self._face_local = self.plane.to_local_coords(face)
         return self._face_local
 
-    def bounds_of(self, region):
-        """What bounds the local region `region`: {entity name: set of sides}. Closed entities (and FACE, the
-        sketch face's boundary) have the region "inside" or "outside" them; open curves have it on their "left"
-        or "right" along their own direction (a self-crossing path can have both)."""
+    def bounds_of(self, region, also=()):
+        """What bounds the local region `region`: {entity name: set of sides}. Closed entities have the region
+        "inside" or "outside" them; open curves have it on their "left" or "right" along their own direction (a
+        path can have both). FACE (the sketch face's boundary) is always listed for a sketch on a face, bounding
+        or not, so a face shrinking past the area shows; `also`: closed entities to report even if they no longer
+        bound the region."""
         from build123d import Vector
         inside = Vector(*_inside_point(region), 0.0)
         out = {}
+        if self.face_local() is not None:
+            out[FACE] = {"inside" if self._contains(FACE, inside) else "outside"}
         for e in region.edges():
             name = self.entity_of(e)
-            if name is None:
-                if self.face_local() is None:
-                    continue
-                name = FACE
-            if name == FACE or self._closed(name) is not None:
-                if name not in out:
-                    out[name] = {"inside" if self._contains(name, inside) else "outside"}
+            if name is None or (name in out and self._closed(name) is not None):
+                continue
+            if self._closed(name) is not None:
+                out[name] = {"inside" if self._contains(name, inside) else "outside"}
                 continue
             side = self._side(name, e, region)
             if side is not None:
                 out.setdefault(name, set()).add(side)
+        for name in also:
+            if name not in out and name in self.entities and self._closed(name) is not None:
+                out[name] = {"inside" if self._contains(name, inside) else "outside"}
         return out
 
     def _closed(self, name):
-        """The closed wires of entity `name`, or None if it is an open curve (FACE: None)."""
-        if name == FACE:
-            return None
+        """The closed wires of entity `name` as faces, or None if it is an open curve, or a closed path crossing
+        itself (Face() accepts it but its inside is arbitrary: its sides are left/right)."""
         if name not in self._loops:
             from build123d import Face, Wire
+            from OCP.BRepCheck import BRepCheck_Analyzer
             loops = None
             try:
                 wires = Wire.combine(self.entities[name])
                 if wires and all(w.is_closed for w in wires):
                     loops = [Face(w) for w in wires]
-            except Exception:  # a self-crossing closed path: its sides are left/right
+                    if not all(BRepCheck_Analyzer(f.wrapped).IsValid() for f in loops):
+                        loops = None
+            except Exception:
                 loops = None
             self._loops[name] = loops
         return self._loops[name]
@@ -232,11 +240,15 @@ class Sketch:
 
     def _side(self, name, edge, region):
         """"left" or "right": the side of open entity `name` (along its direction) where `region` lies next to its
-        boundary edge `edge`; None if neither side tells (a region thinner than the probe)."""
+        boundary edge `edge`; None if it can't tell (a region thinner than the probe, an edge only near it)."""
         from build123d import Vector
-        m = edge.position_at(0.5)
-        nearest = min(self.entities[name], key=lambda e: e.distance_to(m))
-        t = nearest.tangent_at(nearest.param_at_point(m))
+        try:
+            m = edge.position_at(0.5)
+            nearest = min(self.entities[name], key=lambda e: e.distance_to(m))
+            _, _, on = nearest.distance_to_with_closest_points(m)
+            t = nearest.tangent_at(nearest.param_at_point(on))
+        except Exception:
+            return None
         step = min(1e-3, edge.length / 20)
         normal = Vector(-t.Y, t.X, 0.0)
         left, right = region.is_inside(m + normal * step), region.is_inside(m - normal * step)
@@ -247,13 +259,24 @@ class Sketch:
     def entity_of(self, edge_local):
         """The name of the entity a (split) region edge comes from, or None."""
         from build123d import Vertex
-        mid = Vertex(*edge_local.position_at(0.5))
+        p = edge_local.position_at(0.5)
+        if self._boxes is None:
+            self._boxes = []
+            for key, edges in self.entities.items():
+                for e in edges:
+                    b = e.bounding_box()
+                    self._boxes.append((key, e, b.min.X - ON_FACE_MM, b.min.Y - ON_FACE_MM,
+                                        b.max.X + ON_FACE_MM, b.max.Y + ON_FACE_MM))
+        mid = None
         best, name = ON_FACE_MM, None
-        for key, edges in self.entities.items():
-            for e in edges:
-                d = e.distance_to(mid)
-                if d < best:
-                    best, name = d, key
+        for key, e, x0, y0, x1, y1 in self._boxes:
+            if not (x0 <= p.X <= x1 and y0 <= p.Y <= y1):
+                continue
+            if mid is None:
+                mid = Vertex(p)
+            d = e.distance_to(mid)
+            if d < best:
+                best, name = d, key
         return name
 
     def placed(self, shape):
@@ -282,7 +305,10 @@ class Sketch:
         regions = []
         for face in self.regions_local():
             loops = [_polyline(w, closed=True) for w in [face.outer_wire(), *face.inner_wires()]]
-            bounds = {name: sorted(sides) for name, sides in sorted(self.bounds_of(face).items())}
+            try:
+                bounds = {name: sorted(sides) for name, sides in sorted(self.bounds_of(face).items())}
+            except Exception:  # never fails the sketch's display: the tools then write a bare seed
+                bounds = {}
             regions.append({"loops": loops, "area": face.area, "inside": _inside_point(face), "bounds": bounds})
         return {"name": self.name, "used": self.used, "plane": [list(_vec(v)) for v in (o, x, y, z)],
                 "curves": curves, "regions": regions, "points": _snap_points(self.entities)}
@@ -784,10 +810,10 @@ def _check_area(sk, seed, found, warn):
     where = f"the area of {sk.name} at {_uv(seed.uv)}"
     if flipped or not common:
         from provenance import BrokenReference
-        raise BrokenReference(f"{where} is now {_describe(found)}, but it was picked {_describe(expected)}: the "
-                              f"sketch changed under it — pick the area again")
-    warn(f"{where} is now {_describe(found)}; it was picked {_describe(expected)}: check that the right area "
-         f"is used")
+        raise BrokenReference(f"{where} is {_describe(found)}, but the script describes it {_describe(expected)}: "
+                              f"another area is under the point (the sketch changed?) — pick the area again")
+    warn(f"{where} is {_describe(found)}, but the script describes it {_describe(expected)}: check that the "
+         f"right area is used")
 
 
 def helpers(tracker):
@@ -819,7 +845,7 @@ def helpers(tracker):
                 from provenance import BrokenReference
                 raise BrokenReference(f"no closed area of the sketch {sk.name} contains the point {_uv(uv)}")
             if isinstance(seed, Area):
-                _check_area(sk, seed, sk.bounds_of(local[i]), tracker.warn)
+                _check_area(sk, seed, sk.bounds_of(local[i], also=seed.bounds), tracker.warn)
             if i not in picked:
                 picked.append(i)
         sk.used = True

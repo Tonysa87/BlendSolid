@@ -87,6 +87,16 @@ edits (Autodesk forum, FUS-227038). Neither tells the user. So:
   seed is not checked (scripts written by hand or before this addendum).
 - Two areas with the same description (a zigzag line crossing a rectangle) are still told apart by the point
   alone: the description is a check, not a full identity.
+- After an independent review of the first version: `"face"` is always listed for a sketch on a face, bounding
+  the area or not (the face narrowing past the area must show: it was only a warning); a closed entity named by
+  the seed that no longer bounds the area is still checked for containment (a rectangle grown over the whole face
+  is a warning, not an error); a closed path crossing itself has left/right sides (its `Face()` is invalid, its
+  inside arbitrary); a face edge merely *near* a line never fails the sketch's display. Blender writes the
+  region's own inside point instead of the click when the click lies within the display polygon's sagitta of
+  the region's boundary (5° chords cut arcs short: the worker's exact test put the point in the next area).
+- Known limits: reversing a line's direction flips its left/right (the tools never do); an entity deleted by
+  hand and redrawn under the same name matches the old description; `bounds` cost ~0.5 s per recompute for a
+  sketch of 30 entities and 200 regions (bounding-box prefilter; lazily computed bounds if that ever matters).
 
 Roles, same session (bug sweep R8, R9): a side face swept by an edge of the face the sketch lies on (a region
 bounded by the face's border, tapered) gets the role `border` (it was `end`, like the top cap); a region edge on

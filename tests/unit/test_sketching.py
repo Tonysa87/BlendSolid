@@ -144,7 +144,7 @@ def test_extrude_spec_writes_the_picked_areas_bounding_curves():
     source, sketch = _sketched_box()
     display = _run(source).sketches[0]
     bounds = sketching.region_bounds(display, (5.0, 0.0))
-    assert len(bounds) == 1 and list(bounds.values()) == [["inside"]]
+    assert len(bounds) == 2 and set(map(tuple, bounds.values())) == {("inside",)} and "face" in bounds
     spec = sketching.extrude_spec(sketch, (5.0, 0.0), 4.0, bounds=bounds)
     area = sketches.Area((5.0, 0.0), **{side: tuple(n for n, s in bounds.items() if side in s)
                                          for side in sketches.SIDES})
@@ -153,7 +153,26 @@ def test_extrude_spec_writes_the_picked_areas_bounding_curves():
     r = _run(built)
     assert abs(r.volume - (24000 + math.pi * 9 * 4)) < 1e-6 and not r.warnings
     outside = sketching.region_bounds(display, (15.0, 10.0))
-    assert outside == {"face": ["inside"], **{n: ["outside"] for n in bounds}}
+    assert outside == {"face": ["inside"], **{n: ["outside"] for n in bounds if n != "face"}}
     assert sketching.region_text(sketch, (1.0, 2.0)) == f"regions({sketch}, (1.0, 2.0))"
     assert sketching.region_text(sketch, (1.0, 2.0), {"b": ["left"], "a": ["inside"], "face": ["inside"]}) == \
         f'regions({sketch}, area((1.0, 2.0), inside=("a", "face"), left="b"))'
+
+
+def test_a_click_near_an_arc_seeds_the_regions_inside_point():
+    # the review of R11's fix: between a 5° display chord and the true arc, Blender's polygon test and the worker's
+    # exact one disagree, and the new feature failed at once ("another area is under the point")
+    source, sketch, _ = sm.new_sketch_script("Plane.XY", sketching.rect_spec((-60, -60), (60, 60)))
+    source, _ = sm.add_entity(source, sketch, sketching.entity_spec("CIRCLE", (0, 0), (50, 0)))
+    display = _run(source).sketches[0]
+    a = math.radians(2.5)
+    click = (49.97 * math.cos(a), 49.97 * math.sin(a))  # inside the circle, outside its display polygon
+    index = sketching.region_at(display, click)
+    seed = sketching.seed_for(display, index, click)
+    assert seed != click and sketching.region_at(display, seed) == index
+    spec = sketching.extrude_spec(sketch, seed, 4.0, bounds=sketching.region_bounds(display, seed))
+    built, _ = sm.append_feature(source, spec)
+    r = _run(built)
+    assert r.ok and not r.warnings
+    far = (10.0, 10.0)
+    assert sketching.seed_for(display, sketching.region_at(display, far), far) == far

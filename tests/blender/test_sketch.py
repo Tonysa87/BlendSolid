@@ -63,7 +63,7 @@ def test_sketch_on_a_face_then_cut_through_and_undo(box):
     wait_for(lambda: up_to_date(box))
     assert mm3(box) == pytest.approx(24000 - math.pi * 9 * 20, rel=1e-3)
     # the seed carries the picked area's bounding curves (R11: never re-bound silently)
-    assert 'regions(sketch_1, area((5.0, 0.0), inside="circle_1"))' in part.source_of(box)
+    assert 'regions(sketch_1, area((5.0, 0.0), inside=("circle_1", "face")))' in part.source_of(box)
     bpy.ops.ed.undo()
     obj = bpy.data.objects["Box"]  # references die on undo
     wait_for(lambda: up_to_date(obj))
@@ -230,8 +230,8 @@ def test_dragging_down_on_a_part_that_is_only_a_sketch_never_cuts(clean, monkeyp
     monkeypatch.setattr(ops_draw, "_mouse_ray", lambda context, event: (None, None))
     monkeypatch.setattr(drawing, "height_along_normal", lambda *args: drag["mm"] * factor)
     cls = ops_extrude.BLENDSOLID_OT_extrude if tool == "extrude" else ops_extrude.BLENDSOLID_OT_groove
-    op = SimpleNamespace(_obj=obj, _sketch=drawn, _uv=(5.0, 5.0), _name="path_1", _plane=None, _start=None,
-                         _factor=factor, _source=part.source_of(obj), _amount=0.0, _snap=0.0,
+    op = SimpleNamespace(_obj=obj, _sketch=drawn, _uv=(5.0, 5.0), _seed=(5.0, 5.0), _name="path_1", _plane=None,
+                         _start=None, _factor=factor, _source=part.source_of(obj), _amount=0.0, _snap=0.0,
                          _solid=ops_extrude.has_solid(obj), width=2.0, profile="rect", corners="mitre")
     if tool == "groove":
         op._operation = lambda amount: cls._operation(op, amount)
