@@ -96,18 +96,22 @@ def surface_steps(surf, uv_box, lin_defl, ang_defl, samples=7):
     # the largest length per unit: a cell is never longer than its step anywhere on the face (on a sphere the
     # cells narrow towards the poles, as on a latitude-longitude grid)
     scale = (max(float(np.max(su)), 1e-12), max(float(np.max(sv)), 1e-12))
-    # Normal curvature along u and v where both derivatives are well defined (near a pole or an apex a
-    # derivative vanishes and |D2 . n| / |D1|^2 means nothing). OCCT's vertex blends (the corner patches of
+    # The parameter step each sample asks along u and v (the chord of a step sags at most lin_defl and turns at
+    # most ang_defl on the normal curvature there, divided by the length per unit there): curvature and length
+    # must come from the same point, or a cone's tight curvature at its apex, scaled by its rim's length per unit,
+    # asked ~8x too many columns (bug sweep M2). Only where both derivatives are well defined (near a pole or an
+    # apex a derivative vanishes and |D2 . n| / |D1|^2 means nothing). OCCT's vertex blends (the corner patches of
     # fillets) have curvature spikes of radius 0.07 mm along their borders, which asked a uniform grid for
-    # millions of nodes: a direction's curvature is the largest sample, but at most 4 times the median one.
-    ks = [[], []]
+    # millions of nodes: a direction's step is the smallest sample, but at least a quarter of the median one.
+    asked = [[], []]
     for p, a, b in zip(props, su, sv):
         if p.IsNormalDefined() and a > 0.05 * scale[0] and b > 0.05 * scale[1]:
             n = gp_Vec(p.Normal().XYZ())
-            ks[0].append(abs(p.D2U().Dot(n)) / (a * a))
-            ks[1].append(abs(p.D2V().Dot(n)) / (b * b))
-    ku, kv = (min(max(k), 4 * float(np.median(k))) if k else 0.0 for k in ks)
-    steps = tuple(min(math.sqrt(8 * lin_defl / k), ang_defl / k) if k > 1e-9 else math.inf for k in (ku, kv))
+            for side, d2, length in ((0, p.D2U(), a), (1, p.D2V(), b)):
+                k = abs(d2.Dot(n)) / (length * length)
+                if k > 1e-9:
+                    asked[side].append(min(math.sqrt(8 * lin_defl / k), ang_defl / k) / length)
+    steps = tuple(max(min(d), float(np.median(d)) / 4) * sc if d else math.inf for d, sc in zip(asked, scale))
     # Curved both ways: cells at most _ASPECT times longer one way than the other, but the long way never split
     # into more than _ASPECT_SPLIT times the cells its own curvature asks (a 0.7 mm fillet along a 1.1 m arc
     # would otherwise get thousands of columns); then at most _MAX_CELLS across the face each way (Rhino caps its

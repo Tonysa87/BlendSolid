@@ -706,3 +706,21 @@ def test_a_boundary_crossing_itself_falls_back_with_a_warning():
     nxt[starts + r.poly_sizes - 1] = starts
     directed = np.stack([r.loops, r.loops[nxt]], axis=1)
     assert len(np.unique(directed, axis=0)) == len(directed)  # no polygon flipped against its neighbour
+
+
+def test_a_partial_cone_reaching_its_apex_gets_columns_by_its_angle():
+    # M2: a V groove's round corner is a quarter cone down to its apex; its column step came from the curvature
+    # near the apex scaled by the rim's length per unit: 939 polygons, 90 slivers. One column per 0.15 rad now
+    import runner
+    src = ("with BuildPart() as part:\n"
+           "    Box(40, 30, 20, align=(Align.CENTER, Align.CENTER, Align.MIN))  # feature: box_1\n"
+           '    with sketch(on_face(face("box_1", "+Z"))) as sketch_1:  # feature: sketch_1\n'
+           "        sketch_1.path_1 = path((-10.0, -5.0), (5.0, -5.0), (5.0, 8.0))\n"
+           '    groove(sketch_1.path_1, width=3.0, depth=2.0, profile="v", corners="round")  # feature: g_1\n'
+           "result = part.part\n")
+    shape = runner._build(src, runner.SCRIPT_NAME, [], runner.ShapeCache()).wrapped
+    m = tessellate.display_mesh(shape, 1.0, ANG)
+    faces = tessellate.face_map(shape)
+    cone = [i for i, f in enumerate(faces) if BRepAdaptor_Surface(f).GetType() == GeomAbs_Cone]
+    assert len(cone) == 1
+    assert 8 <= (m.poly_face == cone[0]).sum() <= 16  # pi/2 / 0.15 rad: 11 columns

@@ -67,7 +67,8 @@ MESH_FORMAT = 14  # part of every tag: bumping it recomputes saved meshes (2: fa
 #                 9: partial collars on the outer loop's curved runs, collars shrink instead of cancelling;
 #                 10: coplanar triangle pairs of curved faces as quads; 11: exact snap points;
 #                 12: sketch outlines keep their corners; 13: sketch regions carry their bounding curves;
-#                 14: constraint recovery by Sloan's walk, touching loops merged, crossing boundaries fall back)
+#                 14: constraint recovery by Sloan's walk, touching loops merged, crossing boundaries fall back,
+#                 grid steps from each sample's own curvature and length per unit)
 
 
 def tolerance(scene=None):
