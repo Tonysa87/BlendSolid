@@ -239,3 +239,73 @@ def test_dragging_down_on_a_part_that_is_only_a_sketch_never_cuts(clean, monkeyp
         assert "SUBTRACT" not in part.source_of(obj), (mm, part.source_of(obj))
         wait_for(lambda: up_to_date(obj))
         assert obj.blendsolid_error == "" and len(obj.data.polygons) > 0
+
+
+def _drive_path(monkeypatch, clicks):
+    """The Sketch tool's Path modal, driven by clicks at (x, y) mm on the 3D cursor's plane seen from above (one
+    region pixel = 0.1 mm); returns the operator after the last click."""
+    import types
+
+    from blendsolid import ops_draw
+    monkeypatch.setattr(ops_draw, "mouse_ray", lambda context, p: (
+        Vector((p[0] * 0.1e-3, p[1] * 0.1e-3, 1.0)), Vector((0.0, 0.0, -1.0))))
+    monkeypatch.setattr(ops_draw, "_pixel_size", lambda region, rv3d, p: 0.1e-3)
+    monkeypatch.setattr(ops_draw, "_near_rays", lambda context, p, radius=4: [])
+    c = bpy.context
+    area = types.SimpleNamespace(type="VIEW_3D", header_text_set=lambda text: None, tag_redraw=lambda: None)
+    context = types.SimpleNamespace(
+        area=area, region=None, region_data=object(), scene=c.scene, preferences=c.preferences, window=c.window,
+        window_manager=types.SimpleNamespace(modal_handler_add=lambda op: None), view_layer=c.view_layer,
+        collection=c.collection, evaluated_depsgraph_get=c.evaluated_depsgraph_get, mode="OBJECT", object=c.object,
+        selected_objects=[], visible_objects=list(c.visible_objects), workspace=None)
+    cls = ops_sketch.BLENDSOLID_OT_sketch_entity
+    op = types.SimpleNamespace(shape="PATH", target="", sketch="", plane="", start=(0.0, 0.0), end=(0.0, 0.0),
+                               points="", closed=False, matrix=[0.0] * 16, exact="", report=lambda *a: None)
+    for name in dir(cls):  # the operator's own methods, bound to the stand-in
+        if isinstance(getattr(cls, name, None), types.FunctionType) and name not in ("invoke", "modal"):
+            setattr(op, name, types.MethodType(getattr(cls, name), op))
+
+    def event(kind, value, x, y):
+        return types.SimpleNamespace(type=kind, value=value, mouse_region_x=10 * x, mouse_region_y=10 * y,
+                                     ctrl=False, shift=False, oskey=False, alt=False)
+    results = [cls.invoke(op, context, event("LEFTMOUSE", "PRESS", *clicks[0]))]
+    results.append(cls.modal(op, context, event("LEFTMOUSE", "RELEASE", *clicks[0])))
+    for x, y in clicks[1:]:
+        results.append(cls.modal(op, context, event("LEFTMOUSE", "PRESS", x, y)))
+        results.append(cls.modal(op, context, event("LEFTMOUSE", "RELEASE", x, y)))
+    return op, results
+
+
+def test_a_single_line_path_is_not_closed_back_over_itself(clean, monkeypatch):
+    # A, B, then a click on A closed the path with two points: a line back over the first one, so any groove
+    # along it failed ("turns 180°"), as did the Closed option of Adjust Last Operation (bug sweep, 2026-10-04)
+    op, results = _drive_path(monkeypatch, [(-10.0, 0.0), (10.0, 0.0), (-10.0, 0.0)])
+    assert {"FINISHED"} not in results and len(op._path) == 2  # the click is ignored, the path goes on
+    ops_sketch.BLENDSOLID_OT_sketch_entity._end(op, bpy.context, None)
+    with pytest.raises(RuntimeError, match="at least three points"):
+        sketch("PATH", (0.0, 0.0), (0.0, 0.0), matrix=Matrix.Identity(4), points=[[-10.0, 0.0, False],
+                                                                                   [10.0, 0.0, False]], closed=True)
+
+
+def test_the_sketch_panel_keeps_a_rectangle_out_of_path(clean):
+    # the panel of a Rectangle or Circle offered Shape: Path, which failed and left only "Closed" in the panel
+    rows = []
+
+    class Layout:
+        use_property_split = False
+
+        def row(self, align=False):
+            return self
+
+        def prop(self, owner, name, **kwargs):
+            rows.append(name)
+
+        def prop_enum(self, owner, name, value, **kwargs):
+            rows.append(f"{name}={value}")
+
+        def label(self, text=""):
+            pass
+    import types
+    op = types.SimpleNamespace(shape="RECTANGLE", layout=Layout())
+    ops_sketch.BLENDSOLID_OT_sketch_entity.draw(op, bpy.context)
+    assert "shape" not in rows and "shape=RECTANGLE" in rows and "shape=CIRCLE" in rows

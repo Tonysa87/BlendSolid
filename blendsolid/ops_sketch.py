@@ -315,7 +315,9 @@ class BLENDSOLID_OT_sketch_entity(bpy.types.Operator):
         if self.shape == "PATH":
             layout.prop(self, "closed")
             return
-        layout.prop(self, "shape")
+        row = layout.row(align=True)  # a rectangle or a circle can't become a path: it has no points to keep
+        row.prop_enum(self, "shape", "RECTANGLE")
+        row.prop_enum(self, "shape", "CIRCLE")
         layout.label(text="Millimetres, in the sketch's plane")
         layout.prop(self, "start")
         layout.prop(self, "end")
@@ -340,6 +342,9 @@ class BLENDSOLID_OT_sketch_entity(bpy.types.Operator):
                 points = []
             if len(points) < 2:
                 self.report({"ERROR"}, "A path needs at least two points")
+                return {"CANCELLED"}
+            if self.closed and len(points) == 2 and not points[1][2]:
+                self.report({"ERROR"}, "A closed path needs at least three points (or an arc)")
                 return {"CANCELLED"}
             spec = sketching.path_spec(points, self.closed)
         else:
@@ -526,6 +531,8 @@ class BLENDSOLID_OT_sketch_entity(bpy.types.Operator):
                 return self._status(context)  # a click on the last point: nothing to add
             arc = (dragged or self._arc_mode) and len(self._path) >= 2
             if p == self._path[0][:2] and len(self._path) >= 2:
+                if len(self._path) == 2 and not self._path[1][2]:
+                    return self._status(context)  # back over a single line: a line or an arc would be degenerate
                 if arc:
                     self._path.append((p[0], p[1], True))
                     self._path_closed_by_arc = True
