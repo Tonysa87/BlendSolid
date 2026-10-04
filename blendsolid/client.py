@@ -175,7 +175,8 @@ class WorkerClient:
                     self.state = "idle"
                 elif kind == "progress":  # what the running job does next (worker progress.py)
                     if self._running and header.get("job") == self._running[0]:
-                        self._progress = (header.get("what") or "", header.get("line"))
+                        what = header.get("what") or ""
+                        self._progress = (what, header.get("line")) if what else None  # "": the step is done
                     continue
                 elif kind == "result":
                     header.update(arrays)

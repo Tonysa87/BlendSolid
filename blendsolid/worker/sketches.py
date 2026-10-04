@@ -441,20 +441,30 @@ def _side_roles(solid, sketch, region_faces, roles, axis=None):
 
 
 def _crosses_axis(face, axis, normal):
-    """Does the (placed) area lie on both sides of `axis`, in its plane of normal `normal`? An axis out of the
-    plane: no answer (False)."""
+    """Does the (placed) area lie on both sides of `axis`, in its plane of normal `normal`? The axis line splits
+    the area into two pieces of some size (exact, unlike sampling its edges: a circle crossing it by 0.01 mm
+    between samples went through, session 15 review). An axis out of the plane: no answer (False)."""
+    from build123d import Compound, Edge
+    from OCP.BRepAlgoAPI import BRepAlgoAPI_Splitter
+    from OCP.collections import List_TopoDS_Shape
     if abs(axis.direction.dot(normal)) > 1e-9:
         return False
-    side = axis.direction.cross(normal)
     if abs((face.center() - axis.position).dot(normal)) > ON_FACE_MM:
         return False
-    signs = set()
-    for e in face.edges():
-        for i in range(17):
-            d = (e.position_at(i / 16) - axis.position).dot(side)
-            if abs(d) > ON_FACE_MM:
-                signs.add(d > 0)
-    return len(signs) > 1
+    box = face.bounding_box()
+    reach = box.diagonal + (box.center() - axis.position).length + 1.0
+    line = Edge.make_line(axis.position - axis.direction * reach, axis.position + axis.direction * reach)
+    args, tools = List_TopoDS_Shape(), List_TopoDS_Shape()
+    args.Append(face.wrapped)
+    tools.Append(line.wrapped)
+    splitter = BRepAlgoAPI_Splitter()
+    splitter.SetArguments(args)
+    splitter.SetTools(tools)
+    splitter.Build()
+    if not splitter.IsDone():
+        return False
+    areas = [f.area for f in Compound(splitter.Shape()).faces()]
+    return len(areas) > 1 and sorted(areas)[-2] > 1e-9 * face.area
 
 
 def _off_axis(point, axis):
@@ -965,8 +975,10 @@ def helpers(tracker):
         sk = getattr(profiles, "_bs_sketch", None)
         if sk is None:
             return bd.revolve(profiles, axis=axis, revolution_arc=revolution_arc, clean=clean, mode=mode)
-        if abs(revolution_arc) < 1e-9:  # it made a full turn (bug sweep R14)
+        if abs(revolution_arc) < 1e-6:  # it made a full turn (bug sweep R14); 1e-8° gave an invalid sliver
             raise SketchError("the revolve has no angle")
+        if abs(abs(revolution_arc) % 360.0) < 1e-6 or abs(abs(revolution_arc) % 360.0 - 360.0) < 1e-6:
+            revolution_arc = math.copysign(360.0, revolution_arc)  # 360.0000001: a full turn, not a 1e-7° sliver
         for f in profiles:
             if _crosses_axis(f, axis, sk.plane.z_dir):  # OCCT: raw StdFail_NotDone (bug sweep R6)
                 raise SketchError("the area crosses the axis it turns about: the revolve would pass through itself "
@@ -1020,8 +1032,8 @@ def helpers(tracker):
         def profile_at(point, tangent):
             return _profile_wire(profile, width, depth, over, _Place(point, n.cross(tangent).normalized(), up, tangent))
         solid = _sweep(wire, profile_at, n, corners)
-        if not cut and over and profile != "circle":  # a pipe is centred on its path: its lower half is its own
-            solid = _trim_sunk(solid, sk.plane, n, over)
+        if over and profile != "circle":  # a pipe is centred on its path: both its halves are its own
+            solid = _trim_over(solid, sk.plane, n, over, cut)
         roles = tracker.roles
         for f in solid.faces():
             roles[f.wrapped] = "wall"
@@ -1058,52 +1070,77 @@ def _crosses_itself(edges):
 def _band_overlaps(run, half):
     """Does the band `half` mm either side of a smooth run (local XY) overlap itself? OCCT sweeps a run in one go
     and BRepCheck accepts the swept solid overlapping itself, with a wrong volume (session 15: arcs tangent inside
-    an arc, -10%). It does where the run turns tighter than `half`, or where two of its points farther apart along
-    it than a half turn of that radius come within twice `half` of each other."""
+    an arc, -10%). It does where the run turns tighter than `half`, or where the band's cross-sections (the
+    segments `half` either side of the run, square to it) at two places farther apart along it than a half turn of
+    that radius cross each other (a flat end merely facing another stretch doesn't)."""
     from build123d import GeomType
     from scipy.spatial import cKDTree
-    pts, along = [], []
+    pts, dirs, along = [], [], []
     total = 0.0
-    for e in run.edges():
+    edges = run.edges()
+    for i, e in enumerate(edges):
         if e.geom_type == GeomType.CIRCLE and e.radius < half * (1 - 1e-9):
             return True
         n = max(2, math.ceil(e.length / (half / 4)) + 1)
-        for k in range(n if e is run.edges()[-1] else n - 1):
-            p = e.position_at(k / (n - 1))
+        for k in range(n if i == len(edges) - 1 else n - 1):
+            t = k / (n - 1)
+            p, d = e.position_at(t), e.tangent_at(t)
             pts.append((p.X, p.Y))
-            along.append(total + e.length * k / (n - 1))
+            dirs.append((d.X, d.Y))
+            along.append(total + e.length * t)
         total += e.length
-    pts, along = np.asarray(pts), np.asarray(along)
-    near = math.pi * half + half / 2
-    closed = run.is_closed
-    for i, j in cKDTree(pts).query_pairs(2 * half * (1 - 1e-6)):
-        gap = abs(along[i] - along[j])
-        if closed:
-            gap = min(gap, total - gap)
-        if gap > near:
-            return True
-    return False
+    pts, dirs, along = np.asarray(pts), np.asarray(dirs), np.asarray(along)
+    dirs /= np.maximum(np.linalg.norm(dirs, axis=1, keepdims=True), 1e-300)
+    pairs = cKDTree(pts).query_pairs(2 * half * (1 - 1e-6), output_type="ndarray")
+    if not len(pairs):
+        return False
+    i, j = pairs[:, 0], pairs[:, 1]
+    gap = np.abs(along[i] - along[j])
+    if run.is_closed:
+        gap = np.minimum(gap, total - gap)
+    keep = gap > math.pi * half + half / 2
+    i, j = i[keep], j[keep]
+    if not len(i):
+        return False
+    # cross-sections a +- s*n (|s| <= half) and b +- t*m: solve a + s*n = b + t*m
+    n = np.column_stack([-dirs[i, 1], dirs[i, 0]])
+    m = np.column_stack([-dirs[j, 1], dirs[j, 0]])
+    det = n[:, 0] * (-m[:, 1]) - n[:, 1] * (-m[:, 0])
+    rhs = pts[j] - pts[i]
+    ok = np.abs(det) > 1e-12
+    s = np.where(ok, (rhs[:, 0] * (-m[:, 1]) - rhs[:, 1] * (-m[:, 0])) / np.where(ok, det, 1), np.inf)
+    t = np.where(ok, (n[:, 0] * rhs[:, 1] - n[:, 1] * rhs[:, 0]) / np.where(ok, det, 1), np.inf)
+    lim = half * (1 - 1e-6)
+    crossing = ok & (np.abs(s) < lim) & (np.abs(t) < lim)
+    parallel = ~ok & (np.abs(rhs[:, 0] * n[:, 1] - rhs[:, 1] * n[:, 0]) < 1e-9) & \
+        (np.linalg.norm(rhs, axis=1) < 2 * lim)  # collinear cross-sections overlapping
+    return bool((crossing | parallel).any())
 
 
-def _trim_sunk(rib, plane, n, over):
-    """A rib on a face sinks `over` mm below the sketch plane to fuse; where its path runs past the part, that
-    sunk strip would hang in the air below the plane: it is kept only inside the part (bug sweep G7)."""
+def _trim_over(tool, plane, n, over, cut):
+    """The groove's `over` mm past the sketch plane only keeps booleans off coplanar faces: it must change nothing.
+    A rib sinks `over` into the face it stands on; where its path runs past the part that strip would hang in the
+    air below the plane (bug sweep G7): it is kept only inside the part. A groove reaches `over` above the plane;
+    where there is material above it (a pocket's wall the path runs into, a sketch plane inside the part) it would
+    cut a 0.5 mm slot there (session 15 review): it is kept only where there is none."""
     import build123d as bd
     context = bd.BuildPart._get_context("groove")
     part = context.part_local if context is not None else None
     if part is None:
-        return rib
+        return tool
     frame = bd.Plane(origin=plane.origin, x_dir=plane.x_dir, z_dir=n)
-    box = rib.bounding_box()
+    box = tool.bounding_box()
     size = 2 * box.diagonal + 1.0
     c = frame.to_local_coords(box.center())
-    slab = frame.location * bd.Pos(c.X - size / 2, c.Y - size / 2, -2 * over) * bd.Solid.make_box(size, size, 2 * over)
-    hanging = slab.cut(part)
-    if not hanging.solids():
-        return rib
-    trimmed = rib.cut(hanging).solids()
-    if len(trimmed) != 1:  # the sunk strip held the rib together: keep it whole rather than split it
-        return rib
+    low = 0.0 if cut else -2 * over
+    slab = frame.location * bd.Pos(c.X - size / 2, c.Y - size / 2, low) * bd.Solid.make_box(size, size, 2 * over)
+    extra = slab.intersect(part) if cut else slab.cut(part)
+    pieces = list(extra.solids()) if extra is not None else []  # intersect() may return a ShapeList
+    if not pieces:
+        return tool
+    trimmed = tool.cut(*pieces).solids()
+    if len(trimmed) != 1:  # that strip held the tool together: keep it whole rather than split it
+        return tool
     return trimmed[0]
 
 
@@ -1112,7 +1149,7 @@ def _check_boolean(before, after, tool, mode, tracker):
     to BRepCheck: a rib fused on a rib that touches it tangentially came back alone, the part gone); one that
     changes nothing is a warning (a groove off the part, a join inside the material)."""
     import build123d as bd
-    tol = 1e-6 * max(before, tool, 1.0)
+    tol = 1e-9 * before + 1e-6 * max(tool, 1.0)  # a big part's volume is exact to ~1e-9 of it, not 1e-6
     if mode == bd.Mode.ADD:
         wrong, changed = not before - tol <= after <= before + tool + tol, after > before + tol
     elif mode == bd.Mode.SUBTRACT:
@@ -1166,6 +1203,9 @@ def _until(face, target, n, until, mode):
         if len(beyond) == len(gaps):
             if not pieces(prism & target):
                 raise SketchError("up to last: nothing ahead of the area to stop at")
+            if any(g.distance_to(face) < touch for g in beyond):  # part of the area overhangs the part
+                raise SketchError("up to last: part of the area has nothing ahead to stop at (it overhangs the "
+                                  "part)")
             raise SketchError("up to last: the way from the area to the last face is all inside the part, it adds "
                               "nothing (try the other direction, or a cut)")  # bug sweep R15
         return pieces(prism - beyond) if beyond else [prism]

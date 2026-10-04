@@ -280,6 +280,17 @@ def test_tapered_sides_swept_by_the_face_edges_are_border():
     assert sum('face("extrude_1", "border", near=' in t for t in refs) == 3 and len(refs) == 5
 
 
+def test_a_near_reference_left_with_one_candidate_warns():
+    # the review of session 15: before R8 a tapered side swept by a face edge was "end"; an old near= reference to
+    # it now resolves to the only "end" (the top cap) — never silently (ADR 0009)
+    r = run(BOX + '    with sketch(on_face(face("box_1", "+Z"))) as sketch_1:  # feature: sketch_1\n'
+                  '        sketch_1.l = Line((0.0, -20.0), (0.0, 20.0))\n'
+                  '    extrude(regions(sketch_1, (10.0, 0.0)), amount=5.0, taper=5.0)  # feature: extrude_1\n'
+                  '    fillet(edges_of(face("extrude_1", "end", near=(19.78, 0.0, 22.5))), radius=0.5)'
+                  '  # feature: fillet_1\n')
+    assert any("names one face now" in text for _, text in r.warnings), r.warnings
+
+
 def test_partial_revolve_touching_its_axis_has_an_end_cap():
     # R9: the region's edge on the axis named the end cap after the rectangle
     r = run('    with sketch(Plane.XZ) as sketch_1:  # feature: sketch_1\n'
@@ -322,6 +333,38 @@ def test_clear_messages_on_the_feature_line(body, message):
     r = runner.run_script("with BuildPart() as part:\n" + body + "result = part.part\n")
     assert not r.ok and r.error.startswith("SketchError: ") and message in r.error
     assert r.line == body.count("\n") + 1
+
+
+def test_review_cases_of_session_15():
+    # R6: a circle crossing the axis between the edge samples got OCCT's raw StdFail_NotDone
+    r = runner.run_script("with BuildPart() as part:\n"
+                          "    with sketch(Plane.XZ) as sketch_1:  # feature: sketch_1\n"
+                          "        sketch_1.c = Pos(99.5, 0.0) * Rot(0, 0, 11.25) * Circle(100.0)\n"
+                          "    revolve(regions(sketch_1, (99.5, 0.0)), axis=Axis.Z)  # feature: revolve_1\n"
+                          "result = part.part\n")
+    assert not r.ok and "crosses the axis" in r.error
+    # R15: an area above the part overhanging its edge was said to be "all inside the part"
+    r = runner.run_script("with BuildPart() as part:\n" + BOX +
+                          "    with sketch(Plane.XY.offset(30)) as sketch_1:  # feature: sketch_1\n"
+                          "        sketch_1.r = Pos(20.0, 0.0) * Rectangle(10.0, 10.0)\n"
+                          "    extrude(regions(sketch_1, (20.0, 0.0)), dir=(0, 0, -1), until=Until.LAST)"
+                          "  # feature: extrude_1\n"
+                          "result = part.part\n")
+    assert not r.ok and "overhangs" in r.error
+    # R14: nearly no angle
+    r = runner.run_script("with BuildPart() as part:\n"
+                          "    with sketch(Plane.XZ) as sketch_1:  # feature: sketch_1\n"
+                          "        sketch_1.r = Pos(4.0, 5.0) * Rectangle(4.0, 10.0)\n"
+                          "    revolve(regions(sketch_1, (4.0, 5.0)), axis=Axis.Z, revolution_arc=1e-8)"
+                          "  # feature: revolve_1\n"
+                          "result = part.part\n")
+    assert not r.ok and "no angle" in r.error
+    # a 100 mm³ groove on a 4 m plate is a change (the tolerance was 1e-6 of the plate: 320 mm³)
+    r = run('    Box(4000, 4000, 20, align=(Align.CENTER, Align.CENTER, Align.MIN))  # feature: box_1\n'
+            '    with sketch(on_face(face("box_1", "+Z"))) as sketch_1:  # feature: sketch_1\n'
+            '        sketch_1.path_1 = path((0.0, 0.0), (50.0, 0.0))\n'
+            '    groove(sketch_1.path_1, width=2.0, depth=1.0)  # feature: groove_1\n')
+    assert not r.warnings and abs(4000 * 4000 * 20 - r.volume - 100) < 1e-3
 
 
 def test_side_references_survive_an_upstream_change():
@@ -597,6 +640,26 @@ def test_round_corner_nearly_turning_back():
     assert 24000 - 50 < r.volume < 24000 - 45
 
 
+@pytest.mark.parametrize("body, removed", [
+    # a sketch plane inside the part: only the profile below the plane is cut (40 and 60 before)
+    ('    with sketch(Plane.XY.offset(10)) as sketch_1:  # feature: sketch_1\n'
+     '        sketch_1.path_1 = path((-10.0, 0.0), (10.0, 0.0))\n'
+     '    groove(sketch_1.path_1, width=2.0, depth=1.0, profile="v")  # feature: groove_1\n', 20.0),
+    ('    with sketch(Plane.XY.offset(10)) as sketch_1:  # feature: sketch_1\n'
+     '        sketch_1.path_1 = path((-10.0, 0.0), (10.0, 0.0))\n'
+     '    groove(sketch_1.path_1, width=2.0, depth=1.0)  # feature: groove_1\n', 40.0),
+    # a groove on a pocket's floor running into its wall: no 0.5 mm slot in the wall (35 before)
+    ('    with Locations((0.0, 0.0, 20.0)):  # feature: pocket_1\n'
+     '        Box(20.0, 10.0, 6.0, mode=Mode.SUBTRACT)\n'
+     '    with sketch(Plane.XY.offset(17)) as sketch_1:  # feature: sketch_1\n'
+     '        sketch_1.path_1 = path((0.0, 0.0), (15.0, 0.0))\n'
+     '    groove(sketch_1.path_1, width=2.0, depth=1.0)  # feature: groove_1\n', 600.0 + 30.0),
+])
+def test_a_grooves_overshoot_cuts_nothing_above_its_plane(body, removed):
+    r = run(BOX + body)
+    assert abs(24000 - r.volume - removed) < 1e-6
+
+
 def test_closed_path_groove():
     r = run(GROOVE_BOX +
             '    with sketch(on_face(face("box_1", "+Z"))) as sketch_1:  # feature: sketch_1\n'
@@ -827,6 +890,15 @@ def test_a_wrong_union_of_the_sweep_pieces_is_refused():
         "  # feature: rib_1\n"
         "result = part.part\n")
     assert not r.ok or abs(r.volume - 7.17) < 0.3, (r.error, r.volume)
+
+
+def test_a_flat_end_facing_its_own_band_is_not_an_overlap():
+    # the review of session 15: the end cap 0.6 mm from the other stretch's band was refused; exact L * w * d
+    r = run('    Box(60, 60, 20, align=(Align.CENTER, Align.CENTER, Align.MIN))  # feature: box_1\n'
+            '    with sketch(on_face(face("box_1", "+Z"))) as sketch_1:  # feature: sketch_1\n'
+            '        sketch_1.path_1 = path((0.0, 0.0), (10.0, 0.0), arc_to((13.0, 3.0)), arc_to((7.0, 3.0)), (7.0, 1.6))\n'
+            '    groove(sketch_1.path_1, width=2.0, depth=2.0)  # feature: groove_1\n')
+    assert abs(72000 - r.volume - (10 + 4.5 * math.pi + 1.4) * 2 * 2) < 1e-6
 
 
 def test_a_smooth_stretch_coming_back_within_the_width_is_refused():

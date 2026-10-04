@@ -103,6 +103,18 @@ def test_timeout_names_what_the_worker_said_it_was_doing():
         c.stop()
 
 
+def test_a_finished_step_no_longer_names_a_timeout():
+    c = WorkerClient(paths.python_executable(), paths.server_script(), paths.worker_libs(),
+                     paths.pycache_dir("blendsolid"), job_timeout=1.0)
+    try:
+        c.submit("A", "import time, progress\nprogress.note('testing a step')\nprogress.clear()\ntime.sleep(30)\n"
+                      "result = Box(1, 1, 1)\n", "slow")
+        (r,) = results(collect(c, 1, timeout=60))
+        assert r["type"] == "crashed" and "while" not in r["error"] and r["line"] is None
+    finally:
+        c.stop()
+
+
 def test_coalescing_per_key(client):
     client.submit("A", "import time\ntime.sleep(1.5)\nresult = Box(1, 1, 1)\n", "a1")
     collect_until_busy(client)

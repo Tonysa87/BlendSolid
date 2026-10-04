@@ -171,6 +171,8 @@ class Tracker:
         return self._label_list[i - 1] if i > 0 else None
 
     def step(self, feature, builder, rotation):
+        import progress
+        progress.clear()  # the line's notes are stale now (a hang later must not name it)
         self.flush()
         part = builder.part
         self.features.append(feature)
@@ -304,6 +306,9 @@ def _helpers(tracker):
             raise BrokenReference(f"{feature} has no face '{role}'" if role is not None
                                   else f"no face of {feature} is left")
         if near is not None:
+            if len(found) == 1:  # a click writes near= only when the role names several faces (ADR 0009)
+                tracker.warn(f"the {what} face near {_point(near)}: the role names one face now (it named several "
+                             f"when the reference was written); check that the right one is used")
             found = [_closest_centre(found, near, tracker.warn, f"the {what} face near {_point(near)}")]
         out = ShapeList(found)
         out._bs_name = what

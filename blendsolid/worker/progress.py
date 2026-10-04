@@ -22,3 +22,13 @@ def note(what):
         send(what, line)
     except Exception:  # a note must never fail the job
         pass
+
+
+def clear():
+    """The step noted is done (a feature finished): a later hang isn't it."""
+    if send is None:
+        return
+    try:
+        send("", None)
+    except Exception:
+        pass
