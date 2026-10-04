@@ -205,3 +205,37 @@ def test_a_line_across_a_face_splits_it(box):
                                amount=-5.0, operation="SUBTRACT")
     wait_for(lambda: up_to_date(box))
     assert mm3(box) == pytest.approx(24000 - 600 * 5, rel=1e-6)
+
+
+@pytest.mark.parametrize("tool", ["extrude", "groove"])
+def test_dragging_down_on_a_part_that_is_only_a_sketch_never_cuts(clean, monkeypatch, tool):
+    # the drag chose join/rib or cut from the part's live mesh, which is the drag's own preview: once the first
+    # preview arrived, a drag going on downwards turned into a cut of nothing ("Nothing to subtract from") and the
+    # part failed (bug sweep, 2026-10-04)
+    from types import SimpleNamespace
+
+    from blendsolid import drawing, ops_draw
+    if tool == "extrude":
+        assert sketch("RECTANGLE", (0.0, 0.0), (20.0, 10.0), matrix=Matrix.Identity(4)) == {"FINISHED"}
+    else:
+        assert sketch("LINE", (0.0, 0.0), (20.0, 0.0), matrix=Matrix.Identity(4)) == {"FINISHED"}
+    obj = bpy.context.object
+    wait_for(lambda: up_to_date(obj))
+    (drawn,) = ops_sketch.sketches_of(obj)
+    factor = part.unit_factor()
+    drag = {"mm": 0.0}
+    monkeypatch.setattr(ops_draw, "_mouse_ray", lambda context, event: (None, None))
+    monkeypatch.setattr(drawing, "height_along_normal", lambda *args: drag["mm"] * factor)
+    cls = ops_extrude.BLENDSOLID_OT_extrude if tool == "extrude" else ops_extrude.BLENDSOLID_OT_groove
+    op = SimpleNamespace(_obj=obj, _sketch=drawn, _uv=(5.0, 5.0), _name="path_1", _plane=None, _start=None,
+                         _factor=factor, _source=part.source_of(obj), _amount=0.0, _snap=0.0,
+                         _solid=ops_extrude.has_solid(obj), width=2.0, profile="rect", corners="mitre")
+    if tool == "groove":
+        op._operation = lambda amount: cls._operation(op, amount)
+    event = SimpleNamespace(ctrl=False, shift=False)
+    for mm in (-1.0, -3.0):
+        drag["mm"] = mm
+        cls._update(op, bpy.context, event)
+        assert "SUBTRACT" not in part.source_of(obj), (mm, part.source_of(obj))
+        wait_for(lambda: up_to_date(obj))
+        assert obj.blendsolid_error == "" and len(obj.data.polygons) > 0

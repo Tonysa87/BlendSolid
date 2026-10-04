@@ -57,9 +57,10 @@ def has_solid(obj):
     return obj.data is not None and len(obj.data.polygons) > 0
 
 
-def auto_operation(obj, amount):
-    """Out along the sketch's normal joins; against it cuts, if there is anything to cut."""
-    return "SUBTRACT" if amount < 0 and has_solid(obj) else "ADD"
+def auto_operation(solid, amount):
+    """Out along the sketch's normal joins; against it cuts, if there is anything to cut (`solid`: the part had a
+    solid when the drag started; its mesh during the drag is the drag's own preview)."""
+    return "SUBTRACT" if amount < 0 and solid else "ADD"
 
 
 class BLENDSOLID_OT_extrude(bpy.types.Operator):
@@ -131,6 +132,7 @@ class BLENDSOLID_OT_extrude(bpy.types.Operator):
                           ops_sketch.world_point(obj, sketch, q, self._factor))
                          for loop in sketch["regions"][index]["loops"] for p, q in zip(loop, loop[1:] + loop[:1])]
         self._source, self._amount, self._snap = part.source_of(obj), 0.0, 0.0
+        self._solid = has_solid(obj)
         self._handles = [bpy.types.SpaceView3D.draw_handler_add(_draw_drag, (self,), "WINDOW", "POST_VIEW"),
                          bpy.types.SpaceView3D.draw_handler_add(_draw_drag_label, (self,), "WINDOW", "POST_PIXEL")]
         _dragging.add(id(self))
@@ -157,10 +159,10 @@ class BLENDSOLID_OT_extrude(bpy.types.Operator):
                 return {"CANCELLED"}
             self.target, self.sketch, self.seed = self._obj.name, self._sketch["name"], self._uv
             self.amount = self._amount
-            self.operation = auto_operation(self._obj, self._amount)
+            self.operation = auto_operation(self._solid, self._amount)
             self.extent, self.symmetric, self.taper = "DISTANCE", False, 0.0
             return self.execute(context)
-        what = {"ADD": "join", "SUBTRACT": "cut"}[auto_operation(self._obj, self._amount)]
+        what = {"ADD": "join", "SUBTRACT": "cut"}[auto_operation(self._solid, self._amount)]
         context.area.header_text_set(
             f"Extrude: {abs(self._amount):.3f} mm, {what} | Ctrl: snap {ops_draw.step_mm(context.scene):g} mm | "
             "release: confirm (taper, up to next/last: Adjust Last Operation) | Esc/right-click: cancel")
@@ -179,7 +181,7 @@ class BLENDSOLID_OT_extrude(bpy.types.Operator):
         if abs(amount) < 1e-3:
             self._obj.blendsolid_script.from_string(self._source)
             return
-        spec = sketching.extrude_spec(self._sketch["name"], self._uv, amount, auto_operation(self._obj, amount))
+        spec = sketching.extrude_spec(self._sketch["name"], self._uv, amount, auto_operation(self._solid, amount))
         try:
             source, _ = script_model.append_feature(self._source, spec)
         except script_model.NotCanonical:
@@ -466,6 +468,7 @@ class BLENDSOLID_OT_groove(bpy.types.Operator):
                           ops_sketch.world_point(obj, sketch, q, self._factor))
                          for curve in sketch["curves"][name] for p, q in zip(curve, curve[1:])]
         self._source, self._amount, self._snap = part.source_of(obj), 0.0, 0.0
+        self._solid = has_solid(obj)
         self._handles = [bpy.types.SpaceView3D.draw_handler_add(_draw_drag, (self,), "WINDOW", "POST_VIEW"),
                          bpy.types.SpaceView3D.draw_handler_add(_draw_drag_label, (self,), "WINDOW", "POST_PIXEL")]
         _dragging.add(id(self))
@@ -473,7 +476,7 @@ class BLENDSOLID_OT_groove(bpy.types.Operator):
         return {"RUNNING_MODAL"}
 
     def _operation(self, amount):
-        return "SUBTRACT" if amount < 0 and has_solid(self._obj) else "ADD"
+        return auto_operation(self._solid, amount)
 
     def modal(self, context, event):
         from . import ops_draw
