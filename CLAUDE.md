@@ -231,3 +231,8 @@ tools/test.sh           # unit tests (Blender's Python) + Blender tests (blender
 - Blender's keypad digits are `NUMPAD_0`..`NUMPAD_9` (row digits `ZERO`..`NINE`): a wrong event name never matches
   and raises nothing; check key tables against `bpy.types.Event.bl_rna.properties["type"].enum_items`.
 - A label from a 3D gizmo's `draw()` needs pixel matrices first (`ops_draw.draw_text_lines(..., pixel_space=True)`).
+- **OCCT taper pitfalls (bug sweep 2026-10-04):** `BRepOffsetAPI_DraftAngle.Build()` can hang (a crescent at 5°)
+  holding the GIL, so no in-worker watchdog can stop it; a valid-looking draft can be wrong past a vanishing
+  section (BRepCheck and `BOPAlgo_ArgumentAnalyzer` don't tell). `BRepOffsetAPI_MakeOffset.Perform` **segfaults**
+  on some faces (never call it in the worker without a reason to risk the process) and applies sub-shape
+  locations twice.

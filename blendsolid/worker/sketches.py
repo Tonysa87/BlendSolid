@@ -760,7 +760,26 @@ def _prism(face, direction, sk, taper):
     if bad:
         raise SketchError(f"a taper needs lines and arcs: this area has {bad[0].lower()} sides")
     neutral = Plane(origin=sk.plane.origin, x_dir=sk.plane.x_dir, z_dir=n)
+    inset = direction.length * math.tan(math.radians(taper))
+    _check_taper_section(face, neutral, inset, taper, direction.length)
     try:
-        return solid.draft(sides, neutral, taper)
+        drafted = solid.draft(sides, neutral, taper)
     except Exception as e:
         raise SketchError(f"the taper of {taper:g}° failed ({type(e).__name__}): try a smaller angle") from None
+    from OCP.BRepCheck import BRepCheck_Analyzer
+    if not BRepCheck_Analyzer(drafted.wrapped).IsValid() or drafted.volume <= 0:  # used as is, a cut removed nothing
+        raise SketchError(f"the taper of {taper:g}° gives an invalid solid on this area: try a smaller angle")
+    return drafted
+
+
+def _check_taper_section(face, plane, inset, taper, length):
+    """Refuse a taper whose section surely closes before the extrude's end (OCCT's draft goes on through it: an
+    hourglass): an area vanishes once the inset reaches half its smaller extent in the plane (no wider disc fits in
+    it), a hole (growing the other way) likewise."""
+    local = plane.to_local_coords(face)
+    for wire in [local.outer_wire()] if inset > 0 else local.inner_wires():
+        size = wire.bounding_box().size
+        if abs(inset) >= min(size.X, size.Y) / 2:
+            raise SketchError(f"the taper of {taper:g}° closes the area before the end of the {length:g} mm extrude: "
+                              "use a smaller angle or distance")
+

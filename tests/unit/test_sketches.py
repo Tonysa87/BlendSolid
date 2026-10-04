@@ -426,3 +426,28 @@ def test_display_mesh_errors_are_not_raw_python_errors(body):
     # valid solids whose display mesh raised IndexError / ValueError (bug sweep, 2026-10-04)
     r = runner.run_script(f"with BuildPart() as part:\n{body}result = part.part\n")
     assert r.ok or not r.error.startswith(("IndexError", "ValueError")), r.error
+
+
+@pytest.mark.parametrize("body, why", [
+    # the section vanishes before the end: OCCT's draft went on through the apex (an hourglass), accepted
+    (BOX + '    with sketch(on_face(face("box_1", "+Z"))) as sketch_1:  # feature: sketch_1\n'
+           '        sketch_1.c = Circle(3.0)\n'
+           '    extrude(regions(sketch_1, (0.0, 0.0)), amount=8.0, taper=30.0)  # feature: extrude_1\n', "vanish"),
+    # a hole that closes and opens again
+    (BOX + '    with sketch(on_face(face("box_1", "+Z"))) as sketch_1:  # feature: sketch_1\n'
+           '        sketch_1.c = Circle(10.0)\n'
+           '        sketch_1.h = Circle(2.0)\n'
+           '    extrude(regions(sketch_1, (5.0, 0.0)), amount=8.0, taper=-30.0)  # feature: extrude_1\n', "vanish"),
+    # a drafted solid that fails BRepCheck: the cut removed nothing, silently
+    ('    Box(53.7, 27.1, 23.1, align=(Align.CENTER, Align.CENTER, Align.MIN))  # feature: box_1\n'
+     '    with sketch(on_face(face("box_1", "+X"))) as sketch_1:  # feature: sketch_1\n'
+     '        sketch_1.c = Pos(-2.397918, 1.740731) * Circle(2.531821)\n'
+     '    extrude(regions(sketch_1, (0.182725, 11.764405)), amount=-32.901, taper=-3.0, mode=Mode.SUBTRACT)'
+     '  # feature: extrude_1\n', "any"),
+], ids=["circle-to-apex", "hole-closes", "invalid-draft"])
+def test_a_taper_that_cant_be_built_is_a_clear_error(body, why):
+    # bug sweep, 2026-10-04: tapers past the vanishing section, and invalid drafted solids, were accepted
+    r = runner.run_script(f"with BuildPart() as part:\n{body}result = part.part\n")
+    assert not r.ok and r.line is not None and r.error.startswith("SketchError"), (r.error, r.line, r.volume)
+    if why == "vanish":
+        assert "closes" in r.error
