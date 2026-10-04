@@ -1,0 +1,224 @@
+rect mitre turn 0.0001deg
+    sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), (10.0, 0.000017))
+groove(sketch_1.path_1, width=2.0, depth=2.0, profile="rect", corners="mitre")
+----
+rect mitre turn 0.001deg
+    sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), (10.0, 0.000175))
+groove(sketch_1.path_1, width=2.0, depth=2.0, profile="rect", corners="mitre")
+----
+rect mitre turn 0.01deg
+    sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), (10.0, 0.001745))
+groove(sketch_1.path_1, width=2.0, depth=2.0, profile="rect", corners="mitre")
+----
+rect mitre turn 0.1deg
+    sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), (10.0, 0.017453))
+groove(sketch_1.path_1, width=2.0, depth=2.0, profile="rect", corners="mitre")
+----
+rect mitre turn 1deg
+    sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), (10.0, 0.174551))
+groove(sketch_1.path_1, width=2.0, depth=2.0, profile="rect", corners="mitre")
+----
+rect mitre turn 5deg
+    sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), (10.0, 0.874887))
+groove(sketch_1.path_1, width=2.0, depth=2.0, profile="rect", corners="mitre")
+----
+rect mitre turn 30deg
+    sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), (10.0, 5.773503))
+groove(sketch_1.path_1, width=2.0, depth=2.0, profile="rect", corners="mitre")
+----
+rect round turn 0.0001deg
+    sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), (10.0, 0.000017))
+groove(sketch_1.path_1, width=2.0, depth=2.0, profile="rect", corners="round")
+----
+rect round turn 0.001deg
+    sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), (10.0, 0.000175))
+groove(sketch_1.path_1, width=2.0, depth=2.0, profile="rect", corners="round")
+----
+rect round turn 0.01deg
+    sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), (10.0, 0.001745))
+groove(sketch_1.path_1, width=2.0, depth=2.0, profile="rect", corners="round")
+----
+rect round turn 0.1deg
+    sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), (10.0, 0.017453))
+groove(sketch_1.path_1, width=2.0, depth=2.0, profile="rect", corners="round")
+----
+rect round turn 1deg
+    sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), (10.0, 0.174551))
+groove(sketch_1.path_1, width=2.0, depth=2.0, profile="rect", corners="round")
+----
+rect round turn 5deg
+    sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), (10.0, 0.874887))
+groove(sketch_1.path_1, width=2.0, depth=2.0, profile="rect", corners="round")
+----
+rect round turn 30deg
+    sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), (10.0, 5.773503))
+groove(sketch_1.path_1, width=2.0, depth=2.0, profile="rect", corners="round")
+----
+v mitre turn 0.0001deg
+    sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), (10.0, 0.000017))
+groove(sketch_1.path_1, width=2.0, depth=2.0, profile="v", corners="mitre")
+----
+v mitre turn 0.001deg
+    sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), (10.0, 0.000175))
+groove(sketch_1.path_1, width=2.0, depth=2.0, profile="v", corners="mitre")
+----
+v mitre turn 0.01deg
+    sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), (10.0, 0.001745))
+groove(sketch_1.path_1, width=2.0, depth=2.0, profile="v", corners="mitre")
+----
+v mitre turn 0.1deg
+    sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), (10.0, 0.017453))
+groove(sketch_1.path_1, width=2.0, depth=2.0, profile="v", corners="mitre")
+----
+v mitre turn 1deg
+    sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), (10.0, 0.174551))
+groove(sketch_1.path_1, width=2.0, depth=2.0, profile="v", corners="mitre")
+----
+v mitre turn 5deg
+    sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), (10.0, 0.874887))
+groove(sketch_1.path_1, width=2.0, depth=2.0, profile="v", corners="mitre")
+----
+v mitre turn 30deg
+    sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), (10.0, 5.773503))
+groove(sketch_1.path_1, width=2.0, depth=2.0, profile="v", corners="mitre")
+----
+v round turn 0.0001deg
+    sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), (10.0, 0.000017))
+groove(sketch_1.path_1, width=2.0, depth=2.0, profile="v", corners="round")
+----
+v round turn 0.001deg
+    sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), (10.0, 0.000175))
+groove(sketch_1.path_1, width=2.0, depth=2.0, profile="v", corners="round")
+----
+v round turn 0.01deg
+    sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), (10.0, 0.001745))
+groove(sketch_1.path_1, width=2.0, depth=2.0, profile="v", corners="round")
+----
+v round turn 0.1deg
+    sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), (10.0, 0.017453))
+groove(sketch_1.path_1, width=2.0, depth=2.0, profile="v", corners="round")
+----
+v round turn 1deg
+    sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), (10.0, 0.174551))
+groove(sketch_1.path_1, width=2.0, depth=2.0, profile="v", corners="round")
+----
+v round turn 5deg
+    sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), (10.0, 0.874887))
+groove(sketch_1.path_1, width=2.0, depth=2.0, profile="v", corners="round")
+----
+v round turn 30deg
+    sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), (10.0, 5.773503))
+groove(sketch_1.path_1, width=2.0, depth=2.0, profile="v", corners="round")
+----
+round mitre turn 0.0001deg
+    sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), (10.0, 0.000017))
+groove(sketch_1.path_1, width=2.0, depth=2.0, profile="round", corners="mitre")
+----
+round mitre turn 0.001deg
+    sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), (10.0, 0.000175))
+groove(sketch_1.path_1, width=2.0, depth=2.0, profile="round", corners="mitre")
+----
+round mitre turn 0.01deg
+    sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), (10.0, 0.001745))
+groove(sketch_1.path_1, width=2.0, depth=2.0, profile="round", corners="mitre")
+----
+round mitre turn 0.1deg
+    sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), (10.0, 0.017453))
+groove(sketch_1.path_1, width=2.0, depth=2.0, profile="round", corners="mitre")
+----
+round mitre turn 1deg
+    sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), (10.0, 0.174551))
+groove(sketch_1.path_1, width=2.0, depth=2.0, profile="round", corners="mitre")
+----
+round mitre turn 5deg
+    sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), (10.0, 0.874887))
+groove(sketch_1.path_1, width=2.0, depth=2.0, profile="round", corners="mitre")
+----
+round mitre turn 30deg
+    sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), (10.0, 5.773503))
+groove(sketch_1.path_1, width=2.0, depth=2.0, profile="round", corners="mitre")
+----
+round round turn 0.0001deg
+    sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), (10.0, 0.000017))
+groove(sketch_1.path_1, width=2.0, depth=2.0, profile="round", corners="round")
+----
+round round turn 0.001deg
+    sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), (10.0, 0.000175))
+groove(sketch_1.path_1, width=2.0, depth=2.0, profile="round", corners="round")
+----
+round round turn 0.01deg
+    sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), (10.0, 0.001745))
+groove(sketch_1.path_1, width=2.0, depth=2.0, profile="round", corners="round")
+----
+round round turn 0.1deg
+    sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), (10.0, 0.017453))
+groove(sketch_1.path_1, width=2.0, depth=2.0, profile="round", corners="round")
+----
+round round turn 1deg
+    sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), (10.0, 0.174551))
+groove(sketch_1.path_1, width=2.0, depth=2.0, profile="round", corners="round")
+----
+round round turn 5deg
+    sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), (10.0, 0.874887))
+groove(sketch_1.path_1, width=2.0, depth=2.0, profile="round", corners="round")
+----
+round round turn 30deg
+    sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), (10.0, 5.773503))
+groove(sketch_1.path_1, width=2.0, depth=2.0, profile="round", corners="round")
+----
+circle mitre turn 0.0001deg
+    sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), (10.0, 0.000017))
+groove(sketch_1.path_1, width=2.0, depth=2.0, profile="circle", corners="mitre")
+----
+circle mitre turn 0.001deg
+    sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), (10.0, 0.000175))
+groove(sketch_1.path_1, width=2.0, depth=2.0, profile="circle", corners="mitre")
+----
+circle mitre turn 0.01deg
+    sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), (10.0, 0.001745))
+groove(sketch_1.path_1, width=2.0, depth=2.0, profile="circle", corners="mitre")
+----
+circle mitre turn 0.1deg
+    sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), (10.0, 0.017453))
+groove(sketch_1.path_1, width=2.0, depth=2.0, profile="circle", corners="mitre")
+----
+circle mitre turn 1deg
+    sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), (10.0, 0.174551))
+groove(sketch_1.path_1, width=2.0, depth=2.0, profile="circle", corners="mitre")
+----
+circle mitre turn 5deg
+    sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), (10.0, 0.874887))
+groove(sketch_1.path_1, width=2.0, depth=2.0, profile="circle", corners="mitre")
+----
+circle mitre turn 30deg
+    sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), (10.0, 5.773503))
+groove(sketch_1.path_1, width=2.0, depth=2.0, profile="circle", corners="mitre")
+----
+circle round turn 0.0001deg
+    sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), (10.0, 0.000017))
+groove(sketch_1.path_1, width=2.0, depth=2.0, profile="circle", corners="round")
+----
+circle round turn 0.001deg
+    sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), (10.0, 0.000175))
+groove(sketch_1.path_1, width=2.0, depth=2.0, profile="circle", corners="round")
+----
+circle round turn 0.01deg
+    sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), (10.0, 0.001745))
+groove(sketch_1.path_1, width=2.0, depth=2.0, profile="circle", corners="round")
+----
+circle round turn 0.1deg
+    sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), (10.0, 0.017453))
+groove(sketch_1.path_1, width=2.0, depth=2.0, profile="circle", corners="round")
+----
+circle round turn 1deg
+    sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), (10.0, 0.174551))
+groove(sketch_1.path_1, width=2.0, depth=2.0, profile="circle", corners="round")
+----
+circle round turn 5deg
+    sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), (10.0, 0.874887))
+groove(sketch_1.path_1, width=2.0, depth=2.0, profile="circle", corners="round")
+----
+circle round turn 30deg
+    sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), (10.0, 5.773503))
+groove(sketch_1.path_1, width=2.0, depth=2.0, profile="circle", corners="round")
+----

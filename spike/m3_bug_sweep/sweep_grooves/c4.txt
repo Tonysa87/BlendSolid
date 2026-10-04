@@ -1,0 +1,43 @@
+collinear+arc rect mitre
+    sketch_1.path_1 = path((-10.0, 0.0), (-5.0, 0.0), (0.0, 0.0), arc_to((0.0, 12.0)))
+groove(sketch_1.path_1, width=4.0, depth=2.0, profile="rect", corners="mitre")
+----
+collinear+arc rect round
+    sketch_1.path_1 = path((-10.0, 0.0), (-5.0, 0.0), (0.0, 0.0), arc_to((0.0, 12.0)))
+groove(sketch_1.path_1, width=4.0, depth=2.0, profile="rect", corners="round")
+----
+collinear+arc v mitre
+    sketch_1.path_1 = path((-10.0, 0.0), (-5.0, 0.0), (0.0, 0.0), arc_to((0.0, 12.0)))
+groove(sketch_1.path_1, width=4.0, depth=2.0, profile="v", corners="mitre")
+----
+collinear+arc v round
+    sketch_1.path_1 = path((-10.0, 0.0), (-5.0, 0.0), (0.0, 0.0), arc_to((0.0, 12.0)))
+groove(sketch_1.path_1, width=4.0, depth=2.0, profile="v", corners="round")
+----
+collinear+arc round mitre
+    sketch_1.path_1 = path((-10.0, 0.0), (-5.0, 0.0), (0.0, 0.0), arc_to((0.0, 12.0)))
+groove(sketch_1.path_1, width=4.0, depth=2.0, profile="round", corners="mitre")
+----
+collinear+arc round round
+    sketch_1.path_1 = path((-10.0, 0.0), (-5.0, 0.0), (0.0, 0.0), arc_to((0.0, 12.0)))
+groove(sketch_1.path_1, width=4.0, depth=2.0, profile="round", corners="round")
+----
+collinear+arc circle mitre
+    sketch_1.path_1 = path((-10.0, 0.0), (-5.0, 0.0), (0.0, 0.0), arc_to((0.0, 12.0)))
+groove(sketch_1.path_1, width=4.0, depth=2.0, profile="circle", corners="mitre")
+----
+collinear+arc circle round
+    sketch_1.path_1 = path((-10.0, 0.0), (-5.0, 0.0), (0.0, 0.0), arc_to((0.0, 12.0)))
+groove(sketch_1.path_1, width=4.0, depth=2.0, profile="circle", corners="round")
+----
+collinear only rect
+    sketch_1.path_1 = path((-10.0, 0.0), (-5.0, 0.0), (0.0, 0.0))
+groove(sketch_1.path_1, width=4.0, depth=2.0)
+----
+collinear after arc rect
+    sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), arc_to((0.0, 12.0)), (-3.0, 12.0), (-6.0, 12.0))
+groove(sketch_1.path_1, width=4.0, depth=2.0)
+----
+tilted collinear+arc v
+    sketch_1.path_1 = path((-10.538031, -6.810272), (-11.03122, -6.879368), (-14.0, -7.295399), arc_to((-16.0, -5.0)))
+groove(sketch_1.path_1, width=4.0, depth=2.0, profile="v")

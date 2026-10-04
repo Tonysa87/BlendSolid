@@ -1,0 +1,11 @@
+closed 2-pt v round w0.2 depth2
+    sketch_1.path_1 = path((0.0, 0.0), (10.0, 0.0), closed=True)
+groove(sketch_1.path_1, width=0.2, depth=2.0, profile="v", corners="round")
+----
+closed 2-pt v round w0.1 depth 4
+    sketch_1.path_1 = path((0.0, 0.0), (10.0, 0.0), closed=True)
+groove(sketch_1.path_1, width=0.1, depth=4.0, profile="v", corners="round")
+----
+XY closed 2-pt v round rib w0.1 depth 4
+    sketch_1.path_1 = path((0.0, 0.0), (10.0, 0.0), closed=True)
+groove(sketch_1.path_1, width=0.1, depth=4.0, profile="v", corners="round", mode=Mode.ADD)

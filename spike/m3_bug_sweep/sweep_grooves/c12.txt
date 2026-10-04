@@ -1,0 +1,23 @@
+v w2 d1 arc r1.2
+    sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), arc_to((0.0, 2.4)), (-10.0, 2.4))
+groove(sketch_1.path_1, width=2.0, depth=1.0, profile="v")
+----
+rect w2 d1 arc r1.2
+    sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), arc_to((0.0, 2.4)), (-10.0, 2.4))
+groove(sketch_1.path_1, width=2.0, depth=1.0, profile="rect")
+----
+round w2 d1 arc r1.2
+    sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), arc_to((0.0, 2.4)), (-10.0, 2.4))
+groove(sketch_1.path_1, width=2.0, depth=1.0, profile="round")
+----
+v rib w2 d1 arc r1.2
+    sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), arc_to((0.0, 2.4)), (-10.0, 2.4))
+groove(sketch_1.path_1, width=2.0, depth=1.0, profile="v", mode=Mode.ADD)
+----
+XY round rib depth == w/2
+    sketch_1.path_1 = path((0.0, 0.0), (10.0, 0.0))
+groove(sketch_1.path_1, width=2.0, depth=1.0, profile="round", mode=Mode.ADD)
+----
+XY round rib depth == w/2 with corner
+    sketch_1.path_1 = path((0.0, 0.0), (10.0, 0.0), (10.0, 5.0))
+groove(sketch_1.path_1, width=2.0, depth=1.0, profile="round", mode=Mode.ADD)

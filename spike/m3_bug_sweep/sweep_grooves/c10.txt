@@ -1,0 +1,27 @@
++Z rib_1 alone
+    sketch_1.path_1 = path((-8.638812, 5.067554), (-2.14985, -8.684893), (-1.257986, 7.264964), (-2.910998, 6.849436), closed=True)
+groove(sketch_1.path_1, width=2.275027, depth=2.579678, profile="round", corners="round", mode=Mode.ADD)  # feature: rib_1
+----
++Z both
+    sketch_1.path_1 = path((-8.638812, 5.067554), (-2.14985, -8.684893), (-1.257986, 7.264964), (-2.910998, 6.849436), closed=True)
+groove(sketch_1.path_1, width=2.275027, depth=2.579678, profile="round", corners="round", mode=Mode.ADD)  # feature: rib_1
+groove(sketch_1.path_1, width=0.713101, depth=2.579678, profile="round", corners="mitre", mode=Mode.ADD)  # feature: rib_2
+----
+XY both, rib_2 round corners
+    sketch_1.path_1 = path((-8.638812, -4.932446), (-2.14985, -18.684893), (-1.257986, -2.735036), (-2.910998, -3.150564), closed=True)
+groove(sketch_1.path_1, width=2.275027, depth=2.579678, profile="round", corners="round", mode=Mode.ADD)  # feature: rib_1
+groove(sketch_1.path_1, width=0.713101, depth=2.579678, profile="round", corners="round", mode=Mode.ADD)  # feature: rib_2
+----
+XY both, rib_2 depth 2.0
+    sketch_1.path_1 = path((-8.638812, -4.932446), (-2.14985, -18.684893), (-1.257986, -2.735036), (-2.910998, -3.150564), closed=True)
+groove(sketch_1.path_1, width=2.275027, depth=2.579678, profile="round", corners="round", mode=Mode.ADD)  # feature: rib_1
+groove(sketch_1.path_1, width=0.713101, depth=2.0, profile="round", corners="mitre", mode=Mode.ADD)  # feature: rib_2
+----
+XY both, rect
+    sketch_1.path_1 = path((-8.638812, -4.932446), (-2.14985, -18.684893), (-1.257986, -2.735036), (-2.910998, -3.150564), closed=True)
+groove(sketch_1.path_1, width=2.275027, depth=2.579678, profile="rect", corners="round", mode=Mode.ADD)  # feature: rib_1
+groove(sketch_1.path_1, width=0.713101, depth=2.579678, profile="rect", corners="mitre", mode=Mode.ADD)  # feature: rib_2
+----
+XY rect rib_1 alone
+    sketch_1.path_1 = path((-8.638812, -4.932446), (-2.14985, -18.684893), (-1.257986, -2.735036), (-2.910998, -3.150564), closed=True)
+groove(sketch_1.path_1, width=2.275027, depth=2.579678, profile="rect", corners="round", mode=Mode.ADD)  # feature: rib_1

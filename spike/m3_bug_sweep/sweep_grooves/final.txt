@@ -1,0 +1,79 @@
+A circle mitre tiny corner
+    sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), (10.0, 0.001))
+groove(sketch_1.path_1, width=2.0, depth=2.0, profile="circle")
+----
+A2 circle mitre tinier corner
+    sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), (10.0, 0.00002))
+groove(sketch_1.path_1, width=2.0, depth=2.0, profile="circle")
+----
+B v sub-SHARP kink before arc
+    sketch_1.path_1 = path((-15.0, 0.0), (-10.0, 0.0), (0.0, 0.000005), arc_to((0.0, 12.0)))
+groove(sketch_1.path_1, width=4.0, depth=2.0, profile="v")
+----
+B2 circle kink 2e-6 before arc
+    sketch_1.path_1 = path((-15.0, 0.0), (-10.0, 0.0), (0.0, 0.00002), arc_to((0.0, 12.0)))
+groove(sketch_1.path_1, width=4.0, depth=2.0, profile="circle")
+----
+-Y D kinked run + 154deg mitre corner (groove adds material)
+    sketch_1.path_1 = path((9.701073, 3.73751), (10.88196, 6.526477), (12.863058, 11.20535), (8.23183, 7.192943))
+groove(sketch_1.path_1, width=3.615984, depth=2.107803)
+----
+-Y D' same without the middle point
+    sketch_1.path_1 = path((9.701073, 3.73751), (12.863058, 11.20535), (8.23183, 7.192943))
+groove(sketch_1.path_1, width=3.615984, depth=2.107803)
+----
+E circle rib along near-straight arc
+    sketch_1.path_1 = path((-15.0, 0.0), (-10.0, 0.0), arc_to((-5.0, 0.000001)))
+groove(sketch_1.path_1, width=3.5, depth=3.0, profile="circle", corners="round", mode=Mode.ADD)
+----
+E2 circle groove along near-straight arc
+    sketch_1.path_1 = path((-15.0, 0.0), (-10.0, 0.0), arc_to((-5.0, 0.000001)))
+groove(sketch_1.path_1, width=3.5, depth=3.0, profile="circle")
+----
+F double rib (box vanishes)
+    sketch_1.path_1 = path((-10.0, -5.0), (10.0, -5.0), (-10.0, 5.0), closed=True)
+groove(sketch_1.path_1, width=2.0, depth=2.0, profile="round", corners="round", mode=Mode.ADD)  # feature: rib_1
+groove(sketch_1.path_1, width=1.0, depth=2.0, profile="round", corners="mitre", mode=Mode.ADD)  # feature: rib_2
+----
+F0 rib_1 alone
+    sketch_1.path_1 = path((-10.0, -5.0), (10.0, -5.0), (-10.0, 5.0), closed=True)
+groove(sketch_1.path_1, width=2.0, depth=2.0, profile="round", corners="round", mode=Mode.ADD)  # feature: rib_1
+----
+C self-crossing tangent run
+    sketch_1.path_1 = path((0.0, 0.0), (10.0, 0.0), arc_to((7.0, 3.0)), (7.0, -5.0))
+groove(sketch_1.path_1, width=1.0, depth=2.0)
+----
+G closing point 5e-7 off start
+    sketch_1.path_1 = path((-5.0, -5.0), (5.0, -5.0), (5.0, 5.0), (-5.0, 5.0), (-5.0000005, -5.0), closed=True)
+groove(sketch_1.path_1, width=2.0, depth=2.0)
+----
+H rib past face edge
+    sketch_1.path_1 = path((0.0, 0.0), (30.0, 0.0))
+groove(sketch_1.path_1, width=2.0, depth=2.0, mode=Mode.ADD)
+----
+I duplicate point
+    sketch_1.path_1 = path((0.0, 0.0), (0.0, 0.0), (5.0, 0.0))
+----
+I2 arc_to its own start
+    sketch_1.path_1 = path((0.0, 0.0), (5.0, 0.0), arc_to((5.0, 0.0)))
+----
+XY J round rib depth == width/2 on a plane
+    sketch_1.path_1 = path((0.0, 0.0), (10.0, 0.0))
+groove(sketch_1.path_1, width=2.0, depth=1.0, profile="round", mode=Mode.ADD)
+----
+K v groove along arc r 1.2 (> width/2)
+    sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), arc_to((0.0, 2.4)), (-10.0, 2.4))
+groove(sketch_1.path_1, width=2.0, depth=1.0, profile="v")
+----
+L fillet after round-corner groove
+    sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), (0.0, 5.0))
+groove(sketch_1.path_1, width=2.0, depth=2.0, profile="v", corners="round")  # feature: groove_1
+fillet(edge_between(face("groove_1", "wall"), face("groove_1", "wall"), near=(-5.0, 0.0, 8.0)), radius=0.2)  # feature: fillet_1
+----
+M slow v round
+    sketch_1.path_1 = path((0.0, 0.0), (10.0, 0.0), closed=True)
+groove(sketch_1.path_1, width=0.1, depth=4.0, profile="v", corners="round")
+----
+N 177.6deg round-corner refusal
+    sketch_1.path_1 = path((-6.959651, -2.821778), (-5.800949, -4.970833), (-9.00161, 1.614851), (-1.165306, 5.423318))
+groove(sketch_1.path_1, width=2.147519, depth=1.566852, profile="round", corners="round")

@@ -1,0 +1,512 @@
+[
+ {
+  "id": "s1_0_r0_tapercut",
+  "src": "with BuildPart() as part:\n    Box(38.5, 50.1, 13.2, align=(Align.CENTER, Align.CENTER, Align.MIN))  # feature: box_1\n    with sketch(on_face(face(\"box_1\", \"+Z\"))) as sketch_1:  # feature: sketch_1\n        sketch_1.line_1 = Line((5.836329, 14.46504), (-15.636406, -23.629791))\n        sketch_1.linex_2 = Line((-19.24998, 15.121501), (19.25, -23.775162))\n        sketch_1.poly_3 = Polygon((20.411184, -5.305117), (17.537661, -2.444788), (13.76233, -4.276809), align=None)\n        sketch_1.line_4 = Line((2.035094, -7.730409), (6.808669, 13.073482))\n    extrude(regions(sketch_1, (-0.066259, 0.015324)), amount=-6.538, taper=-3.0, mode=Mode.SUBTRACT)  # feature: extrude_1\nresult = part.part\n",
+  "old": 12886.070276528299,
+  "new": {
+   "ok": false,
+   "error": "SketchError: the taper of -3\u00b0 can't be built exactly on this area: try a smaller angle",
+   "volume": 0.0
+  }
+ },
+ {
+  "id": "s1_5_r1_tapercut",
+  "src": "with BuildPart() as part:\n    Box(25.6, 27.2, 49.8, align=(Align.CENTER, Align.CENTER, Align.MIN))  # feature: box_1\n    with sketch(on_face(face(\"box_1\", \"-Z\"))) as sketch_1:  # feature: sketch_1\n        sketch_1.poly_1 = Polygon((8.803344, -12.130905), (8.722783, -12.074922), (7.796979, -14.122489), (7.895468, -14.146645), align=None)\n        sketch_1.path_2 = path((-1.877375, 9.037061), (-7.086188, 4.039375), arc_to((-2.690611, 2.06301)), arc_to((3.352265, -12.001045)), arc_to((11.978325, 10.214531)))\n    extrude(regions(sketch_1, (20.455532, 1.909068)), amount=-2.952, taper=3.0, mode=Mode.SUBTRACT)  # feature: extrude_1\nresult = part.part\n",
+  "old": 34676.736000000004,
+  "new": {
+   "ok": false,
+   "error": "SketchError: the taper of 3\u00b0 can't be built exactly on this area: try a smaller angle",
+   "volume": 0.0
+  }
+ },
+ {
+  "id": "s2_1_r5_taper",
+  "src": "with BuildPart() as part:\n    Box(16.8, 35.5, 59.9, align=(Align.CENTER, Align.CENTER, Align.MIN))  # feature: box_1\n    with sketch(on_face(face(\"box_1\", \"+Y\"))) as sketch_1:  # feature: sketch_1\n        sketch_1.linex_1 = Line((-13.399999, 3.708741), (13.4, -12.174795))\n        sketch_1.path_2 = path((6.413305, -19.10933), (-0.268426, -0.220252), arc_to((0.022608, -6.749916)))\n        sketch_1.line_3 = Line((0.022608, -6.749916), (-0.359962, -49.417665))\n        sketch_1.path_4 = path((9.00551, -3.588802), (7.337811, -31.365965), (-5.287384, -9.007864), (1.671632, -29.435179))\n    extrude(regions(sketch_1, (-1.105392, -12.795344)), amount=5.876, taper=-8.0)  # feature: extrude_1\nresult = part.part\n",
+  "old": 35815.4774327209,
+  "new": {
+   "ok": false,
+   "error": "SketchError: the taper of -8\u00b0 can't be built exactly on this area: try a smaller angle",
+   "volume": 0.0
+  }
+ },
+ {
+  "id": "s2_1_r5_tapercut",
+  "src": "with BuildPart() as part:\n    Box(16.8, 35.5, 59.9, align=(Align.CENTER, Align.CENTER, Align.MIN))  # feature: box_1\n    with sketch(on_face(face(\"box_1\", \"+Y\"))) as sketch_1:  # feature: sketch_1\n        sketch_1.linex_1 = Line((-13.399999, 3.708741), (13.4, -12.174795))\n        sketch_1.path_2 = path((6.413305, -19.10933), (-0.268426, -0.220252), arc_to((0.022608, -6.749916)))\n        sketch_1.line_3 = Line((0.022608, -6.749916), (-0.359962, -49.417665))\n        sketch_1.path_4 = path((9.00551, -3.588802), (7.337811, -31.365965), (-5.287384, -9.007864), (1.671632, -29.435179))\n    extrude(regions(sketch_1, (-1.105392, -12.795344)), amount=-5.876, taper=-3.0, mode=Mode.SUBTRACT)  # feature: extrude_1\nresult = part.part\n",
+  "old": 35652.53596737935,
+  "new": {
+   "ok": false,
+   "error": "SketchError: the taper of -3\u00b0 can't be built exactly on this area: try a smaller angle",
+   "volume": 0.0
+  }
+ },
+ {
+  "id": "s2_6_r0_tapercut",
+  "src": "with BuildPart() as part:\n    Box(53.7, 27.1, 23.1, align=(Align.CENTER, Align.CENTER, Align.MIN))  # feature: box_1\n    with sketch(on_face(face(\"box_1\", \"+X\"))) as sketch_1:  # feature: sketch_1\n        sketch_1.path_1 = path((-19.217976, -6.809226), (-14.277981, 9.715427), (-11.635436, 27.939424), closed=True)\n        sketch_1.circle_2 = Pos(-2.397918, 1.740731) * Circle(2.531821)\n    extrude(regions(sketch_1, (0.182725, 11.764405)), amount=-32.901, taper=-3.0, mode=Mode.SUBTRACT)  # feature: extrude_1\nresult = part.part\n",
+  "old": 33616.737,
+  "new": {
+   "ok": false,
+   "error": "SketchError: the taper of -3\u00b0 can't be built exactly on this area: try a smaller angle",
+   "volume": 0.0
+  }
+ },
+ {
+  "id": "s2_16_r4_taper",
+  "src": "with BuildPart() as part:\n    Cylinder(7.3, 52.0, align=(Align.CENTER, Align.CENTER, Align.MIN))  # feature: cyl_1\n    with sketch(on_face(face(\"cyl_1\", \"+Z\"))) as sketch_1:  # feature: sketch_1\n        sketch_1.poly_1 = Polygon((10.987013, -7.435375), (10.633355, -6.618882), (5.211275, -8.605069), (5.397728, -9.295693), (10.937409, -9.106194), align=None)\n        sketch_1.rect_2 = Pos(7.442878, -2.821559) * Rectangle(11.22882, 2.195798)\n        sketch_1.line_3 = Line((5.211275, -8.605069), (-0.995599, -7.790626))\n        sketch_1.line_4 = Line((5.211275, -8.605069), (9.851904, -1.354962))\n    extrude(regions(sketch_1, (7.825931, -2.782214)), amount=39.512, taper=-8.0)  # feature: extrude_1\nresult = part.part\n",
+  "old": 11725.292566204429,
+  "new": {
+   "ok": false,
+   "error": "SketchError: the taper of -8\u00b0 can't be built exactly on this area: try a smaller angle",
+   "volume": 0.0
+  }
+ },
+ {
+  "id": "s2_16_r4_tapercut",
+  "src": "with BuildPart() as part:\n    Cylinder(7.3, 52.0, align=(Align.CENTER, Align.CENTER, Align.MIN))  # feature: cyl_1\n    with sketch(on_face(face(\"cyl_1\", \"+Z\"))) as sketch_1:  # feature: sketch_1\n        sketch_1.poly_1 = Polygon((10.987013, -7.435375), (10.633355, -6.618882), (5.211275, -8.605069), (5.397728, -9.295693), (10.937409, -9.106194), align=None)\n        sketch_1.rect_2 = Pos(7.442878, -2.821559) * Rectangle(11.22882, 2.195798)\n        sketch_1.line_3 = Line((5.211275, -8.605069), (-0.995599, -7.790626))\n        sketch_1.line_4 = Line((5.211275, -8.605069), (9.851904, -1.354962))\n    extrude(regions(sketch_1, (7.825931, -2.782214)), amount=-39.512, taper=-3.0, mode=Mode.SUBTRACT)  # feature: extrude_1\nresult = part.part\n",
+  "old": 8705.604570509651,
+  "new": {
+   "ok": false,
+   "error": "SketchError: the taper of -3\u00b0 can't be built exactly on this area: try a smaller angle",
+   "volume": 0.0
+  }
+ },
+ {
+  "id": "s2_16_r0_tapercut",
+  "src": "with BuildPart() as part:\n    Cylinder(7.3, 52.0, align=(Align.CENTER, Align.CENTER, Align.MIN))  # feature: cyl_1\n    with sketch(on_face(face(\"cyl_1\", \"+Z\"))) as sketch_1:  # feature: sketch_1\n        sketch_1.poly_1 = Polygon((10.987013, -7.435375), (10.633355, -6.618882), (5.211275, -8.605069), (5.397728, -9.295693), (10.937409, -9.106194), align=None)\n        sketch_1.rect_2 = Pos(7.442878, -2.821559) * Rectangle(11.22882, 2.195798)\n        sketch_1.line_3 = Line((5.211275, -8.605069), (-0.995599, -7.790626))\n        sketch_1.line_4 = Line((5.211275, -8.605069), (9.851904, -1.354962))\n    extrude(regions(sketch_1, (-0.291306, 0.190092)), amount=-27.022, taper=3.0, mode=Mode.SUBTRACT)  # feature: extrude_1\nresult = part.part\n",
+  "old": 5458.986176245768,
+  "new": {
+   "ok": false,
+   "error": "SketchError: the taper of 3\u00b0 can't be built exactly on this area: try a smaller angle",
+   "volume": 0.0
+  }
+ },
+ {
+  "id": "s2_28_r1_taper",
+  "src": "with BuildPart() as part:\n    with sketch(Plane.XY) as sketch_1:  # feature: sketch_1\n        sketch_1.circle_1 = Pos(22.336551, 22.799645) * Circle(9.256097)\n        sketch_1.circle_2 = Pos(13.03311, 23.955602) * Circle(3.645157)\n        sketch_1.axis = Line((-60.0, -43.194256), (-55.0, -43.194256))\n    extrude(regions(sketch_1, (11.694306, 24.121949)), amount=5.358, taper=-3.0)  # feature: extrude_1\nresult = part.part\n",
+  "old": 141.62856245593272,
+  "new": {
+   "ok": false,
+   "error": "SketchError: the taper of -3\u00b0 can't be built exactly on this area: try a smaller angle",
+   "volume": 0.0
+  }
+ },
+ {
+  "id": "s2_29_r4_taper",
+  "src": "with BuildPart() as part:\n    Box(38.1, 23.1, 22.5, align=(Align.CENTER, Align.CENTER, Align.MIN))  # feature: box_1\n    with sketch(on_face(face(\"box_1\", \"-X\"))) as sketch_1:  # feature: sketch_1\n        sketch_1.rect_1 = Pos(-0.932747, -15.615814) * Rectangle(17.963384, 7.66076)\n        sketch_1.circle_2 = Pos(0.919655, 2.789569) * Circle(0.967168)\n        sketch_1.poly_3 = Polygon((-17.89497, -11.491267), (-18.901631, -11.504522), (-20.846851, -12.375423), (-20.906814, -12.426856), (-14.717284, -16.733582), align=None)\n        sketch_1.line_4 = Line((7.570226, -2.722236), (-10.306787, -28.529583))\n        sketch_1.axis = Line((-25.95687, -62.5), (-25.95687, -57.5))\n    extrude(regions(sketch_1, (0.919655, 2.789569)), amount=14.399, taper=3.0)  # feature: extrude_1\nresult = part.part\n",
+  "old": 19820.360640629195,
+  "new": {
+   "ok": false,
+   "error": "RUNNER IndexError",
+   "volume": 0
+  }
+ },
+ {
+  "id": "s2_29_r4_tapercut",
+  "src": "with BuildPart() as part:\n    Box(38.1, 23.1, 22.5, align=(Align.CENTER, Align.CENTER, Align.MIN))  # feature: box_1\n    with sketch(on_face(face(\"box_1\", \"-X\"))) as sketch_1:  # feature: sketch_1\n        sketch_1.rect_1 = Pos(-0.932747, -15.615814) * Rectangle(17.963384, 7.66076)\n        sketch_1.circle_2 = Pos(0.919655, 2.789569) * Circle(0.967168)\n        sketch_1.poly_3 = Polygon((-17.89497, -11.491267), (-18.901631, -11.504522), (-20.846851, -12.375423), (-20.906814, -12.426856), (-14.717284, -16.733582), align=None)\n        sketch_1.line_4 = Line((7.570226, -2.722236), (-10.306787, -28.529583))\n        sketch_1.axis = Line((-25.95687, -62.5), (-25.95687, -57.5))\n    extrude(regions(sketch_1, (0.919655, 2.789569)), amount=-14.399, taper=3.0, mode=Mode.SUBTRACT)  # feature: extrude_1\nresult = part.part\n",
+  "old": 19802.475000000006,
+  "new": {
+   "ok": false,
+   "error": "RUNNER IndexError",
+   "volume": 0
+  }
+ },
+ {
+  "id": "s2_31_r4_taper",
+  "src": "with BuildPart() as part:\n    Cylinder(26.6, 45.8, align=(Align.CENTER, Align.CENTER, Align.MIN))  # feature: cyl_1\n    with sketch(on_face(face(\"cyl_1\", \"+Z\"))) as sketch_1:  # feature: sketch_1\n        sketch_1.line_1 = Line((-4.287331, 15.458975), (-17.949915, -24.206826))\n        sketch_1.poly_2 = Polygon((23.147368, 10.695131), (17.528976, 15.143204), (18.80898, 3.448756), (22.08393, 5.567314), (22.296242, 5.857708), align=None)\n        sketch_1.line_3 = Line((23.147368, 10.695131), (-17.949915, -24.206826))\n        sketch_1.path_4 = path((-5.037611, 0.010634), (4.362641, -14.829451), (1.360493, 26.402659), arc_to((-3.879584, 15.045664)), closed=True)\n    extrude(regions(sketch_1, (-8.000833, -7.021666)), amount=20.949, taper=-8.0)  # feature: extrude_1\nresult = part.part\n",
+  "old": 108991.34949964119,
+  "new": {
+   "ok": false,
+   "error": "SketchError: the taper of -8\u00b0 can't be built exactly on this area: try a smaller angle",
+   "volume": 0.0
+  }
+ },
+ {
+  "id": "s2_31_r1_tapercut",
+  "src": "with BuildPart() as part:\n    Cylinder(26.6, 45.8, align=(Align.CENTER, Align.CENTER, Align.MIN))  # feature: cyl_1\n    with sketch(on_face(face(\"cyl_1\", \"+Z\"))) as sketch_1:  # feature: sketch_1\n        sketch_1.line_1 = Line((-4.287331, 15.458975), (-17.949915, -24.206826))\n        sketch_1.poly_2 = Polygon((23.147368, 10.695131), (17.528976, 15.143204), (18.80898, 3.448756), (22.08393, 5.567314), (22.296242, 5.857708), align=None)\n        sketch_1.line_3 = Line((23.147368, 10.695131), (-17.949915, -24.206826))\n        sketch_1.path_4 = path((-5.037611, 0.010634), (4.362641, -14.829451), (1.360493, 26.402659), arc_to((-3.879584, 15.045664)), closed=True)\n    extrude(regions(sketch_1, (-17.493574, 0.177036)), amount=-6.22, taper=-3.0, mode=Mode.SUBTRACT)  # feature: extrude_1\nresult = part.part\n",
+  "old": 98866.87387243328,
+  "new": {
+   "ok": false,
+   "error": "RUNNER IndexError",
+   "volume": 0
+  }
+ },
+ {
+  "id": "s2_32_r5_taper",
+  "src": "with BuildPart() as part:\n    Box(58.7, 38.6, 35.8, align=(Align.CENTER, Align.CENTER, Align.MIN))  # feature: box_1\n    with sketch(on_face(face(\"box_1\", \"+X\"))) as sketch_1:  # feature: sketch_1\n        sketch_1.circle_1 = Pos(30.310798, 38.695732) * Circle(7.349195)\n        sketch_1.circle_2 = Pos(12.67175, 46.050848) * Circle(0.818313)\n        sketch_1.poly_3 = Polygon((-14.169089, 20.893738), (-16.206981, 20.965596), (-21.178359, 17.531877), (-15.387098, 7.991653), (-9.191823, 12.586538), align=None)\n        sketch_1.linex_4 = Line((-19.3, 43.327444), (19.299991, 3.849117))\n        sketch_1.axis = Line((-34.163292, -40.0), (-34.163292, -35.0))\n    extrude(regions(sketch_1, (12.67175, 46.050848)), amount=15.214, taper=8.0)  # feature: extrude_1\nresult = part.part\n",
+  "old": 81137.57170590838,
+  "new": {
+   "ok": false,
+   "error": "SketchError: the taper of 8\u00b0 closes the area before the end of the 15.214 mm extrude: use a smaller angle or distance",
+   "volume": 0.0
+  }
+ },
+ {
+  "id": "s2_35_r3_taper",
+  "src": "with BuildPart() as part:\n    Box(58.5, 53.8, 41.9, align=(Align.CENTER, Align.CENTER, Align.MIN))  # feature: box_1\n    with sketch(on_face(face(\"box_1\", \"+Z\"))) as sketch_0:  # feature: sketch_0\n        sketch_0.boss = Rectangle(35.8, 15.9)\n    extrude(regions(sketch_0, (0.0, 0.0)), amount=10.0)  # feature: extrude_0\n    with sketch(on_face(face(\"extrude_0\", \"end\"))) as sketch_1:  # feature: sketch_1\n        sketch_1.linex_1 = Line((2.438897, -12.95), (-7.897908, 7.95))\n        sketch_1.circle_2 = Pos(12.063155, 0.417061) * Circle(2.619482)\n        sketch_1.circle_3 = Pos(-13.96623, 0.086909) * Circle(3.93377)\n    extrude(regions(sketch_1, (12.063155, 0.417061)), amount=28.184, taper=8.0)  # feature: extrude_1\nresult = part.part\n",
+  "old": 137715.98776799516,
+  "new": {
+   "ok": false,
+   "error": "SketchError: the taper of 8\u00b0 closes the area before the end of the 28.184 mm extrude: use a smaller angle or distance",
+   "volume": 0.0
+  }
+ },
+ {
+  "id": "s2_37_r0_taper",
+  "src": "with BuildPart() as part:\n    Box(10.5, 53.9, 25.2, align=(Align.CENTER, Align.CENTER, Align.MIN))  # feature: box_1\n    with sketch(on_face(face(\"box_1\", \"-X\"))) as sketch_1:  # feature: sketch_1\n        sketch_1.rect_1 = Pos(13.433395, -6.307579) * Rectangle(4.206522, 9.866544)\n        sketch_1.linex_2 = Line((-26.949999, -2.122408), (26.95, -2.236504))\n        sketch_1.circle_3 = Pos(15.536656, -1.374307) * Circle(6.122039)\n        sketch_1.linex_4 = Line((7.280503, -25.2001), (22.747807, 0.0))\n        sketch_1.axis = Line((-33.454845, -65.2), (-33.454845, -60.2))\n    extrude(regions(sketch_1, (-7.623447, -13.556265)), amount=5.953, taper=-8.0)  # feature: extrude_1\nresult = part.part\n",
+  "old": 19537.791193472975,
+  "new": {
+   "ok": false,
+   "error": "SketchError: the taper of -8\u00b0 can't be built exactly on this area: try a smaller angle",
+   "volume": 0.0
+  }
+ },
+ {
+  "id": "s3_6_r0_taper",
+  "src": "with BuildPart() as part:\n    Box(19.2, 23.9, 50.4, align=(Align.CENTER, Align.CENTER, Align.MIN))  # feature: box_1\n    with sketch(on_face(face(\"box_1\", \"+Z\"))) as sketch_0:  # feature: sketch_0\n        sketch_0.boss = Rectangle(14.1, 20.2)\n    extrude(regions(sketch_0, (0.0, 0.0)), amount=6.5)  # feature: extrude_0\n    with sketch(on_face(face(\"extrude_0\", \"end\"))) as sketch_1:  # feature: sketch_1\n        sketch_1.poly_1 = Polygon((1.525519, 3.169877), (0.148926, 4.681633), (-2.271412, 3.785813), (-2.383631, 1.846873), align=None)\n        sketch_1.line_2 = Line((5.357693, 9.835656), (-0.925632, 9.093256))\n        sketch_1.circle_3 = Pos(3.166591, 8.742684) * Circle(0.666115)\n    extrude(regions(sketch_1, (-0.000185, -0.117497)), amount=7.965, taper=-3.0)  # feature: extrude_1\nresult = part.part\n",
+  "old": 27324.459773679147,
+  "new": {
+   "ok": false,
+   "error": "RUNNER IndexError",
+   "volume": 0
+  }
+ },
+ {
+  "id": "s3_6_r2_tapercut",
+  "src": "with BuildPart() as part:\n    Box(19.2, 23.9, 50.4, align=(Align.CENTER, Align.CENTER, Align.MIN))  # feature: box_1\n    with sketch(on_face(face(\"box_1\", \"+Z\"))) as sketch_0:  # feature: sketch_0\n        sketch_0.boss = Rectangle(14.1, 20.2)\n    extrude(regions(sketch_0, (0.0, 0.0)), amount=6.5)  # feature: extrude_0\n    with sketch(on_face(face(\"extrude_0\", \"end\"))) as sketch_1:  # feature: sketch_1\n        sketch_1.poly_1 = Polygon((1.525519, 3.169877), (0.148926, 4.681633), (-2.271412, 3.785813), (-2.383631, 1.846873), align=None)\n        sketch_1.line_2 = Line((5.357693, 9.835656), (-0.925632, 9.093256))\n        sketch_1.circle_3 = Pos(3.166591, 8.742684) * Circle(0.666115)\n    extrude(regions(sketch_1, (3.166591, 8.742684)), amount=-8.877, taper=3.0, mode=Mode.SUBTRACT)  # feature: extrude_1\nresult = part.part\n",
+  "old": 24973.13817607186,
+  "new": {
+   "ok": false,
+   "error": "RUNNER IndexError",
+   "volume": 0
+  }
+ },
+ {
+  "id": "s3_13_r0_tapercut",
+  "src": "with BuildPart() as part:\n    Box(30.9, 14.2, 35.0, align=(Align.CENTER, Align.CENTER, Align.MIN))  # feature: box_1\n    with sketch(on_face(face(\"box_1\", \"+Z\"))) as sketch_0:  # feature: sketch_0\n        sketch_0.boss = Rectangle(30.2, 8.8)\n    extrude(regions(sketch_0, (0.0, 0.0)), amount=11.7)  # feature: extrude_0\n    with sketch(on_face(face(\"extrude_0\", \"end\"))) as sketch_1:  # feature: sketch_1\n        sketch_1.circle_1 = Pos(-10.231418, 0.971914) * Circle(2.441718)\n        sketch_1.poly_2 = Polygon((3.964258, 4.93114), (0.386447, 2.932288), (2.640169, 0.915863), (4.661939, 2.260726), align=None)\n        sketch_1.linex_3 = Line((13.693452, -9.399991), (10.679912, 9.4))\n        sketch_1.line_4 = Line((13.693452, -9.399991), (10.679908, 9.40002))\n    extrude(regions(sketch_1, (-0.855368, -0.24309)), amount=-4.325, taper=-3.0, mode=Mode.SUBTRACT)  # feature: extrude_1\nresult = part.part\n",
+  "old": 17530.215452955854,
+  "new": {
+   "ok": false,
+   "error": "SketchError: the taper of -3\u00b0 can't be built exactly on this area: try a smaller angle",
+   "volume": 0.0
+  }
+ },
+ {
+  "id": "s3_24_r0_tapercut",
+  "src": "with BuildPart() as part:\n    Box(42.7, 55.0, 20.0, align=(Align.CENTER, Align.CENTER, Align.MIN))  # feature: box_1\n    with sketch(on_face(face(\"box_1\", \"-Y\"))) as sketch_1:  # feature: sketch_1\n        sketch_1.line_1 = Line((18.791836, 0.684236), (-8.338327, 12.13865))\n        sketch_1.line_2 = Line((-8.338327, 12.13865), (-13.488478, 8.261263))\n        sketch_1.poly_3 = Polygon((-3.211947, 19.727286), (4.865768, 10.168416), (5.73084, 10.805146), (7.410117, 13.149673), align=None)\n        sketch_1.line_4 = Line((-5.857353, 8.294456), (-11.554414, 15.589303))\n        sketch_1.axis = Line((4.513588, -40.0), (4.513588, -35.0))\n    extrude(regions(sketch_1, (-0.091639, 9.872307)), amount=-20.261, taper=3.0, mode=Mode.SUBTRACT)  # feature: extrude_1\nresult = part.part\n",
+  "old": 46970.0,
+  "new": {
+   "ok": false,
+   "error": "SketchError: the taper of 3\u00b0 can't be built exactly on this area: try a smaller angle",
+   "volume": 0.0
+  }
+ },
+ {
+  "id": "s3_27_r8_taper",
+  "src": "with BuildPart() as part:\n    Box(15.4, 34.3, 43.4, align=(Align.CENTER, Align.CENTER, Align.MIN))  # feature: box_1\n    with sketch(on_face(face(\"box_1\", \"+Z\"))) as sketch_0:  # feature: sketch_0\n        sketch_0.boss = Rectangle(12.3, 16.8)\n    extrude(regions(sketch_0, (0.0, 0.0)), amount=10.6)  # feature: extrude_0\n    with sketch(on_face(face(\"extrude_0\", \"end\"))) as sketch_1:  # feature: sketch_1\n        sketch_1.linex_1 = Line((-1.107896, -13.4), (0.771103, 13.4))\n        sketch_1.path_2 = path((-8.319946, -3.720111), (4.990921, 10.250667), (3.667298, -3.272813), arc_to((-8.521356, 0.451997)), arc_to((6.651188, -10.578876)))\n        sketch_1.line_3 = Line((0.771103, 13.4), (6.651189, -10.578872))\n    extrude(regions(sketch_1, (3.63355, 6.565832)), amount=24.847, taper=-8.0)  # feature: extrude_1\nresult = part.part\n",
+  "old": 26290.248428713305,
+  "new": {
+   "ok": false,
+   "error": "SketchError: the taper of -8\u00b0 can't be built exactly on this area: try a smaller angle",
+   "volume": 0.0
+  }
+ },
+ {
+  "id": "s3_27_r4_taper",
+  "src": "with BuildPart() as part:\n    Box(15.4, 34.3, 43.4, align=(Align.CENTER, Align.CENTER, Align.MIN))  # feature: box_1\n    with sketch(on_face(face(\"box_1\", \"+Z\"))) as sketch_0:  # feature: sketch_0\n        sketch_0.boss = Rectangle(12.3, 16.8)\n    extrude(regions(sketch_0, (0.0, 0.0)), amount=10.6)  # feature: extrude_0\n    with sketch(on_face(face(\"extrude_0\", \"end\"))) as sketch_1:  # feature: sketch_1\n        sketch_1.linex_1 = Line((-1.107896, -13.4), (0.771103, 13.4))\n        sketch_1.path_2 = path((-8.319946, -3.720111), (4.990921, 10.250667), (3.667298, -3.272813), arc_to((-8.521356, 0.451997)), arc_to((6.651188, -10.578876)))\n        sketch_1.line_3 = Line((0.771103, 13.4), (6.651189, -10.578872))\n    extrude(regions(sketch_1, (-3.220605, 6.553556)), amount=28.118, taper=-8.0)  # feature: extrude_1\nresult = part.part\n",
+  "old": 27696.265373430695,
+  "new": {
+   "ok": false,
+   "error": "SketchError: the taper of -8\u00b0 can't be built exactly on this area: try a smaller angle",
+   "volume": 0.0
+  }
+ },
+ {
+  "id": "s3_36_r0_tapercut",
+  "src": "with BuildPart() as part:\n    Box(12.7, 58.9, 30.5, align=(Align.CENTER, Align.CENTER, Align.MIN))  # feature: box_1\n    with sketch(on_face(face(\"box_1\", \"-Y\"))) as sketch_1:  # feature: sketch_1\n        sketch_1.circle_1 = Pos(0.692335, 15.79332) * Circle(4.483587)\n        sketch_1.axis = Line((-46.35, -25.756198), (-41.35, -25.756198))\n    extrude(regions(sketch_1, (6.34, 15.25)), amount=-33.281, taper=3.0, mode=Mode.SUBTRACT)  # feature: extrude_1\nresult = part.part\n",
+  "old": 22814.915,
+  "new": {
+   "ok": false,
+   "error": "SketchError: the taper of 3\u00b0 can't be built exactly on this area: try a smaller angle",
+   "volume": 0.0
+  }
+ },
+ {
+  "id": "s4_0_r4_tapercut",
+  "src": "with BuildPart() as part:\n    Box(25.2, 46.1, 33.9, align=(Align.CENTER, Align.CENTER, Align.MIN))  # feature: box_1\n    with sketch(on_face(face(\"box_1\", \"+Z\"))) as sketch_1:  # feature: sketch_1\n        sketch_1.poly_1 = Polygon((9.647103, 13.858939), (8.805381, 14.560419), (7.13049, 14.829218), (4.998993, 11.620416), align=None)\n        sketch_1.circle_2 = Pos(-3.066449, -6.17032) * Circle(9.533551)\n        sketch_1.linex_3 = Line((-3.215694, -28.05), (-6.36748, 28.05))\n        sketch_1.linex_4 = Line((1.2005, -28.05), (-5.24307, 28.050004))\n    extrude(regions(sketch_1, (-8.684484, -18.065455)), amount=-19.392, taper=-3.0, mode=Mode.SUBTRACT)  # feature: extrude_1\nresult = part.part\n",
+  "old": 39382.308,
+  "new": {
+   "ok": false,
+   "error": "SketchError: the taper of -3\u00b0 can't be built exactly on this area: try a smaller angle",
+   "volume": 0.0
+  }
+ },
+ {
+  "id": "s4_5_r0_taper",
+  "src": "with BuildPart() as part:\n    with sketch(Plane.XY) as sketch_1:  # feature: sketch_1\n        sketch_1.line_1 = Line((-16.487096, -18.683808), (-17.186134, 23.661409))\n        sketch_1.circle_2 = Pos(-17.186134, 23.661409) * Circle(5.537718)\n        sketch_1.path_3 = path((9.854302, 18.614894), (-0.365567, -26.053849), closed=True)\n        sketch_1.axis = Line((-60.0, 16.983095), (-55.0, 16.983095))\n    extrude(regions(sketch_1, (-17.186134, 23.661409)), amount=6.843, taper=3.0)  # feature: extrude_1\nresult = part.part\n",
+  "old": 617.489434056661,
+  "new": {
+   "ok": false,
+   "error": "SketchError: the taper of 3\u00b0 can't be built exactly on this area: try a smaller angle",
+   "volume": 0.0
+  }
+ },
+ {
+  "id": "s4_6_r3_taper",
+  "src": "with BuildPart() as part:\n    Cylinder(12.9, 55.0, align=(Align.CENTER, Align.CENTER, Align.MIN))  # feature: cyl_1\n    with sketch(on_face(face(\"cyl_1\", \"+Z\"))) as sketch_1:  # feature: sketch_1\n        sketch_1.path_1 = path((7.77605, 7.768493), (10.908239, 11.772), (-10.980981, 12.154078), (4.343479, -11.750766), closed=True)\n        sketch_1.line_2 = Line((-11.339536, -8.584547), (3.487897, 1.785513))\n    extrude(regions(sketch_1, (-8.37698, 11.172274)), amount=43.857, taper=-8.0)  # feature: extrude_1\nresult = part.part\n",
+  "old": 29914.603254659294,
+  "new": {
+   "ok": false,
+   "error": "SketchError: the taper of -8\u00b0 can't be built exactly on this area: try a smaller angle",
+   "volume": 0.0
+  }
+ },
+ {
+  "id": "s4_6_r3_tapercut",
+  "src": "with BuildPart() as part:\n    Cylinder(12.9, 55.0, align=(Align.CENTER, Align.CENTER, Align.MIN))  # feature: cyl_1\n    with sketch(on_face(face(\"cyl_1\", \"+Z\"))) as sketch_1:  # feature: sketch_1\n        sketch_1.path_1 = path((7.77605, 7.768493), (10.908239, 11.772), (-10.980981, 12.154078), (4.343479, -11.750766), closed=True)\n        sketch_1.line_2 = Line((-11.339536, -8.584547), (3.487897, 1.785513))\n    extrude(regions(sketch_1, (-8.37698, 11.172274)), amount=-43.857, taper=-3.0, mode=Mode.SUBTRACT)  # feature: extrude_1\nresult = part.part\n",
+  "old": 28753.58384161326,
+  "new": {
+   "ok": false,
+   "error": "SketchError: the taper of -3\u00b0 can't be built exactly on this area: try a smaller angle",
+   "volume": 0.0
+  }
+ },
+ {
+  "id": "s4_14_r2_taper",
+  "src": "with BuildPart() as part:\n    Cylinder(10.1, 47.6, align=(Align.CENTER, Align.CENTER, Align.MIN))  # feature: cyl_1\n    with sketch(on_face(face(\"cyl_1\", \"+Z\"))) as sketch_1:  # feature: sketch_1\n        sketch_1.rect_1 = Pos(4.632684, 3.54666) * Rectangle(5.102727, 14.321355)\n        sketch_1.axis = Line((-36.330174, -50.1), (-36.330174, -45.1))\n    extrude(regions(sketch_1, (5.244822, 9.593541)), amount=28.589, taper=-3.0)  # feature: extrude_1\nresult = part.part\n",
+  "old": 15976.830441350769,
+  "new": {
+   "ok": false,
+   "error": "SketchError: the taper of -3\u00b0 can't be built exactly on this area: try a smaller angle",
+   "volume": 0.0
+  }
+ },
+ {
+  "id": "s4_14_r2_tapercut",
+  "src": "with BuildPart() as part:\n    Cylinder(10.1, 47.6, align=(Align.CENTER, Align.CENTER, Align.MIN))  # feature: cyl_1\n    with sketch(on_face(face(\"cyl_1\", \"+Z\"))) as sketch_1:  # feature: sketch_1\n        sketch_1.rect_1 = Pos(4.632684, 3.54666) * Rectangle(5.102727, 14.321355)\n        sketch_1.axis = Line((-36.330174, -50.1), (-36.330174, -45.1))\n    extrude(regions(sketch_1, (5.244822, 9.593541)), amount=-28.589, taper=-3.0, mode=Mode.SUBTRACT)  # feature: extrude_1\nresult = part.part\n",
+  "old": 15254.556049812269,
+  "new": {
+   "ok": false,
+   "error": "SketchError: the taper of -3\u00b0 can't be built exactly on this area: try a smaller angle",
+   "volume": 0.0
+  }
+ },
+ {
+  "id": "s4_21_r4_taper",
+  "src": "with BuildPart() as part:\n    Cylinder(29.7, 52.2, align=(Align.CENTER, Align.CENTER, Align.MIN))  # feature: cyl_1\n    with sketch(on_face(face(\"cyl_1\", \"+Z\"))) as sketch_1:  # feature: sketch_1\n        sketch_1.rect_1 = Pos(-6.160994, 5.706035) * Rectangle(45.477256, 45.260812)\n        sketch_1.linex_2 = Line((-29.699996, 6.021394), (34.7, -8.18564))\n    extrude(regions(sketch_1, (-23.455235, 22.579541)), amount=5.85, taper=-8.0)  # feature: extrude_1\nresult = part.part\n",
+  "old": 146153.79447613173,
+  "new": {
+   "ok": false,
+   "error": "SketchError: the taper of -8\u00b0 can't be built exactly on this area: try a smaller angle",
+   "volume": 0.0
+  }
+ },
+ {
+  "id": "s4_21_r5_taper",
+  "src": "with BuildPart() as part:\n    Cylinder(29.7, 52.2, align=(Align.CENTER, Align.CENTER, Align.MIN))  # feature: cyl_1\n    with sketch(on_face(face(\"cyl_1\", \"+Z\"))) as sketch_1:  # feature: sketch_1\n        sketch_1.rect_1 = Pos(-6.160994, 5.706035) * Rectangle(45.477256, 45.260812)\n        sketch_1.linex_2 = Line((-29.699996, 6.021394), (34.7, -8.18564))\n    extrude(regions(sketch_1, (-27.514996, -13.888255)), amount=18.16, taper=-3.0)  # feature: extrude_1\nresult = part.part\n",
+  "old": 144408.9034152724,
+  "new": {
+   "ok": false,
+   "error": "SketchError: the taper of -3\u00b0 can't be built exactly on this area: try a smaller angle",
+   "volume": 0.0
+  }
+ },
+ {
+  "id": "s4_21_r5_tapercut",
+  "src": "with BuildPart() as part:\n    Cylinder(29.7, 52.2, align=(Align.CENTER, Align.CENTER, Align.MIN))  # feature: cyl_1\n    with sketch(on_face(face(\"cyl_1\", \"+Z\"))) as sketch_1:  # feature: sketch_1\n        sketch_1.rect_1 = Pos(-6.160994, 5.706035) * Rectangle(45.477256, 45.260812)\n        sketch_1.linex_2 = Line((-29.699996, 6.021394), (34.7, -8.18564))\n    extrude(regions(sketch_1, (-27.514996, -13.888255)), amount=-18.16, taper=-3.0, mode=Mode.SUBTRACT)  # feature: extrude_1\nresult = part.part\n",
+  "old": 144654.94161062207,
+  "new": {
+   "ok": false,
+   "error": "SketchError: the taper of -3\u00b0 can't be built exactly on this area: try a smaller angle",
+   "volume": 0.0
+  }
+ },
+ {
+  "id": "s4_28_r0_tapercut",
+  "src": "with BuildPart() as part:\n    Box(26.2, 27.0, 23.9, align=(Align.CENTER, Align.CENTER, Align.MIN))  # feature: box_1\n    with sketch(on_face(face(\"box_1\", \"+Z\"))) as sketch_0:  # feature: sketch_0\n        sketch_0.boss = Rectangle(17.4, 7.6)\n    extrude(regions(sketch_0, (0.0, 0.0)), amount=10.3)  # feature: extrude_0\n    with sketch(on_face(face(\"extrude_0\", \"end\"))) as sketch_1:  # feature: sketch_1\n        sketch_1.circle_1 = Pos(4.438383, 0.592526) * Circle(0.609627)\n        sketch_1.axis = Line((-10.118745, -43.8), (-10.118745, -38.8))\n    extrude(regions(sketch_1, (-0.039536, -0.005278)), amount=-26.409, taper=-3.0, mode=Mode.SUBTRACT)  # feature: extrude_1\nresult = part.part\n",
+  "old": 13952.186653757693,
+  "new": {
+   "ok": false,
+   "error": "SketchError: the taper of -3\u00b0 closes the area before the end of the 26.409 mm extrude: use a smaller angle or distance",
+   "volume": 0.0
+  }
+ },
+ {
+  "id": "s4_30_r1_taper",
+  "src": "with BuildPart() as part:\n    Box(24.6, 28.4, 43.2, align=(Align.CENTER, Align.CENTER, Align.MIN))  # feature: box_1\n    with sketch(on_face(face(\"box_1\", \"+Z\"))) as sketch_0:  # feature: sketch_0\n        sketch_0.boss = Rectangle(11.2, 25.2)\n    extrude(regions(sketch_0, (0.0, 0.0)), amount=12.4)  # feature: extrude_0\n    with sketch(on_face(face(\"extrude_0\", \"end\"))) as sketch_1:  # feature: sketch_1\n        sketch_1.circle_1 = Pos(0.141117, -9.382372) * Circle(2.25623)\n        sketch_1.path_2 = path((2.056487, -8.101483), (-1.423672, 3.645281))\n    extrude(regions(sketch_1, (0.141117, -9.382372)), amount=31.357, taper=8.0)  # feature: extrude_1\nresult = part.part\n",
+  "old": 33840.73084905618,
+  "new": {
+   "ok": false,
+   "error": "SketchError: the taper of 8\u00b0 closes the area before the end of the 31.357 mm extrude: use a smaller angle or distance",
+   "volume": 0.0
+  }
+ },
+ {
+  "id": "s4_39_r0_tapercut",
+  "src": "with BuildPart() as part:\n    Box(58.2, 18.2, 48.2, align=(Align.CENTER, Align.CENTER, Align.MIN))  # feature: box_1\n    fillet(edge_between(face(\"box_1\", \"+Z\"), face(\"box_1\", \"+X\")), radius=1.9)  # feature: fillet_1\n    with sketch(on_face(face(\"box_1\", \"+Z\"))) as sketch_1:  # feature: sketch_1\n        sketch_1.circle_1 = Pos(-17.850024, -2.402275) * Circle(5.441343)\n        sketch_1.poly_2 = Polygon((14.590417, -7.275644), (17.34366, -7.745007), (19.42518, -7.337848), (22.935171, -4.449114), align=None)\n    extrude(regions(sketch_1, (0.578592, 0.299227)), amount=-37.75, taper=3.0, mode=Mode.SUBTRACT)  # feature: extrude_1\nresult = part.part\n",
+  "old": 51041.268230131536,
+  "new": {
+   "ok": false,
+   "error": "SketchError: the taper of 3\u00b0 can't be built exactly on this area: try a smaller angle",
+   "volume": 0.0
+  }
+ },
+ {
+  "id": "s5_3_r5_taper",
+  "src": "with BuildPart() as part:\n    Box(27.0, 56.2, 37.3, align=(Align.CENTER, Align.CENTER, Align.MIN))  # feature: box_1\n    with sketch(on_face(face(\"box_1\", \"-Z\"))) as sketch_1:  # feature: sketch_1\n        sketch_1.circle_1 = Pos(5.478009, 16.010177) * Circle(8.727368)\n        sketch_1.line_2 = Line((-14.621927, -32.684823), (21.025401, 2.427626))\n        sketch_1.circle_3 = Pos(-6.746419, -18.084879) * Circle(8.127752)\n        sketch_1.axis = Line((-53.5, 16.953541), (-48.5, 16.953541))\n    extrude(regions(sketch_1, (-11.541195, -26.215101)), amount=27.455, taper=-8.0)  # feature: extrude_1\nresult = part.part\n",
+  "old": 58962.803393185,
+  "new": {
+   "ok": false,
+   "error": "SketchError: the taper of -8\u00b0 can't be built exactly on this area: try a smaller angle",
+   "volume": 0.0
+  }
+ },
+ {
+  "id": "s5_18_r0_taper",
+  "src": "with BuildPart() as part:\n    Box(13.6, 48.5, 29.0, align=(Align.CENTER, Align.CENTER, Align.MIN))  # feature: box_1\n    with sketch(on_face(face(\"box_1\", \"-Y\"))) as sketch_1:  # feature: sketch_1\n        sketch_1.path_1 = path((9.581342, 0.808147), (-1.258107, 26.272314))\n        sketch_1.rect_2 = Pos(-5.05496, 26.096744) * Rectangle(8.192839, 16.566123)\n        sketch_1.circle_3 = Pos(-4.211764, 1.023188) * Circle(2.087114)\n    extrude(regions(sketch_1, (-0.3449, 9.372812)), amount=35.003, taper=-8.0)  # feature: extrude_1\nresult = part.part\n",
+  "old": 34606.381639552375,
+  "new": {
+   "ok": false,
+   "error": "SketchError: the taper of -8\u00b0 can't be built exactly on this area: try a smaller angle",
+   "volume": 0.0
+  }
+ },
+ {
+  "id": "s5_26_r4_tapercut",
+  "src": "with BuildPart() as part:\n    Box(14.6, 17.6, 40.8, align=(Align.CENTER, Align.CENTER, Align.MIN))  # feature: box_1\n    with sketch(on_face(face(\"box_1\", \"+Z\"))) as sketch_1:  # feature: sketch_1\n        sketch_1.path_1 = path((-4.140393, 7.106348), (4.978002, 11.178797), (10.67321, 3.297639), closed=True)\n        sketch_1.rect_2 = Pos(-4.107241, -8.623085) * Rot(0, 0, 15.0) * Rectangle(9.695653, 3.557063)\n        sketch_1.circle_3 = Pos(-8.955068, -10.401617) * Circle(2.653336)\n        sketch_1.circle_4 = Pos(-0.104882, 12.196715) * Circle(4.151085)\n        sketch_1.axis = Line((-47.3, -3.59167), (-42.3, -3.59167))\n    extrude(regions(sketch_1, (-9.573191, -10.753215)), amount=-28.611, taper=3.0, mode=Mode.SUBTRACT)  # feature: extrude_1\nresult = part.part\n",
+  "old": 10483.967999999999,
+  "new": {
+   "ok": false,
+   "error": "SketchError: the taper of 3\u00b0 can't be built exactly on this area: try a smaller angle",
+   "volume": 0.0
+  }
+ },
+ {
+  "id": "s5_32_r9_tapercut",
+  "src": "with BuildPart() as part:\n    Cylinder(27.7, 16.2, align=(Align.CENTER, Align.CENTER, Align.MIN))  # feature: cyl_1\n    with sketch(on_face(face(\"cyl_1\", \"+Z\"))) as sketch_1:  # feature: sketch_1\n        sketch_1.path_1 = path((7.36579, 8.351458), (43.258645, -17.570886), arc_to((-29.548627, 38.282801)), (-4.545098, 20.937642), arc_to((-9.86169, 37.628793)))\n        sketch_1.linex_2 = Line((-32.7, -0.50668), (27.7, -40.578474))\n        sketch_1.path_3 = path((-36.526365, -13.996041), (-11.153381, -14.113059), arc_to((27.933383, -1.422277)), closed=True)\n        sketch_1.axis = Line((-52.879977, -67.7), (-52.879977, -62.7))\n    extrude(regions(sketch_1, (26.38862, -3.810548)), amount=-6.777, taper=-3.0, mode=Mode.SUBTRACT)  # feature: extrude_1\nresult = part.part\n",
+  "old": 38996.16601041564,
+  "new": {
+   "ok": false,
+   "error": "RUNNER IndexError",
+   "volume": 0
+  }
+ },
+ {
+  "id": "s5_33_r2_tapercut",
+  "src": "with BuildPart() as part:\n    Box(45.1, 39.6, 53.8, align=(Align.CENTER, Align.CENTER, Align.MIN))  # feature: box_1\n    with sketch(on_face(face(\"box_1\", \"-Y\"))) as sketch_1:  # feature: sketch_1\n        sketch_1.poly_1 = Polygon((15.487734, 19.850657), (16.021591, 17.347967), (17.170081, 16.539402), align=None)\n        sketch_1.path_2 = path((16.746473, 2.139503), (-17.252836, 38.796301), arc_to((5.020696, 32.928065)), arc_to((20.250859, 5.973142)), arc_to((8.300584, 4.992945)))\n    extrude(regions(sketch_1, (-1.534444, 62.725293)), amount=-8.56, taper=3.0, mode=Mode.SUBTRACT)  # feature: extrude_1\nresult = part.part\n",
+  "old": 96084.648,
+  "new": {
+   "ok": false,
+   "error": "SketchError: the taper of 3\u00b0 can't be built exactly on this area: try a smaller angle",
+   "volume": 0.0
+  }
+ },
+ {
+  "id": "s6_10_r3_tapercut",
+  "src": "with BuildPart() as part:\n    Box(26.9, 22.6, 16.6, align=(Align.CENTER, Align.CENTER, Align.MIN))  # feature: box_1\n    with sketch(on_face(face(\"box_1\", \"-Z\"))) as sketch_1:  # feature: sketch_1\n        sketch_1.circle_1 = Pos(-8.396098, -16.17277) * Circle(0.545741)\n        sketch_1.poly_2 = Polygon((12.748031, 17.743579), (10.294824, 17.695304), (9.847339, 16.31502), (12.433851, 15.065683), (12.991737, 15.614465), align=None)\n        sketch_1.rect_3 = Pos(-0.514104, -5.258481) * Rot(0, 0, 90.0) * Rectangle(11.676125, 14.261297)\n    extrude(regions(sketch_1, (-8.396098, -16.17277)), amount=-6.473, taper=3.0, mode=Mode.SUBTRACT)  # feature: extrude_1\nresult = part.part\n",
+  "old": 10091.804,
+  "new": {
+   "ok": false,
+   "error": "RUNNER IndexError",
+   "volume": 0
+  }
+ },
+ {
+  "id": "s6_14_r0_taper",
+  "src": "with BuildPart() as part:\n    Box(31.9, 22.8, 37.1, align=(Align.CENTER, Align.CENTER, Align.MIN))  # feature: box_1\n    with sketch(on_face(face(\"box_1\", \"-Z\"))) as sketch_1:  # feature: sketch_1\n        sketch_1.line_1 = Line((1.778216, 8.747054), (8.597138, 0.011412))\n        sketch_1.circle_2 = Pos(1.778216, 8.747054) * Circle(6.202478)\n        sketch_1.line_3 = Line((8.597138, 0.011412), (1.778216, 8.747045))\n        sketch_1.axis = Line((-55.95, 1.756757), (-50.95, 1.756757))\n    extrude(regions(sketch_1, (-0.258484, -1.086472)), amount=28.95, taper=-8.0)  # feature: extrude_1\nresult = part.part\n",
+  "old": 51871.66919734269,
+  "new": {
+   "ok": false,
+   "error": "SketchError: the taper of -8\u00b0 can't be built exactly on this area: try a smaller angle",
+   "volume": 0.0
+  }
+ },
+ {
+  "id": "s6_22_r0_taper",
+  "src": "with BuildPart() as part:\n    Box(38.4, 34.1, 26.5, align=(Align.CENTER, Align.CENTER, Align.MIN))  # feature: box_1\n    with sketch(on_face(face(\"box_1\", \"+Z\"))) as sketch_0:  # feature: sketch_0\n        sketch_0.boss = Rectangle(27.3, 17.8)\n    extrude(regions(sketch_0, (0.0, 0.0)), amount=12.0)  # feature: extrude_0\n    with sketch(on_face(face(\"extrude_0\", \"end\"))) as sketch_1:  # feature: sketch_1\n        sketch_1.circle_1 = Pos(1.85234, -6.9596) * Circle(2.65955)\n    extrude(regions(sketch_1, (-0.081268, 0.296725)), amount=8.108, taper=-8.0)  # feature: extrude_1\nresult = part.part\n",
+  "old": 44648.734635063855,
+  "new": {
+   "ok": false,
+   "error": "SketchError: the taper of -8\u00b0 can't be built exactly on this area: try a smaller angle",
+   "volume": 0.0
+  }
+ },
+ {
+  "id": "s6_35_r0_tapercut",
+  "src": "with BuildPart() as part:\n    Cylinder(9.4, 30.4, align=(Align.CENTER, Align.CENTER, Align.MIN))  # feature: cyl_1\n    with sketch(on_face(face(\"cyl_1\", \"+Z\"))) as sketch_1:  # feature: sketch_1\n        sketch_1.rect_1 = Pos(-5.917437, -3.787498) * Rectangle(6.965127, 5.028817)\n        sketch_1.circle_2 = Pos(0.092036, 0.123678) * Circle(3.633034)\n        sketch_1.linex_3 = Line((-9.4, -0.130724), (14.400009, 9.050567))\n    extrude(regions(sketch_1, (3.526208, -2.778301)), amount=-10.756, taper=-3.0, mode=Mode.SUBTRACT)  # feature: extrude_1\nresult = part.part\n",
+  "old": 8438.7702568843,
+  "new": {
+   "ok": false,
+   "error": "SketchError: the taper of -3\u00b0 can't be built exactly on this area: try a smaller angle",
+   "volume": 0.0
+  }
+ },
+ {
+  "id": "s7_16_r0_taper",
+  "src": "with BuildPart() as part:\n    Box(25.0, 37.9, 29.7, align=(Align.CENTER, Align.CENTER, Align.MIN))  # feature: box_1\n    with sketch(on_face(face(\"box_1\", \"+Z\"))) as sketch_1:  # feature: sketch_1\n        sketch_1.circle_1 = Pos(12.473062, 2.665448) * Circle(5.255746)\n    extrude(regions(sketch_1, (-0.49562, -0.128795)), amount=18.791, taper=-8.0)  # feature: extrude_1\nresult = part.part\n",
+  "old": 48592.56246583458,
+  "new": {
+   "ok": false,
+   "error": "SketchError: the taper of -8\u00b0 can't be built exactly on this area: try a smaller angle",
+   "volume": 0.0
+  }
+ },
+ {
+  "id": "s7_19_r3_taper",
+  "src": "with BuildPart() as part:\n    Cylinder(12.5, 10.5, align=(Align.CENTER, Align.CENTER, Align.MIN))  # feature: cyl_1\n    with sketch(on_face(face(\"cyl_1\", \"+Z\"))) as sketch_1:  # feature: sketch_1\n        sketch_1.path_1 = path((8.48528, -6.44106), (1.175056, -11.767979), arc_to((-2.204746, 3.741249)), closed=True)\n        sketch_1.path_2 = path((3.679209, -10.472698), (4.183876, 10.629021), arc_to((-6.830348, -11.647564)))\n        sketch_1.path_3 = path((-2.591045, -12.331163), (5.978231, 0.12196), arc_to((-7.369535, 11.746468)), arc_to((8.000112, -6.72978)))\n        sketch_1.axis = Line((-52.5, -37.067917), (-47.5, -37.067917))\n    extrude(regions(sketch_1, (8.394234, -1.284797)), amount=7.151, taper=-8.0)  # feature: extrude_1\nresult = part.part\n",
+  "old": 6162.206521994311,
+  "new": {
+   "ok": false,
+   "error": "SketchError: the taper of -8\u00b0 can't be built exactly on this area: try a smaller angle",
+   "volume": 0.0
+  }
+ },
+ {
+  "id": "s7_20_r0_tapercut",
+  "src": "with BuildPart() as part:\n    Box(34.3, 55.5, 12.8, align=(Align.CENTER, Align.CENTER, Align.MIN))  # feature: box_1\n    with sketch(on_face(face(\"box_1\", \"-X\"))) as sketch_1:  # feature: sketch_1\n        sketch_1.rect_1 = Pos(-19.907403, -6.698607) * Rectangle(10.24199, 10.000866)\n        sketch_1.path_2 = path((-21.467091, -11.784177), (-9.477027, -10.425444), arc_to((24.191426, -3.247252)))\n        sketch_1.line_3 = Line((26.91655, -7.13683), (24.191417, -3.247256))\n        sketch_1.line_4 = Line((-10.617194, -2.509616), (26.916549, -7.13683))\n    extrude(regions(sketch_1, (2.717357, -6.382004)), amount=-26.562, taper=3.0, mode=Mode.SUBTRACT)  # feature: extrude_1\nresult = part.part\n",
+  "old": 24366.72,
+  "new": {
+   "ok": false,
+   "error": "SketchError: the taper of 3\u00b0 can't be built exactly on this area: try a smaller angle",
+   "volume": 0.0
+  }
+ },
+ {
+  "id": "s7_29_r1_taper",
+  "src": "with BuildPart() as part:\n    Box(19.1, 20.9, 30.0, align=(Align.CENTER, Align.CENTER, Align.MIN))  # feature: box_1\n    fillet(edge_between(face(\"box_1\", \"+Z\"), face(\"box_1\", \"+X\")), radius=2.7)  # feature: fillet_1\n    with sketch(on_face(face(\"box_1\", \"+Z\"))) as sketch_1:  # feature: sketch_1\n        sketch_1.circle_1 = Pos(-7.042963, 1.053953) * Circle(1.997177)\n        sketch_1.axis = Line((-49.55, -23.063927), (-44.55, -23.063927))\n    extrude(regions(sketch_1, (-7.042963, 1.053953)), amount=15.331, taper=8.0)  # feature: extrude_1\nresult = part.part\n",
+  "old": 12002.389657420932,
+  "new": {
+   "ok": false,
+   "error": "SketchError: the taper of 8\u00b0 closes the area before the end of the 15.331 mm extrude: use a smaller angle or distance",
+   "volume": 0.0
+  }
+ },
+ {
+  "id": "s7_30_r2_taper",
+  "src": "with BuildPart() as part:\n    Box(52.5, 48.9, 42.5, align=(Align.CENTER, Align.CENTER, Align.MIN))  # feature: box_1\n    with sketch(on_face(face(\"box_1\", \"+Z\"))) as sketch_0:  # feature: sketch_0\n        sketch_0.boss = Rectangle(19.6, 15.9)\n    extrude(regions(sketch_0, (0.0, 0.0)), amount=7.1)  # feature: extrude_0\n    with sketch(on_face(face(\"extrude_0\", \"end\"))) as sketch_1:  # feature: sketch_1\n        sketch_1.circle_1 = Pos(-4.851803, 3.854916) * Circle(0.636979)\n        sketch_1.line_2 = Line((6.086375, -1.584557), (-8.484435, -2.248656))\n        sketch_1.linex_3 = Line((-9.8, -5.878692), (14.8, 4.007736))\n        sketch_1.line_4 = Line((5.571158, -7.538882), (-8.498939, 1.814568))\n        sketch_1.axis = Line((-4.157521, -47.95), (-4.157521, -42.95))\n    extrude(regions(sketch_1, (-4.851803, 3.854916)), amount=31.856, taper=3.0)  # feature: extrude_1\nresult = part.part\n",
+  "old": 111347.92868524323,
+  "new": {
+   "ok": false,
+   "error": "SketchError: the taper of 3\u00b0 closes the area before the end of the 31.856 mm extrude: use a smaller angle or distance",
+   "volume": 0.0
+  }
+ },
+ {
+  "id": "s7_31_r0_tapercut",
+  "src": "with BuildPart() as part:\n    Box(44.3, 46.1, 21.1, align=(Align.CENTER, Align.CENTER, Align.MIN))  # feature: box_1\n    with sketch(on_face(face(\"box_1\", \"-Y\"))) as sketch_1:  # feature: sketch_1\n        sketch_1.circle_1 = Pos(-1.663556, 6.872885) * Circle(3.071282)\n        sketch_1.line_2 = Line((1.407726, 6.872885), (5.132874, 5.009123))\n        sketch_1.circle_3 = Pos(-20.204255, 17.354391) * Circle(1.945845)\n    extrude(regions(sketch_1, (0.324259, 10.58138)), amount=-0.778, taper=-3.0, mode=Mode.SUBTRACT)  # feature: extrude_1\nresult = part.part\n",
+  "old": 42386.58353991283,
+  "new": {
+   "ok": false,
+   "error": "SketchError: the taper of -3\u00b0 can't be built exactly on this area: try a smaller angle",
+   "volume": 0.0
+  }
+ },
+ {
+  "id": "s7_39_r5_taper",
+  "src": "with BuildPart() as part:\n    Cylinder(22.9, 24.1, align=(Align.CENTER, Align.CENTER, Align.MIN))  # feature: cyl_1\n    with sketch(on_face(face(\"cyl_1\", \"+Z\"))) as sketch_1:  # feature: sketch_1\n        sketch_1.linex_1 = Line((0.171169, -27.9001), (-3.988221, 27.9))\n        sketch_1.rect_2 = Pos(11.751298, -8.053723) * Rectangle(13.359299, 26.114064)\n        sketch_1.rect_3 = Pos(-3.978484, -13.958333) * Rectangle(19.659526, 11.276247)\n    extrude(regions(sketch_1, (15.56297, -18.831551)), amount=12.615, taper=-8.0)  # feature: extrude_1\nresult = part.part\n",
+  "old": 40518.3598905683,
+  "new": {
+   "ok": false,
+   "error": "SketchError: the taper of -8\u00b0 can't be built exactly on this area: try a smaller angle",
+   "volume": 0.0
+  }
+ }
+]

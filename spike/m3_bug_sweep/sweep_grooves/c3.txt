@@ -1,0 +1,19 @@
+v round no-sharp null
+    sketch_1.path_1 = path((-10.538031, -6.810272), (-11.03122, -6.879368), (-26.293893, -9.017674), arc_to((-32.88455, -4.881829)))
+groove(sketch_1.path_1, width=7.695005, depth=1.231047, profile="v", corners="round")
+----
+v round no-sharp null, one line
+    sketch_1.path_1 = path((-10.538031, -6.810272), (-26.293893, -9.017674), arc_to((-32.88455, -4.881829)))
+groove(sketch_1.path_1, width=7.695005, depth=1.231047, profile="v", corners="round")
+----
+v simple line+arc
+    sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), arc_to((0.0, 12.0)))
+groove(sketch_1.path_1, width=8.0, depth=1.2, profile="v")
+----
+v simple line+arc w4
+    sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), arc_to((0.0, 12.0)))
+groove(sketch_1.path_1, width=4.0, depth=1.2, profile="v")
+----
+rect simple line+arc w8
+    sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), arc_to((0.0, 12.0)))
+groove(sketch_1.path_1, width=8.0, depth=1.2, profile="rect")

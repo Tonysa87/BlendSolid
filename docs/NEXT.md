@@ -1,6 +1,6 @@
 # Where we are / what's next (bookmark)
 
-Updated: 2026-10-04, session 14 (milestone 3a in progress, branch `m3a`, pushed to GitHub). Read this first when resuming, then "Next step".
+Updated: 2026-10-04, session 14 end (milestone 3a in progress, branch `m3a`, pushed to GitHub). Read this first when resuming, then "Next step".
 
 ## State
 - **Milestone 0 (spike):** done — `SPIKE_REPORT.md`.
@@ -10,9 +10,10 @@ Updated: 2026-10-04, session 14 (milestone 3a in progress, branch `m3a`, pushed 
 - **Milestone 2 (selectors from clicks):** done, signed off 2026-09-28 (GUI tests 1–5), merged into `main`
   (tag `m2`) — `docs/milestone-2-report.md` (what was built, criterion, history, known limits).
 - `main`: 283 unit + 236 Blender tests; `tools/gui_check.py` steps 1-21 PASS on Linux and Windows (as of session 9,
-  not re-run since). Branch `m3a`: 342 unit + 259 Blender tests; gui_check 1-25 PASS on Linux (session 12), steps 22 and 24
-  re-run in session 13 (22 also on Windows).
-- **The Windows portable Blender has branch `m3a` installed** (built from b50efea; `MESH_FORMAT` 12, smoke PASS).
+  not re-run since). Branch `m3a`: 378 unit + 278 Blender tests (session 14); gui_check 1-25 PASS on Linux
+  (session 12; not re-run since session 13).
+- **The Windows portable Blender has branch `m3a` installed from a87af0b** (session 14; `MESH_FORMAT` 12, smoke
+  PASS); everything after it (the bug-sweep fixes) is not installed yet.
 - **Merged into `main` (session 10):** partial collars for curved runs of a flat face's loops, collars that shrink
   instead of cancelling, collar safety nets, planar cells of curved faces as quads (the maintainer's GUI review:
   a fillet of sliver triangles); `MESH_FORMAT` 10 — ADR 0008 and ADR 0010 addenda of 2026-09-29 (measured on a
@@ -51,47 +52,53 @@ Updated: 2026-10-04, session 14 (milestone 3a in progress, branch `m3a`, pushed 
   **step 4 exposed the bug below**, so 5-6 are still to be seen.
 
 ## Next step — resume exactly here
-**Session 14 (2026-10-04), in progress:** step 5's keypad typing PASS; two bugs found by the maintainer, fixed
-(not yet installed: the maintainer asked for a deep headless bug sweep before the next build):
-- Add: confirming a typed/scaled size showed the part at the starting size for a moment (the scale went back to 1
-  before the worker's mesh at the new size arrived): the mesh takes the scale at confirm (a87af0b; installed and
-  confirmed by the maintainer).
-- Groove/rib: a Round rib along a path with arcs and sharp corners failed with `StdFail_NotDone` (OCCT's mitred
-  pipe can't trim a sharp corner right after an arc; on other paths it silently overlaps itself, BRepCheck valid):
-  paths with sharp corners are now swept run by run and the corners filled (mitre = the runs' straight extensions
-  intersected, round = the outer half of the profile revolved) — e5affbc, exact volumes in tests. File:
-  `E:\bs_debug\s14_rib.blend`.
-- Known, not fixed yet: `arc_to` a point straight ahead along the tangent raises a raw `gp_Dir::Cross()` error.
-- **Headless bug sweep done** (4 searches, ~10,000 cases): ledger with every finding and its status in
-  `docs/research/2026-10-04-bug-sweep.md` (B = Blender side, R = regions/extrude/revolve, M = display mesh,
-  G = grooves/paths). All Blender-side bugs fixed (B1-B11, B14); worker fixes going one at a time, each with a
-  test that fails without it. Then rebuild + install, then step 5b (mouse scaling, Ctrl grid, click confirm with
-  scale 1) and step 6.
+**Session 14 (2026-10-04) ended mid-bug-sweep; the maintainer then said: work autonomously (they will `/clear`
+from remote).** Start with `git fetch` (docs-only research branches are merged into `m3a`), then the plan below.
 
-**Session 13 (2026-10-02): the maintainer's GUI test of session 12's build, steps 1-4 PASS, step 5 half done.**
-Everything below is built, tested, committed, pushed and installed in the portable Blender (b50efea). Resume with:
-1. **Step 5, the rest (Add, E > Add > Box):** typing a size on the keypad (just fixed), then: mouse scales in round
-   steps, Ctrl = grid steps, a click confirms (object scale 1), Esc on a second one leaves nothing.
-2. **Step 6 (Fillet):** drag far past the limit (stops at the max), test6.blend's error label, a new fillet on a
-   failing part refused. Open question for the maintainer: were fillet_3-5 in test6 attempts to change fillet_2's
-   radius (then a click on an existing fillet should show its radius arrow instead of adding a new fillet)?
+### Where session 14 left things
+- Maintainer's GUI test of session 12's build: steps 1-4 PASS (session 13), step 5 keypad typing PASS. Two bugs
+  they found are fixed: the Add "pop" on confirm (a87af0b, installed, confirmed) and the Round rib failing at a
+  sharp corner after an arc (`StdFail_NotDone`; e5affbc: paths with sharp corners are swept run by run and the
+  corners filled; file `E:\bs_debug\s14_rib.blend`). **Not installed**: everything after a87af0b (the Windows
+  portable Blender still has a87af0b).
+- **Headless bug sweep** (the maintainer's request before rebuilding: "prenditi il tempo che serve"): 4 searches,
+  ~10,000 cases. **Ledger with every finding, its status and commit: `docs/research/2026-10-04-bug-sweep.md`**
+  (B = Blender side, R = regions/extrude/revolve, M = display mesh, G = grooves/paths). Tools to rerun them:
+  `spike/m3_bug_sweep/` (README; `rerun.py grooves|tapers` reruns 3000 groove / 895 taper cases, 2 processes).
+- Fixed so far (each with a test that fails without it): B1-B11, B13 (warning), B14; R2, R3 (sure-vanish bound),
+  R4, R5, R7, R10; G1, G2, G3, G5, G6, G8. Two regressions of the path fixes, found by rerunning the groove
+  cases, are fixed too (065b189). Branch `m3a`: 378 unit + 278 Blender tests pass.
+- Learned (CLAUDE.md pitfalls): OCCT's draft can hang holding the GIL; `BRepOffsetAPI_MakeOffset` segfaults on
+  some faces (a volume check of tapers against offset sections was measured and dropped for that); rounding
+  fixes must stay at the rounding level (1e-6 rad) or they move real geometry.
 
-Session 13's results and fixes (each with a test that fails without it):
-- Step 1 PASS (path from just off the face stays on its plane; Extrude Sketch of one half). Note: the blue hover
-  fill had cut corners: closed sketch outlines were sampled by length along the whole wire — now every edge from
-  its start (791d9b4, `MESH_FORMAT` 12). Confirmed by the maintainer.
-- Step 2 PASS (snaps "vertex"/"midpoint", 15° lock), after my test instructions were corrected (the labels only
-  showed after the first click). Then fixed: the hover marker snaps to the part's points and names them before the
-  first click too (5322cab, `ops_sketch.snap_to_points` / `part_points`; gui_check step 22, Windows screenshot).
-- Request: take back the last path point. Backspace existed (only in the header text); **Ctrl+Z** added as an alias
-  (6656744; gui_check step 22 takes back two wrong clicks).
-- Step 3 PASS (Groove, Profile Circle, pipe rib).
-- Step 4 PASS. **Decisions (ADR 0013):** both pie keys stay (right-button drag and E); the two-flick native pies are
-  fine (no continuous-gesture pie).
-- Step 5: the keypad didn't type sizes (event names NUMPAD_ZERO.. instead of NUMPAD_0..); fixed (b50efea,
-  `ops_add.TYPED_KEYS` checked against Blender's event types; gui_check step 24 types 35 on the keypad).
+### Plan (assessed at the end of session 14; follow it in order)
+Principles from the docs: a failure is never silent (CLAUDE.md), references never re-bind silently (ADR 0009,
+3a criterion 3), every geometric result verified with numbers, display mesh quality is a bar the maintainer
+holds high. The maintainer asked for the bugs to be fixed *before* the next build, but a build should not wait
+for the long mesh-quality work.
+1. **Silent wrong results first** (ledger): R11 (a region seed silently lands in another region after an upstream
+   change — research how Onshape/Fusion identify sketch regions first; ADR 0012's fallback: identify regions by
+   their bounding entity names); R12 (regions tapered one by one leave a V-groove: taper their union);
+   G7 (a rib's overshoot hangs below the face beyond its edge); G4 (a self-crossing tangent run passes: check the
+   path in 2D before sweeping); R13, R15, R8, R9.
+2. **Clear messages instead of raw ones:** R6, R14, R16, B12, G9, G10, G11 (cheap).
+3. **Display mesh, loud failures:** M3, M4, M5 (open or wrong meshes), M13 (blend hangs: at least a clear error).
+   Fuzz with `spike/m3_bug_sweep/sweep_mesh/check.py` before/after; bump `part.MESH_FORMAT` on any mesh change.
+4. **Build for the maintainer:** full tests, `tools/gui_check.py` on Linux, Windows zip, install **only if the
+   portable Blender is closed** (`powershell.exe Get-Process blender`; never kill it), smoke PASS, update this file.
+5. **Display mesh quality:** M1, M2, M7 (slivers/folds/excess on V and round-corner grooves, mitre ends), then M6,
+   M8, M9, M10, M11, M12; the same fuzz before/after; measure, don't eyeball (ADR 0010).
+6. **R1 and the rest of R3** (taper hang; wrong drafts past a partly vanishing outline): write a design note or
+   ADR (own drafted prism with conic edges, or risky OCCT calls in a disposable subprocess) before coding.
+7. **When the maintainer is back:** GUI step 5b (E > Add > Box: mouse scales in round steps, Ctrl = grid steps, a
+   click confirms with object scale 1, Esc leaves nothing), step 6 (Fillet: drag past the limit stops at the max,
+   test6.blend's error label, a new fillet on a failing part refused; ask whether fillet_3-5 in test6 were
+   attempts to change fillet_2's radius), and a quick re-check of `s14_rib.blend`. Short steps, in Italian.
+8. Then the queue below (fillet editing if confirmed, UI pass tasks 3-8, sketch features, rest of 3a: STEP I/O,
+   the 3a acceptance criterion, the usage checkpoint, merge `m3a`).
 
-**Queue after that test (in order):**
+**Queue (after the plan above):**
 1. Fix what the maintainer's test finds (one fix at a time, rebuild + install, re-check only what changed).
 2. Editing an existing fillet from the viewport, if the maintainer confirms the intent (question above): a click on
    a fillet face focuses its feature and shows a radius handle, instead of appending a new fillet.
@@ -106,6 +113,7 @@ Session 13's results and fixes (each with a test that fails without it):
    slot, editing sketch entities in the viewport; then the 3a acceptance criterion, the usage checkpoint, merge
    `m3a` into `main`.
 
+Earlier items (sessions 12-13, kept for reference):
 0. **Merged into `m3a` (session 12):** the maintainer's morning research branch `research/ui-pass` (docs only:
    pie menus, fillet feedback, OCCT fillets after 8.0.1; `docs/handoff-2026-09-30.md`), decisions recorded as
    ADR 0013 (commands: two-level pie + selection context menu, sidebar = context; pie keys settled 2026-10-02: right-drag and E) and ADR 0014
@@ -153,6 +161,9 @@ Session 13's results and fixes (each with a test that fails without it):
   spec scope changes, publication/licensing/distribution, or anything touching the maintainer's own Blender install.
 - Commit trailer: keep the fixed `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>` line for this
   project (settled 2026-09-27); the maintainer wants it removed for good in the future.
+- **Never saturate the PC** (session 14): background jobs and subagents at most ~8 busy processes in total (2 per
+  agent, said in each prompt); no hurry.
+- Every reply in Italian, including GUI steps and bug explanations (session 14: one slipped into English).
 - GUI tests: one step at a time, exact actions and expected results; use the UI's own labels and tool names, no
   new jargon, and skip steps already verified — go straight to what the test is about; when a screenshot shows a mesh problem,
   measure exactly what it shows first; installing a build needs the maintainer to close Blender.

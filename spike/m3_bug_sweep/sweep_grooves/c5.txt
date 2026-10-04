@@ -1,0 +1,60 @@
+kink 0.0 rect
+    sketch_1.path_1 = path((-15.0, 0.0), (-10.0, 0.0), (0.0, 0.000000000), arc_to((0.0, 12.0)))
+groove(sketch_1.path_1, width=4.0, depth=2.0, profile="rect")
+----
+kink 0.0 v
+    sketch_1.path_1 = path((-15.0, 0.0), (-10.0, 0.0), (0.0, 0.000000000), arc_to((0.0, 12.0)))
+groove(sketch_1.path_1, width=4.0, depth=2.0, profile="v")
+----
+kink 0.0 circle
+    sketch_1.path_1 = path((-15.0, 0.0), (-10.0, 0.0), (0.0, 0.000000000), arc_to((0.0, 12.0)))
+groove(sketch_1.path_1, width=4.0, depth=2.0, profile="circle")
+----
+kink 1e-08 rect
+    sketch_1.path_1 = path((-15.0, 0.0), (-10.0, 0.0), (0.0, 0.000000100), arc_to((0.0, 12.0)))
+groove(sketch_1.path_1, width=4.0, depth=2.0, profile="rect")
+----
+kink 1e-08 v
+    sketch_1.path_1 = path((-15.0, 0.0), (-10.0, 0.0), (0.0, 0.000000100), arc_to((0.0, 12.0)))
+groove(sketch_1.path_1, width=4.0, depth=2.0, profile="v")
+----
+kink 1e-08 circle
+    sketch_1.path_1 = path((-15.0, 0.0), (-10.0, 0.0), (0.0, 0.000000100), arc_to((0.0, 12.0)))
+groove(sketch_1.path_1, width=4.0, depth=2.0, profile="circle")
+----
+kink 1e-07 rect
+    sketch_1.path_1 = path((-15.0, 0.0), (-10.0, 0.0), (0.0, 0.000001000), arc_to((0.0, 12.0)))
+groove(sketch_1.path_1, width=4.0, depth=2.0, profile="rect")
+----
+kink 1e-07 v
+    sketch_1.path_1 = path((-15.0, 0.0), (-10.0, 0.0), (0.0, 0.000001000), arc_to((0.0, 12.0)))
+groove(sketch_1.path_1, width=4.0, depth=2.0, profile="v")
+----
+kink 1e-07 circle
+    sketch_1.path_1 = path((-15.0, 0.0), (-10.0, 0.0), (0.0, 0.000001000), arc_to((0.0, 12.0)))
+groove(sketch_1.path_1, width=4.0, depth=2.0, profile="circle")
+----
+kink 5e-07 rect
+    sketch_1.path_1 = path((-15.0, 0.0), (-10.0, 0.0), (0.0, 0.000005000), arc_to((0.0, 12.0)))
+groove(sketch_1.path_1, width=4.0, depth=2.0, profile="rect")
+----
+kink 5e-07 v
+    sketch_1.path_1 = path((-15.0, 0.0), (-10.0, 0.0), (0.0, 0.000005000), arc_to((0.0, 12.0)))
+groove(sketch_1.path_1, width=4.0, depth=2.0, profile="v")
+----
+kink 5e-07 circle
+    sketch_1.path_1 = path((-15.0, 0.0), (-10.0, 0.0), (0.0, 0.000005000), arc_to((0.0, 12.0)))
+groove(sketch_1.path_1, width=4.0, depth=2.0, profile="circle")
+----
+kink 2e-06 rect
+    sketch_1.path_1 = path((-15.0, 0.0), (-10.0, 0.0), (0.0, 0.000020000), arc_to((0.0, 12.0)))
+groove(sketch_1.path_1, width=4.0, depth=2.0, profile="rect")
+----
+kink 2e-06 v
+    sketch_1.path_1 = path((-15.0, 0.0), (-10.0, 0.0), (0.0, 0.000020000), arc_to((0.0, 12.0)))
+groove(sketch_1.path_1, width=4.0, depth=2.0, profile="v")
+----
+kink 2e-06 circle
+    sketch_1.path_1 = path((-15.0, 0.0), (-10.0, 0.0), (0.0, 0.000020000), arc_to((0.0, 12.0)))
+groove(sketch_1.path_1, width=4.0, depth=2.0, profile="circle")
+----

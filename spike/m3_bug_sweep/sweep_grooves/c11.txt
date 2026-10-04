@@ -1,0 +1,54 @@
+arc_to straight ahead (known)
+    sketch_1.path_1 = path((0.0, 0.0), (5.0, 0.0), arc_to((10.0, 0.0)))
+----
+arc_to straight back
+    sketch_1.path_1 = path((0.0, 0.0), (5.0, 0.0), arc_to((-5.0, 0.0)))
+----
+arc_to its own start
+    sketch_1.path_1 = path((0.0, 0.0), (5.0, 0.0), arc_to((5.0, 0.0)))
+----
+duplicate point then arc
+    sketch_1.path_1 = path((0.0, 0.0), (0.0, 0.0), arc_to((5.0, 5.0)))
+----
+single point
+    sketch_1.path_1 = path((0.0, 0.0))
+----
+closed path of 2 points
+    sketch_1.path_1 = path((0.0, 0.0), (5.0, 0.0), closed=True)
+groove(sketch_1.path_1, width=1.0, depth=1.0)
+----
+closed path ending 5e-7 off start
+    sketch_1.path_1 = path((-5.0, -5.0), (5.0, -5.0), (5.0, 5.0), (-5.0, 5.0), (-5.0000005, -5.0), closed=True)
+groove(sketch_1.path_1, width=2.0, depth=2.0)
+----
+open path ending 5e-7 off start
+    sketch_1.path_1 = path((-5.0, -5.0), (5.0, -5.0), (5.0, 5.0), (-5.0, 5.0), (-5.0000005, -5.0))
+groove(sketch_1.path_1, width=2.0, depth=2.0)
+----
+closed via explicit end, tangent closing arc
+    sketch_1.path_1 = path((-5.0, -5.0), (5.0, -5.0), arc_to((5.0, 5.0)), (-5.0, 5.0), arc_to((-5.0, -5.0)), closed=True)
+groove(sketch_1.path_1, width=2.0, depth=2.0)
+----
+groove width 0
+    sketch_1.path_1 = path((0.0, 0.0), (5.0, 0.0))
+groove(sketch_1.path_1, width=0.0, depth=1.0)
+----
+groove on a sketch rectangle (not a path)
+    sketch_1.r = Rectangle(10.0, 5.0)
+groove(sketch_1.r, width=1.0, depth=1.0)
+----
+groove on a sketch circle
+    sketch_1.c = Circle(5.0)
+groove(sketch_1.c, width=1.0, depth=1.0)
+----
+groove on a line
+    sketch_1.l = Line((0.0, 0.0), (5.0, 0.0))
+groove(sketch_1.l, width=1.0, depth=1.0)
+----
+groove deeper than the box
+    sketch_1.path_1 = path((-5.0, 0.0), (5.0, 0.0))
+groove(sketch_1.path_1, width=1.0, depth=15.0)
+----
+groove off the face entirely
+    sketch_1.path_1 = path((30.0, 0.0), (40.0, 0.0))
+groove(sketch_1.path_1, width=1.0, depth=1.0)
