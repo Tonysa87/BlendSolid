@@ -59,6 +59,24 @@ SKETCHED = """with BuildPart() as part:
 result = part.part
 """
 
+# bug sweep 2026-10-04: two halves of a rectangle tapered together (edges between faces of one role,
+# edge_between(a, a)), and a V groove with round corners (degenerate edges on the corner pieces' axis)
+SAME_ROLE = """with BuildPart() as part:
+    Box(40, 30, 20, align=(Align.CENTER, Align.CENTER, Align.MIN))  # feature: box_1
+    with sketch(on_face(face("box_1", "+Z"))) as sketch_1:  # feature: sketch_1
+        sketch_1.r = Rectangle(20.0, 10.0)
+        sketch_1.l = Line((0.0, -5.0), (0.0, 5.0))
+    extrude(regions(sketch_1, (5.0, 0.0), (-5.0, 0.0)), amount=5.0, taper=10.0)  # feature: extrude_1
+result = part.part
+"""
+ROUND_GROOVE = """with BuildPart() as part:
+    Box(40, 20, 10, align=(Align.CENTER, Align.CENTER, Align.MIN))  # feature: box_1
+    with sketch(on_face(face("box_1", "+Z"))) as sketch_1:  # feature: sketch_1
+        sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), (0.0, 5.0))
+    groove(sketch_1.path_1, width=2.0, depth=2.0, profile="v", corners="round")  # feature: groove_1
+result = part.part
+"""
+
 
 def build(source):
     """(result shape, tracker) of a canonical script run through the instrumented build."""
@@ -192,8 +210,8 @@ def test_nearest_face_in_a_script_without_features():
 
 # -- reference texts: what a click on a face or an edge writes -----------------------------------------------------
 
-@pytest.mark.parametrize("source", [DEFAULT, BRACKET, SLOT, ROTATED, SKETCHED],
-                         ids=["default", "bracket", "slot", "rotated", "sketched"])
+@pytest.mark.parametrize("source", [DEFAULT, BRACKET, SLOT, ROTATED, SKETCHED, SAME_ROLE, ROUND_GROOVE],
+                         ids=["default", "bracket", "slot", "rotated", "sketched", "same-role", "round-groove"])
 def test_every_reference_text_resolves_to_its_own_entity(source):
     import tessellate
     shape, tracker = build(source)

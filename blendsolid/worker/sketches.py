@@ -630,7 +630,10 @@ def helpers(tracker):
     def _add(solids, clean, mode):
         context = bd.BuildPart._get_context("extrude")
         if context is not None:
+            before = context.part.volume if context.part is not None else 0.0
             context._add_to_context(*solids, clean=clean, mode=mode)
+            _check_boolean(before, context.part.volume if context.part is not None else 0.0,
+                           sum(s.volume for s in solids), mode, tracker)
         return bd.Part(bd.Compound(solids).wrapped)
 
     def extrude(to_extrude=None, amount=None, dir=None, until=None, target=None, both=False, taper=0.0,
@@ -728,6 +731,26 @@ def helpers(tracker):
 
     return {"sketch": sketch, "on_face": on_face, "regions": regions, "extrude": extrude, "revolve": revolve,
             "path": path, "arc_to": arc_to, "groove": groove}
+
+
+def _check_boolean(before, after, tool, mode, tracker):
+    """A union never loses material and a cut never adds any (OCCT's booleans sometimes return a wrong solid, valid
+    to BRepCheck: a rib fused on a rib that touches it tangentially came back alone, the part gone); one that
+    changes nothing is a warning (a groove off the part, a join inside the material)."""
+    import build123d as bd
+    tol = 1e-6 * max(before, tool, 1.0)
+    if mode == bd.Mode.ADD:
+        wrong, changed = not before - tol <= after <= before + tool + tol, after > before + tol
+    elif mode == bd.Mode.SUBTRACT:
+        wrong, changed = not before - tool - tol <= after <= before + tol, after < before - tol
+    else:
+        wrong, changed = after > min(before, tool) + tol, True
+    if wrong:
+        raise SketchError(f"OCCT's boolean went wrong here (the part's volume went from {before:.6g} to {after:.6g} "
+                          "mm³): change a size a little")
+    if not changed and before > 0:
+        tracker.warn("this feature changes nothing: it doesn't reach the part" if mode == bd.Mode.SUBTRACT
+                     else "this feature changes nothing: it lies inside the part")
 
 
 def _owner(curve):

@@ -499,3 +499,35 @@ def test_a_half_round_rib_off_any_face():
             '        sketch_1.path_1 = path((0.0, 0.0), (10.0, 0.0))\n'
             '    groove(sketch_1.path_1, width=2.0, depth=1.0, profile="round", mode=Mode.ADD)  # feature: rib_1\n')
     assert r.volume == pytest.approx(math.pi / 2 * 10, rel=1e-9)
+
+
+def test_a_boolean_that_loses_the_part_is_an_error():
+    # rib after rib on one path, equal depths (round tops tangent along the centreline): OCCT's fuse returned the
+    # second rib alone, the box gone, silently (bug sweep, 2026-10-04)
+    source = ("with BuildPart() as part:\n" + GROOVE_BOX +
+              '    with sketch(on_face(face("box_1", "+Z"))) as sketch_1:  # feature: sketch_1\n'
+              '        sketch_1.path_1 = path((-10.0, -5.0), (10.0, -5.0), (-10.0, 5.0), closed=True)\n'
+              '    groove(sketch_1.path_1, width=2.0, depth=2.0, profile="round", corners="round", mode=Mode.ADD)'
+              '  # feature: rib_1\n'
+              '    groove(sketch_1.path_1, width=1.0, depth=2.0, profile="round", mode=Mode.ADD)  # feature: rib_2\n'
+              "result = part.part\n")
+    r = runner.run_script(source)
+    assert (not r.ok and r.line == 6) or r.volume > 8000, (r.error, r.volume)
+
+
+def test_a_groove_off_the_part_warns():
+    r = run(GROOVE_BOX + '    with sketch(Plane.XY.offset(30)) as sketch_1:  # feature: sketch_1\n'
+            '        sketch_1.path_1 = path((-10.0, 0.0), (10.0, 0.0))\n'
+            '    groove(sketch_1.path_1, width=2.0, depth=2.0)  # feature: groove_1\n')
+    assert r.volume == pytest.approx(8000) and any("nothing" in text for _, text in r.warnings), r.warnings
+
+
+def test_a_fillet_on_a_round_cornered_groove():
+    # every wall-wall edge of a round-cornered groove raised an empty Standard_ConstructionError: edge_between
+    # took the corner pieces' degenerate edges (bug sweep, 2026-10-04)
+    r = run(GROOVE_BOX + '    with sketch(on_face(face("box_1", "+Z"))) as sketch_1:  # feature: sketch_1\n'
+            '        sketch_1.path_1 = path((-10.0, 0.0), (0.0, 0.0), (0.0, 5.0))\n'
+            '    groove(sketch_1.path_1, width=2.0, depth=2.0, profile="v", corners="round")  # feature: groove_1\n'
+            '    fillet(edge_between(face("groove_1", "wall"), face("groove_1", "wall"), near=(-5.0, 0.0, 8.0)), '
+            'radius=0.2)  # feature: fillet_1\n')
+    assert r.volume < 8000

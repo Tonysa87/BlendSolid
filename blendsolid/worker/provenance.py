@@ -18,6 +18,7 @@ faces.
 """
 import ast
 
+from OCP.BRep import BRep_Tool
 from OCP.BRepAdaptor import BRepAdaptor_Surface
 from OCP.GeomAbs import (GeomAbs_BezierSurface, GeomAbs_BSplineSurface, GeomAbs_Cone, GeomAbs_Cylinder,
                          GeomAbs_Plane, GeomAbs_Sphere, GeomAbs_Torus)
@@ -316,16 +317,28 @@ def _helpers(tracker):
         centre is closest to it."""
         tracker.consume(a)
         tracker.consume(b)
-        second = ShapeMap()
-        for f in b:
-            for e in _edges(f.wrapped):
-                second.Add(e)
-        shared, seen = [], ShapeMap()
-        for f in a:
-            for e in _edges(f.wrapped):
-                if second.Contains(e) and not seen.Contains(e):
-                    seen.Add(e)
-                    shared.append(Edge(e))
+        # the edges of a face of `a` that are edges of a face of `b`; without near=, only those between two
+        # distinct faces, one of each: a click writes no near= when its pair of faces shares one such edge, and
+        # with one label on both sides (two faces of one role) every edge of those faces was taken (bug sweep,
+        # 2026-10-04). With near=, the wider set, as the click's centres were measured against it (ADR 0009's
+        # criterion binds wrongly otherwise). A degenerate edge (a pole) is never one.
+        owners = ShapeMap()
+        faces_of = []
+        for side, faces in ((0, a), (1, b)):
+            for f in faces:
+                for e in _edges(f.wrapped):
+                    i = owners.Add(e)
+                    if i > len(faces_of):
+                        faces_of.append(([], []))
+                    if not any(f.wrapped.IsSame(g) for g in faces_of[i - 1][side]):
+                        faces_of[i - 1][side].append(f.wrapped)
+        shared = []
+        for i, (in_a, in_b) in enumerate(faces_of):
+            e = TopoDS.Edge(owners.FindKey(i + 1))
+            if BRep_Tool.Degenerated_s(e) or not (in_a and in_b):
+                continue
+            if near is not None or any(not fa.IsSame(fb) for fa in in_a for fb in in_b):
+                shared.append(Edge(e))
         if not shared:
             raise BrokenReference(f"no edge between {_name(a)} and {_name(b)}")
         if near is not None:
