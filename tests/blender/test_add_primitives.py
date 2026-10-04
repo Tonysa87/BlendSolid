@@ -169,3 +169,43 @@ def test_confirming_a_new_size_keeps_the_part_on_screen_at_that_size(clean, curs
     assert mm3(obj) == pytest.approx(35.0 ** 3, rel=1e-4)  # ...and the part already shows that size
     wait_for(lambda: up_to_date(obj))
     assert mm3(obj) == pytest.approx(35.0 ** 3, rel=1e-6)
+
+
+def _placement_typing(kind, keys):
+    """A _Placement of a new `kind` part started at 10 mm, after typing `keys` (event types), then Enter."""
+    from types import SimpleNamespace
+
+    from blendsolid import ops_add
+    getattr(bpy.ops.blendsolid, f"add_{kind}")(**primitives.sized_values(kind, 10.0))
+    obj = bpy.context.view_layer.objects.active
+    placement = ops_add._Placement()
+    placement.prim, placement.obj, placement.handle, placement.typed = primitives.PRIMITIVES[kind], obj, None, ""
+    placement.matrix = obj.matrix_world.copy()
+    placement.written = placement.size = 10.0
+    context = SimpleNamespace(area=SimpleNamespace(header_text_set=lambda text: None, tag_redraw=lambda: None))
+    for key in keys:
+        placement.modal(SimpleNamespace(), context, SimpleNamespace(type=key, value="PRESS"))
+    label = placement.label()
+    result = placement.modal(SimpleNamespace(), context, SimpleNamespace(type="RET", value="PRESS"))
+    return placement, label, result, obj
+
+
+@pytest.mark.parametrize("kind, keys, size, finished", [
+    ("box", ["ONE", "PERIOD", "TWO", "PERIOD", "THREE"], 1.23, True),  # a second point is refused
+    ("box", ["ZERO"], 10.0, False),  # too small: not taken, Enter waits for a usable size
+    ("box", ["PERIOD"], 10.0, False),
+    ("box", ["ZERO", "PERIOD", "ZERO", "ZERO", "ZERO", "ZERO", "ZERO", "ZERO", "ONE"], 10.0, False),
+    ("torus", ["ZERO", "PERIOD", "ZERO", "ZERO", "FIVE"], 10.0, False),  # its minor radius would be 0.0005
+    ("box", ["ZERO", "PERIOD", "ZERO", "ZERO", "FIVE"], 0.005, True),
+])
+def test_typed_sizes_the_script_can_hold(clean, cursor, kind, keys, size, finished):
+    # typed sizes were only checked > 0: 1e-7 wrote a 0 mm box (Standard_DomainError), sizes under 0.001 mm went
+    # below the operator's own minimum, "1.2.3" confirmed 1.2 (bug sweep, 2026-10-04)
+    placement, label, result, obj = _placement_typing(kind, keys)
+    assert placement.size == size
+    assert (result == {"FINISHED"}) == finished, label
+    if not finished:
+        assert "at least" in label
+    else:
+        wait_for(lambda: up_to_date(obj))
+        assert obj.blendsolid_error == ""

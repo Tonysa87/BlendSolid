@@ -236,6 +236,12 @@ ROUND_STEPS = (1.0, 2.0, 5.0)  # the size a new part starts with: 1-2-5 times a 
 DRAG_STEPS = (1.0, 1.2, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0, 6.0, 8.0)  # while scaling it with the mouse (Renard-like)
 
 
+def min_size(kind):
+    """The smallest size (mm) a new primitive of `kind` can take: every parameter at least 0.001 mm, the add
+    operators' minimum (a top length of 0 is fine)."""
+    return round(0.001 / min(k for k in PROPORTIONS[kind].values() if k > 0), 6)
+
+
 def sized_values(kind, size):
     """Parameter values (suffix -> mm) of primitive `kind` whose largest extent is `size` mm."""
     return {suffix: round(size * k, 6) + 0.0 for suffix, k in PROPORTIONS[kind].items()}

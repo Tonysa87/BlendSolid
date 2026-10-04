@@ -139,6 +139,8 @@ class _Placement:
             _remove_part(self.obj)
             return {"CANCELLED"}
         if event.value == "PRESS" and event.type in {"LEFTMOUSE", "RET", "NUMPAD_ENTER", "SPACE"}:
+            if self.typed and self._typed_value() is None:
+                return {"RUNNING_MODAL"}  # the label says why: Backspace, or type on
             self.end(context)
             values = primitives.sized_values(self.prim.kind, self.size)
             for suffix, value in values.items():
@@ -166,20 +168,28 @@ class _Placement:
         return {"RUNNING_MODAL"}
 
     def _type(self, event):
-        """Digits, '.' and Backspace type the size (Blender's numeric input, reduced); True if handled."""
+        """Digits, '.' and Backspace type the size (Blender's numeric input, reduced); True if handled. A size
+        too small for the part's parameters isn't taken (nor confirmed): the label says so."""
         if event.type in TYPED_KEYS:
-            self.typed += TYPED_KEYS[event.type]
+            key = TYPED_KEYS[event.type]
+            if not (key == "." and "." in self.typed):  # a second point would be ignored by float(): refuse it
+                self.typed += key
         elif event.type == "BACK_SPACE" and self.typed:
             self.typed = self.typed[:-1]
         else:
             return False
-        try:
-            value = float(self.typed)
-        except ValueError:
-            return True
-        if value > 0:
+        value = self._typed_value()
+        if value is not None:
             self.size = value
         return True
+
+    def _typed_value(self):
+        """The typed size, rounded as scripts write numbers, or None while it isn't a usable one."""
+        try:
+            value = round(float(self.typed), 6)
+        except ValueError:
+            return None
+        return value if value >= primitives.min_size(self.prim.kind) else None
 
     def _mouse_size(self, context, event):
         from . import ops_draw
@@ -189,11 +199,16 @@ class _Placement:
         size = self.written * max(d, 1.0) / self.start_px
         if event.ctrl:
             step = ops_draw.step_mm(context.scene)
-            return max(step, round(size / step) * step)
-        return primitives.nice_size(size, primitives.DRAG_STEPS)
+            size = max(step, round(size / step) * step)
+        else:
+            size = primitives.nice_size(size, primitives.DRAG_STEPS)
+        return max(round(size, 6), primitives.min_size(self.prim.kind))
 
     def label(self):
         dims = " × ".join(f"{e:g}" for e in self.prim.extents(primitives.sized_values(self.prim.kind, self.size)))
+        if self.typed and self._typed_value() is None:
+            return (f"{self.prim.label} {dims} mm  (typed {self.typed}: at least "
+                    f"{primitives.min_size(self.prim.kind):g} mm)")
         return f"{self.prim.label} {dims} mm" + (f"  (typed {self.typed})" if self.typed else "")
 
     def status(self, context):
