@@ -69,3 +69,21 @@ open path, which splits faces and carries a profile. So:
   Transformed gives invalid solids at sharp corners). A groove's profile reaches 0.5 mm above the face (no
   coplanar boolean faces); a rib on a face sinks 0.5 mm into it. The Groove tool: press on a curve and drag into
   the part (groove) or out (rib). Its faces all get the role `wall` for now (references need `near=`).
+
+## Addendum (2026-10-04, session 15): area seeds carry their bounding curves (bug sweep R11)
+
+A bare seed point silently picked another region after an upstream change (a rectangle narrowed past the point:
+the extrude took the rest of the face instead). Research: Onshape identifies a sketch region by the sketch curves
+bounding it ("at least one sketch id in the loop of edges around the region") and resolves a changed topology to
+the patches next to those curves; Fusion stores the clicked profile and is known to switch profiles after sketch
+edits (Autodesk forum, FUS-227038). Neither tells the user. So:
+- The tools write each seed as `area((u, v), inside="rect_1", left="line_1", ...)`: the point stays the
+  identifier (readable, editable), and each curve bounding the picked area is listed with the area's side of it —
+  `inside`/`outside` for closed entities and for `"face"` (the sketch face's boundary, a reserved entity name),
+  `left`/`right` for open curves along their own direction.
+- The worker compares the area under the point with that description: a curve whose side flipped, or no curve in
+  common, is a `BrokenReference` on the line ("pick the area again"); other changes (a curve added or gone, e.g.
+  the rectangle now clipped by the face's edge) are a warning. Equal descriptions pass silently; a bare `(u, v)`
+  seed is not checked (scripts written by hand or before this addendum).
+- Two areas with the same description (a zigzag line crossing a rectangle) are still told apart by the point
+  alone: the description is a check, not a full identity.

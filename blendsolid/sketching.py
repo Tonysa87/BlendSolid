@@ -152,11 +152,39 @@ OPERATIONS = ("ADD", "SUBTRACT", "INTERSECT")
 EXTENTS = ("DISTANCE", "NEXT", "LAST")
 
 
-def extrude_spec(sketch, seed, amount, operation="ADD", extent="DISTANCE", symmetric=False, taper=0.0):
-    """The Extrude tool's feature: the region of `sketch` (feature name) at `seed` (plane coordinates, mm)
-    extruded by `amount` mm (negative: against the plane's normal), or up to the next/last face in that
-    direction. The distance and a nonzero taper are parameters; the direction is written as the sign."""
-    region = f"regions({sketch}, ({fmt(seed[0])}, {fmt(seed[1])}))"
+SIDES = ("inside", "outside", "left", "right")  # worker sketches.SIDES
+
+
+def region_bounds(sketch, seed):
+    """The bounding curves of the region of `sketch` (display dict) at `seed`: {name: [sides]} (the worker's
+    `bounds`), or None."""
+    index = region_at(sketch, seed) if sketch else None
+    return None if index is None else sketch["regions"][index].get("bounds")
+
+
+def region_text(sketch, seed, bounds=None):
+    """`regions(sketch_1, <seed>)` for the region of `sketch` (feature name) at `seed`: with `bounds`, the seed is
+    `area((u, v), inside="rect_1", ...)` — the point and the curves bounding the picked area, so the worker
+    refuses the line if an upstream change puts another area under the point (worker sketches.area_arguments)."""
+    point = f"({fmt(seed[0])}, {fmt(seed[1])})"
+    if not bounds:
+        return f"regions({sketch}, {point})"
+    keywords = ""
+    for side in SIDES:
+        names = sorted(name for name, sides in bounds.items() if side in sides)
+        if names:
+            keywords += f", {side}=" + (f'"{names[0]}"' if len(names) == 1 else
+                                        "(" + ", ".join(f'"{n}"' for n in names) + ")")
+    return f"regions({sketch}, area({point}{keywords}))"
+
+
+def extrude_spec(sketch, seed, amount, operation="ADD", extent="DISTANCE", symmetric=False, taper=0.0,
+                 bounds=None):
+    """The Extrude tool's feature: the region of `sketch` (feature name) at `seed` (plane coordinates, mm; its
+    bounding curves `bounds`, see region_text) extruded by `amount` mm (negative: against the plane's normal),
+    or up to the next/last face in that direction. The distance and a nonzero taper are parameters; the
+    direction is written as the sign."""
+    region = region_text(sketch, seed, bounds)
     values, args = [], [region]
     if extent == "DISTANCE":
         values.append(("amount", abs(float(amount))))
@@ -176,10 +204,10 @@ def extrude_spec(sketch, seed, amount, operation="ADD", extent="DISTANCE", symme
     return FeatureSpec(prefix, tuple(values), f"extrude({', '.join(args)})")
 
 
-def revolve_spec(sketch, seed, axis_entity, angle=360.0, operation="ADD"):
-    """The Revolve tool's feature: the region of `sketch` at `seed` turned about its line `axis_entity` by
-    `angle` degrees (a parameter)."""
-    region = f"regions({sketch}, ({fmt(seed[0])}, {fmt(seed[1])}))"
+def revolve_spec(sketch, seed, axis_entity, angle=360.0, operation="ADD", bounds=None):
+    """The Revolve tool's feature: the region of `sketch` at `seed` (bounding curves `bounds`, see region_text)
+    turned about its line `axis_entity` by `angle` degrees (a parameter)."""
+    region = region_text(sketch, seed, bounds)
     call = f'revolve({region}, axis={sketch}.axis("{axis_entity}"), revolution_arc={{name}}_angle'
     if operation != "ADD":
         call += f", mode=Mode.{operation}"

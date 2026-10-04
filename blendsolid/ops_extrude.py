@@ -104,7 +104,7 @@ class BLENDSOLID_OT_extrude(bpy.types.Operator):
             self.report({"ERROR"}, "The extrude has no distance")
             return {"CANCELLED"}
         spec = sketching.extrude_spec(self.sketch, tuple(self.seed), self.amount, self.operation, self.extent,
-                                      self.symmetric, self.taper)
+                                      self.symmetric, self.taper, _bounds(obj, self.sketch, self.seed))
         return _append(self, context, obj, spec)
 
     # -- the Extrude tool's drag ----------------------------------------------------------------------------
@@ -181,7 +181,8 @@ class BLENDSOLID_OT_extrude(bpy.types.Operator):
         if abs(amount) < 1e-3:
             self._obj.blendsolid_script.from_string(self._source)
             return
-        spec = sketching.extrude_spec(self._sketch["name"], self._uv, amount, auto_operation(self._solid, amount))
+        spec = sketching.extrude_spec(self._sketch["name"], self._uv, amount, auto_operation(self._solid, amount),
+                                      bounds=sketching.region_bounds(self._sketch, self._uv))
         try:
             source, _ = script_model.append_feature(self._source, spec)
         except script_model.NotCanonical:
@@ -201,6 +202,12 @@ class BLENDSOLID_OT_extrude(bpy.types.Operator):
 
 
 _dragging = set()
+
+
+def _bounds(obj, sketch, seed):
+    """The bounding curves of the area at `seed` in `obj`'s sketch `sketch`, as the part last drew it (the panel's
+    Area may have been edited: the area under the point now, not the one first clicked)."""
+    return sketching.region_bounds(ops_sketch.find_sketch(obj, sketch), tuple(seed))
 
 
 def pick_region(context, origin, direction):
@@ -312,7 +319,8 @@ class BLENDSOLID_OT_revolve(bpy.types.Operator):
         if abs(self.angle) < 1e-6:
             self.report({"ERROR"}, "The revolve has no angle")
             return {"CANCELLED"}
-        spec = sketching.revolve_spec(self.sketch, tuple(self.seed), self.axis, self.angle, self.operation)
+        spec = sketching.revolve_spec(self.sketch, tuple(self.seed), self.axis, self.angle, self.operation,
+                                      _bounds(obj, self.sketch, self.seed))
         return _append(self, context, obj, spec)
 
     def invoke(self, context, event):

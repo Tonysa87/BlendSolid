@@ -13,7 +13,11 @@ A sketch is a feature of its own: a plane and named build123d objects drawn in t
   and sketch coordinates don't shift when the face grows (build123d's Plane(face) is centred on the face).
 - `regions(sketch, (u, v), ...)` are the areas bounded by all the sketch's curves (overlaps split them, as in
   Fusion, Onshape and Plasticity) that contain the seed points, placed on the sketch's plane. A seed in no
-  region is an error; a seed on a region's boundary a warning.
+  region is an error; a seed on a region's boundary a warning. The tools write each seed as
+  `area((u, v), inside="rect_1", left="line_1", ...)`: the point and the curves bounding the area it picked, with
+  the area's side of each (Onshape identifies a region by its bounding curves). When an upstream change moves
+  the area under the point, the side of a curve that flipped (or no curve in common) is an error, other
+  changes to the bounding curves a warning: a region is never re-bound silently (ADR 0009).
 - extrude() and revolve() of regions are BlendSolid's own (other inputs go to build123d's): taper is a straight
   extrusion drafted with the sketch plane as neutral plane (only planes and cones, never build123d's lofted
   B-spline sides), and the faces they bring in get roles by what made them: "start" and "end" for the caps,
@@ -26,6 +30,8 @@ ON_EDGE_MM = 1e-4       # a seed this close to a region's boundary is doubtful (
 ON_FACE_MM = 1e-4       # a sketch edge this close to a solid's face swept it
 AXIS_SNAP = 1e-4        # a face normal this close to a part axis is that axis (drawing.plane_on_part_face)
 FUZZY_MM = 1e-5         # curve ends this close meet (scripts write 6 decimals: ends snapped to a rounded corner)
+FACE = "face"           # area(): the sketch face's own boundary, among the entity names (reserved)
+SIDES = ("inside", "outside", "left", "right")
 CURVE_DEG = 5.0         # display: one polyline segment per this many degrees of arc
 MAX_SEGMENTS = 256
 
@@ -88,7 +94,7 @@ class Sketch:
     body runs outside the part's builder (build123d objects there don't join the part), and each attribute
     assigned on the sketch is one entity: `sketch_1.rect_1 = Rectangle(...)`."""
 
-    _OWN = ("plane", "name", "used", "entities", "shapes", "_regions", "_token")
+    _OWN = ("plane", "name", "used", "entities", "shapes", "_regions", "_token", "_loops", "_face_local")
 
     def __init__(self, plane):
         from build123d import Plane
@@ -101,6 +107,8 @@ class Sketch:
         self.used = False     # regions() was called on it
         self._regions = None
         self._token = None
+        self._loops = {}      # name -> its closed wires, or None for an open entity (cached)
+        self._face_local = None
 
     def __setattr__(self, name, value):
         if name in Sketch._OWN:
@@ -108,6 +116,8 @@ class Sketch:
             return
         if name.startswith("_"):
             raise SketchError(f"sketch entity names can't start with '_' ({name})")
+        if name == FACE:
+            raise SketchError(f"'{FACE}' names the sketch face's boundary in area(): pick another entity name")
         if not hasattr(value, "edges"):
             raise SketchError(f"sketch entity {name} is a {type(value).__name__}, not a build123d shape")
         edges = _entity_edges(value)
@@ -119,6 +129,7 @@ class Sketch:
                 raise SketchError(f"sketch entity {name} leaves the sketch plane (z != 0)")
         self.entities[name] = edges
         self.shapes[name] = value
+        self._loops.pop(name, None)
         try:
             value._bs_sketch, value._bs_entity = self, name  # groove(sketch_1.path_1) finds its sketch
         except AttributeError:
@@ -148,9 +159,9 @@ class Sketch:
         """The bounded areas of the sketch's curves, as faces in local XY (cached)."""
         if self._regions is None:
             edges = [e for edges in self.entities.values() for e in edges]
-            face = getattr(self.plane, "_bs_face", None)
+            face = self.face_local()
             if face is not None and edges:
-                edges += list(self.plane.to_local_coords(face).edges())
+                edges += list(face.edges())
             self._regions = _split(edges)
         return self._regions
 
@@ -167,6 +178,70 @@ class Sketch:
                              f"check that the right area is used")
                 return i
         return None
+
+    def face_local(self):
+        """The sketch face in local XY, or None for a sketch on a plane (cached)."""
+        face = getattr(self.plane, "_bs_face", None)
+        if face is not None and self._face_local is None:
+            self._face_local = self.plane.to_local_coords(face)
+        return self._face_local
+
+    def bounds_of(self, region):
+        """What bounds the local region `region`: {entity name: set of sides}. Closed entities (and FACE, the
+        sketch face's boundary) have the region "inside" or "outside" them; open curves have it on their "left"
+        or "right" along their own direction (a self-crossing path can have both)."""
+        from build123d import Vector
+        inside = Vector(*_inside_point(region), 0.0)
+        out = {}
+        for e in region.edges():
+            name = self.entity_of(e)
+            if name is None:
+                if self.face_local() is None:
+                    continue
+                name = FACE
+            if name == FACE or self._closed(name) is not None:
+                if name not in out:
+                    out[name] = {"inside" if self._contains(name, inside) else "outside"}
+                continue
+            side = self._side(name, e, region)
+            if side is not None:
+                out.setdefault(name, set()).add(side)
+        return out
+
+    def _closed(self, name):
+        """The closed wires of entity `name`, or None if it is an open curve (FACE: None)."""
+        if name == FACE:
+            return None
+        if name not in self._loops:
+            from build123d import Face, Wire
+            loops = None
+            try:
+                wires = Wire.combine(self.entities[name])
+                if wires and all(w.is_closed for w in wires):
+                    loops = [Face(w) for w in wires]
+            except Exception:  # a self-crossing closed path: its sides are left/right
+                loops = None
+            self._loops[name] = loops
+        return self._loops[name]
+
+    def _contains(self, name, point):
+        if name == FACE:
+            return self.face_local().is_inside(point)
+        return sum(1 for f in self._loops[name] if f.is_inside(point)) % 2 == 1
+
+    def _side(self, name, edge, region):
+        """"left" or "right": the side of open entity `name` (along its direction) where `region` lies next to its
+        boundary edge `edge`; None if neither side tells (a region thinner than the probe)."""
+        from build123d import Vector
+        m = edge.position_at(0.5)
+        nearest = min(self.entities[name], key=lambda e: e.distance_to(m))
+        t = nearest.tangent_at(nearest.param_at_point(m))
+        step = min(1e-3, edge.length / 20)
+        normal = Vector(-t.Y, t.X, 0.0)
+        left, right = region.is_inside(m + normal * step), region.is_inside(m - normal * step)
+        if left == right:
+            return None
+        return "left" if left else "right"
 
     def entity_of(self, edge_local):
         """The name of the entity a (split) region edge comes from, or None."""
@@ -206,7 +281,8 @@ class Sketch:
         regions = []
         for face in self.regions_local():
             loops = [_polyline(w, closed=True) for w in [face.outer_wire(), *face.inner_wires()]]
-            regions.append({"loops": loops, "area": face.area, "inside": _inside_point(face)})
+            bounds = {name: sorted(sides) for name, sides in sorted(self.bounds_of(face).items())}
+            regions.append({"loops": loops, "area": face.area, "inside": _inside_point(face), "bounds": bounds})
         return {"name": self.name, "used": self.used, "plane": [list(_vec(v)) for v in (o, x, y, z)],
                 "curves": curves, "regions": regions, "points": _snap_points(self.entities)}
 
@@ -598,6 +674,55 @@ def _sweep_by_runs(runs, sharp, profile_at, normal, corners):
 
 # -- the script helpers -------------------------------------------------------------------------------------------
 
+class Area:
+    """A region seed as the tools write it: `area((u, v), inside="rect_1", left=("line_1", "path_1"), ...)` — the
+    point and, for each curve bounding the picked area, the area's side of it (module docstring)."""
+
+    def __init__(self, uv, inside=(), outside=(), left=(), right=()):
+        self.uv = uv
+        self.bounds = {}
+        for side, names in zip(SIDES, (inside, outside, left, right)):
+            for name in (names,) if isinstance(names, str) else names:
+                self.bounds.setdefault(name, set()).add(side)
+
+    def __repr__(self):
+        return f"area({_uv(self.uv)}{area_arguments(self.bounds)})"
+
+
+def area_arguments(bounds):
+    """The keyword part of an area() call for `bounds` ({name: sides}): ', inside="rect_1", left=("a", "b")'."""
+    out = ""
+    for side in SIDES:
+        names = sorted(name for name, sides in bounds.items() if side in sides)
+        if names:
+            out += f", {side}=" + (f'"{names[0]}"' if len(names) == 1 else
+                                   "(" + ", ".join(f'"{n}"' for n in names) + ")")
+    return out
+
+
+def _describe(bounds):
+    words = {"inside": "inside {}", "outside": "outside {}", "left": "left of {}", "right": "right of {}"}
+    parts = [words[side].format("the face" if name == FACE else name)
+             for name in sorted(bounds) for side in sorted(bounds[name])]
+    return ", ".join(parts) if parts else "bounded by nothing named"
+
+
+def _check_area(sk, seed, found, warn):
+    """ADR 0009 for regions: the area under the seed point must be the one the seed's curves describe."""
+    expected = seed.bounds
+    if not expected or found == expected:
+        return
+    common = expected.keys() & found.keys()
+    flipped = [name for name in common if not expected[name] & found[name]]
+    where = f"the area of {sk.name} at {_uv(seed.uv)}"
+    if flipped or not common:
+        from provenance import BrokenReference
+        raise BrokenReference(f"{where} is now {_describe(found)}, but it was picked {_describe(expected)}: the "
+                              f"sketch changed under it — pick the area again")
+    warn(f"{where} is now {_describe(found)}; it was picked {_describe(expected)}: check that the right area "
+         f"is used")
+
+
 def helpers(tracker):
     """sketch(), on_face(), regions() and the extrude()/revolve() that understand regions, for a part script
     run with `tracker` (provenance.Tracker: warnings, roles of brought-in faces, the sketches to display)."""
@@ -620,11 +745,14 @@ def helpers(tracker):
         picked = []
         if not points:
             picked = list(range(len(local)))
-        for uv in points:
+        for seed in points:
+            uv = seed.uv if isinstance(seed, Area) else seed
             i = sk.region_index(uv, tracker.warn, f"the area of {sk.name} at {_uv(uv)}")
             if i is None:
                 from provenance import BrokenReference
                 raise BrokenReference(f"no closed area of the sketch {sk.name} contains the point {_uv(uv)}")
+            if isinstance(seed, Area):
+                _check_area(sk, seed, sk.bounds_of(local[i]), tracker.warn)
             if i not in picked:
                 picked.append(i)
         sk.used = True
@@ -735,7 +863,7 @@ def helpers(tracker):
             roles[f.wrapped] = "wall"
         return _add([solid], True, mode)
 
-    return {"sketch": sketch, "on_face": on_face, "regions": regions, "extrude": extrude, "revolve": revolve,
+    return {"sketch": sketch, "on_face": on_face, "regions": regions, "area": Area, "extrude": extrude, "revolve": revolve,
             "path": path, "arc_to": arc_to, "groove": groove}
 
 

@@ -136,3 +136,24 @@ def test_angle_lock():
     assert math.hypot(u, v) == pytest.approx(10 * math.cos(math.radians(30)) + 6 * math.sin(math.radians(30)))
     u, v = sketching.angle_locked((0.0, 0.0), (-10.0, -9.0))  # 222° -> 225°
     assert math.degrees(math.atan2(v, u)) % 360 == pytest.approx(225.0, abs=1e-5)
+
+
+def test_extrude_spec_writes_the_picked_areas_bounding_curves():
+    # R11: the seed carries the curves bounding the clicked area, written like the worker's own area() repr
+    import sketches
+    source, sketch = _sketched_box()
+    display = _run(source).sketches[0]
+    bounds = sketching.region_bounds(display, (5.0, 0.0))
+    assert len(bounds) == 1 and list(bounds.values()) == [["inside"]]
+    spec = sketching.extrude_spec(sketch, (5.0, 0.0), 4.0, bounds=bounds)
+    area = sketches.Area((5.0, 0.0), **{side: tuple(n for n, s in bounds.items() if side in s)
+                                         for side in sketches.SIDES})
+    assert f"regions({sketch}, {area!r})" in spec.call
+    built, _ = sm.append_feature(source, spec)
+    r = _run(built)
+    assert abs(r.volume - (24000 + math.pi * 9 * 4)) < 1e-6 and not r.warnings
+    outside = sketching.region_bounds(display, (15.0, 10.0))
+    assert outside == {"face": ["inside"], **{n: ["outside"] for n in bounds}}
+    assert sketching.region_text(sketch, (1.0, 2.0)) == f"regions({sketch}, (1.0, 2.0))"
+    assert sketching.region_text(sketch, (1.0, 2.0), {"b": ["left"], "a": ["inside"], "face": ["inside"]}) == \
+        f'regions({sketch}, area((1.0, 2.0), inside=("a", "face"), left="b"))'

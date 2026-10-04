@@ -93,6 +93,71 @@ def test_seed_on_a_boundary_warns():
     assert any("boundary" in text for _, text in r.warnings)
 
 
+def _rect_seed(width, seed):
+    return runner.run_script(
+        f"w = {width}\nwith BuildPart() as part:\n" + BOX +
+        '    with sketch(on_face(face("box_1", "+Z"))) as sketch_1:  # feature: sketch_1\n'
+        '        sketch_1.rect_1 = Pos(3.0, 0.0) * Rectangle(w, 6.0)\n'
+        f'    extrude(regions(sketch_1, {seed}), amount=5.0)  # feature: extrude_1\n'
+        "result = part.part\n")
+
+
+def test_regions_report_their_bounding_curves_and_sides():
+    r = run(BOX + '    with sketch(on_face(face("box_1", "+Z"))) as sketch_1:  # feature: sketch_1\n'
+                  '        sketch_1.rect_1 = Pos(5.0, 0.0) * Rectangle(10.0, 6.0)\n'
+                  '        sketch_1.line_1 = Line((-30.0, 10.0), (30.0, 10.0))\n')
+    bounds = sorted(str(g["bounds"]) for g in r.sketches[0]["regions"])
+    assert bounds == sorted([str({"rect_1": ["inside"]}),
+                             str({"face": ["inside"], "line_1": ["right"], "rect_1": ["outside"]}),
+                             str({"face": ["inside"], "line_1": ["left"]})])
+
+
+def test_a_seed_that_lands_in_another_area_is_an_error():
+    # R11: the seed (6, 0) picked the rectangle; narrowed to 4 mm the rectangle ends at x = 5 and the point now
+    # lies in the rest of the face — extruding that instead would be a silent re-binding (ADR 0009)
+    seed = '(6.0, 0.0)'
+    assert _rect_seed(10.0, seed).ok  # a plain point: no check (scripts written before area())
+    assert abs(_rect_seed(4.0, seed).volume - (24000 + (1200 - 24) * 5)) < 1e-6  # ... and the wrong area
+    picked = 'area((6.0, 0.0), inside="rect_1")'
+    r = _rect_seed(10.0, picked)
+    assert r.ok and abs(r.volume - (24000 + 60 * 5)) < 1e-6 and not r.warnings
+    r = _rect_seed(4.0, picked)
+    assert not r.ok and r.line == 6
+    assert "outside rect_1" in r.error and "picked inside rect_1" in r.error and "pick the area again" in r.error
+
+
+def test_an_area_that_gains_a_bounding_curve_warns():
+    # the rectangle grows past the face's edge: still inside rect_1, now also bounded by the face (clipped)
+    r = _rect_seed(60.0, 'area((6.0, 0.0), inside="rect_1")')
+    assert r.ok and any("now inside the face, inside rect_1" in text for _, text in r.warnings)
+
+
+def test_area_seeds_of_open_curves():
+    src = (BOX + '    with sketch(on_face(face("box_1", "+Z"))) as sketch_1:  # feature: sketch_1\n'
+                 '        sketch_1.line_1 = Line((y0, -20.0), (5.0, 20.0))\n'
+                 '    extrude(regions(sketch_1, area((10.0, 0.0), inside="face", right="line_1")), amount=5.0)'
+                 '  # feature: extrude_1\n')
+    assert run(src, "y0 = 5.0").ok
+    # the line swings past the seed: (10, 0) is now on its left
+    r = runner.run_script("y0 = 30.0\nwith BuildPart() as part:\n" + src + "result = part.part\n")
+    assert not r.ok and "left of line_1" in r.error
+
+
+def test_area_keywords_round_trip():
+    import sketches
+    a = sketches.Area((1.0, 2.0), inside=("face", "rect_1"), left="line_1")
+    assert repr(a) == 'area((1.0, 2.0), inside=("face", "rect_1"), left="line_1")'
+    assert a.bounds == {"face": {"inside"}, "rect_1": {"inside"}, "line_1": {"left"}}
+
+
+def test_face_is_a_reserved_entity_name():
+    r = runner.run_script("with BuildPart() as part:\n" + BOX +
+                          '    with sketch(on_face(face("box_1", "+Z"))) as sketch_1:  # feature: sketch_1\n'
+                          '        sketch_1.face = Circle(2.0)\n'
+                          "result = part.part\n")
+    assert not r.ok and "reserved" not in r.error and "boundary" in r.error and r.line == 4
+
+
 @pytest.mark.parametrize("taper", [5.0, -5.0])
 def test_taper_gives_planes_and_exact_volume(taper):
     r = run(BOX + '    with sketch(on_face(face("box_1", "+Z"))) as sketch_1:  # feature: sketch_1\n'

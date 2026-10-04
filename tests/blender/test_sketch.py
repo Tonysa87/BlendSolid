@@ -62,6 +62,8 @@ def test_sketch_on_a_face_then_cut_through_and_undo(box):
                                       amount=-1.0, operation="SUBTRACT", extent="LAST") == {"FINISHED"}
     wait_for(lambda: up_to_date(box))
     assert mm3(box) == pytest.approx(24000 - math.pi * 9 * 20, rel=1e-3)
+    # the seed carries the picked area's bounding curves (R11: never re-bound silently)
+    assert 'regions(sketch_1, area((5.0, 0.0), inside="circle_1"))' in part.source_of(box)
     bpy.ops.ed.undo()
     obj = bpy.data.objects["Box"]  # references die on undo
     wait_for(lambda: up_to_date(obj))
@@ -90,6 +92,7 @@ def test_revolve_about_a_sketch_line(clean):
                                       axis="path_1", angle=360.0) == {"FINISHED"}
     wait_for(lambda: up_to_date(obj))
     assert obj.blendsolid_error == "" and mm3(obj) == pytest.approx(2 * math.pi * 17 * 40, rel=1e-2)
+    assert 'area((17.0, 5.0), inside="rect_1")' in part.source_of(obj)
 
 
 def test_pick_sketch_and_region_by_ray(clean):
