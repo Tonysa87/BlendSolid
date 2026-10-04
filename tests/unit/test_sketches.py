@@ -542,10 +542,9 @@ def test_rib_past_the_face_edge_leaves_nothing_below_the_face(profile, section):
     assert abs(r.volume - (24000 + section * 60)) < 1e-6
 
 
-@pytest.mark.parametrize("points", ["(0.0, 0.0), (10.0, 0.0), arc_to((7.0, 3.0)), (7.0, -5.0)",  # tangent run
-                                    "(0.0, 0.0), (10.0, 0.0), (10.0, 5.0), (5.0, -5.0)",
-                                    "(0.0, 0.0), (10.0, 0.0), (10.0, 5.0), (5.0, 0.0)"])  # ends on itself
-def test_groove_along_a_path_crossing_itself_is_refused(points):
+@pytest.mark.parametrize("points", ["(0.0, 0.0), (10.0, 0.0), arc_to((7.0, 3.0)), (7.0, -5.0)",
+                                    "(0.0, 0.0), (10.0, 0.0), arc_to((10.0, 6.0)), arc_to((10.0, 0.0))"])
+def test_groove_along_a_smooth_run_crossing_itself_is_refused(points):
     # G4: BRepCheck accepted the self-overlapping sweep of a tangent run that crosses itself
     r = runner.run_script("with BuildPart() as part:\n" + BOX +
                           '    with sketch(on_face(face("box_1", "+Z"))) as sketch_1:  # feature: sketch_1\n'
@@ -553,6 +552,19 @@ def test_groove_along_a_path_crossing_itself_is_refused(points):
                           '    groove(sketch_1.path_1, width=1.0, depth=2.0)  # feature: groove_1\n'
                           "result = part.part\n")
     assert not r.ok and "crosses or touches itself" in r.error and r.line == 5
+
+
+@pytest.mark.parametrize("points, length", [("(-10.0, 0.0), (10.0, 0.0), (0.0, 10.0), (0.0, -10.0)",
+                                             20 + math.hypot(10, 10) + 20),
+                                            ("(-10.0, 0.0), (10.0, 0.0), (10.0, 5.0), (0.0, 0.0)",
+                                             20 + 5 + math.hypot(10, 5))])
+def test_groove_along_sharp_runs_crossing_each_other(points, length):
+    # the runs are swept apart and fused: crossing grooves are fine (G4's check must not refuse them)
+    r = run(BOX + '    with sketch(on_face(face("box_1", "+Z"))) as sketch_1:  # feature: sketch_1\n'
+                  f'        sketch_1.path_1 = path({points})\n'
+                  '    groove(sketch_1.path_1, width=1.0, depth=2.0, corners="round")  # feature: groove_1\n')
+    removed = 24000 - r.volume
+    assert 0 < removed < 2.0 * length + 2 * math.pi  # less than the runs apart: they overlap
 
 
 def test_a_join_touching_the_part_along_an_edge_warns():

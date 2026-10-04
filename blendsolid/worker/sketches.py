@@ -974,9 +974,13 @@ def helpers(tracker):
         if width <= 0 or (profile != "circle" and depth <= 0):
             raise SketchError("a groove needs a width and a depth")
         edges = sk.entities[name]
-        if _crosses_itself(edges):  # BRepCheck accepts the swept solid overlapping itself (bug sweep G4)
-            raise SketchError(f"the path {name} crosses or touches itself: a groove along it would overlap itself")
-        wire = sk.placed(bd.Wire(edges) if len(edges) > 1 else bd.Wire([edges[0]]))
+        local = bd.Wire(edges) if len(edges) > 1 else bd.Wire([edges[0]])
+        # OCCT sweeps each smooth run in one go and BRepCheck accepts a run's sweep overlapping itself (bug sweep
+        # G4); runs crossing each other are swept apart and fused, which is fine
+        if any(_crosses_itself(run.edges()) for run in _runs(local)[0]):
+            raise SketchError(f"a smooth stretch of the path {name} crosses or touches itself: a groove along it "
+                              f"would overlap itself (put a sharp corner between the stretches that cross)")
+        wire = sk.placed(local)
         n = sk.plane.z_dir
         cut = mode != bd.Mode.ADD
         up = n if cut else -n  # a rib is a groove turned over: its "depth" goes out of the plane
