@@ -12,8 +12,8 @@ Updated: 2026-10-04, session 15 end (milestone 3a in progress, branch `m3a`, pus
 - `main`: 283 unit + 236 Blender tests; `tools/gui_check.py` steps 1-21 PASS on Linux and Windows (as of session 9,
   not re-run since). Branch `m3a`: 378 unit + 278 Blender tests (session 14); gui_check 1-25 PASS on Linux
   (session 12; not re-run since session 13).
-- **The Windows portable Blender has branch `m3a` installed from a87af0b** (session 14; `MESH_FORMAT` 12, smoke
-  PASS); everything after it (the bug-sweep fixes) is not installed yet.
+- **The Windows portable Blender has branch `m3a` installed from 7a5b8f1** (session 15; `MESH_FORMAT` 14, smoke
+  PASS). Branch `m3a`: 436 unit + 280 Blender tests; gui_check 1-25 PASS on Linux (session 15).
 - **Merged into `main` (session 10):** partial collars for curved runs of a flat face's loops, collars that shrink
   instead of cancelling, collar safety nets, planar cells of curved faces as quads (the maintainer's GUI review:
   a fillet of sliver triangles); `MESH_FORMAT` 10 — ADR 0008 and ADR 0010 addenda of 2026-09-29 (measured on a
@@ -78,6 +78,11 @@ Start with `git fetch`, then plan step 6 (the maintainer's GUI test) when they a
   G15 at once.
 - Independent reviewers (subagents, 2 processes each) checked R11 and the session's mesh and feature commits;
   their findings are fixed or in the ledger.
+- **Not finished (do first next session, 2 processes, ~50 min):** the final rerun of the groove/taper cases on the
+  final code (`cd spike/m3_bug_sweep && $PY rerun.py grooves; $PY rerun.py tapers`; children pinned to cores 2,3).
+  Expect changes from G13/G14/G4-splitting: check every "other volume" case with `groove_check/oracle.py`
+  (it reads `changed_grooves.json`; validated on 40 known cases), and refusals that were right before. The mesh
+  sweep on the final mesh code is done: open edges 1035 → 0, fallbacks 4 → 0, deviation regressions 0.
 - Seen in the gallery, left for the checkpoint: round/circle grooves between two mitres get ~131 long thin columns
   (M7: the mitre's half ellipses evenly spaced); flat faces around a groove's outline get long thin triangles to
   the face corners (ADR 0008's convex pieces); G12 (a round corner next to a run shorter than half the width
@@ -100,8 +105,8 @@ geometric result verified with numbers.
 4. **Display mesh quality, only what shows on almost every groove:** M1 (sliver fans and folds: a tfi face demoted
    to a trimmed grid keeps its edge counts) and M2 (partial cones ~8x too many columns; also M12's excess). Same
    fuzz before/after; measure, don't eyeball (ADR 0010).
-5. **Build for the maintainer:** full tests, `tools/gui_check.py` on Linux, Windows zip, install **only if the
-   portable Blender is closed** (`powershell.exe Get-Process blender`; never kill it), smoke PASS, update this file.
+5. **Build for the maintainer:** done in session 15 (7a5b8f1 installed, smoke PASS). Rebuild + install after any
+   fix (only if the portable Blender is closed: `powershell.exe Get-Process blender`; never kill it).
 6. **When the maintainer is back:** GUI step 5b (E > Add > Box: mouse scales in round steps, Ctrl = grid steps, a
    click confirms with object scale 1, Esc leaves nothing), step 6 (Fillet: drag past the limit stops at the max,
    test6.blend's error label, a new fillet on a failing part refused; ask whether fillet_3-5 in test6 were
