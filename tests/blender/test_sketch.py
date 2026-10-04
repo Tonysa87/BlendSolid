@@ -309,3 +309,23 @@ def test_the_sketch_panel_keeps_a_rectangle_out_of_path(clean):
     op = types.SimpleNamespace(shape="RECTANGLE", layout=Layout())
     ops_sketch.BLENDSOLID_OT_sketch_entity.draw(op, bpy.context)
     assert "shape" not in rows and "shape=RECTANGLE" in rows and "shape=CIRCLE" in rows
+
+
+def test_revolve_refuses_a_failing_part_before_the_axis_click(clean, monkeypatch):
+    # the refusal came only from execute(), after the axis had been picked (bug sweep, 2026-10-04)
+    import types
+    assert sketch("RECTANGLE", (5.0, 0.0), (10.0, 5.0), matrix=Matrix.Identity(4)) == {"FINISHED"}
+    obj = bpy.context.object
+    assert sketch("LINE", (0.0, -5.0), (0.0, 10.0), target=obj.name, sketch_name="sketch_1") == {"FINISHED"}
+    wait_for(lambda: up_to_date(obj))
+    (drawn,) = ops_sketch.sketches_of(obj)
+    obj.blendsolid_script.from_string(part.source_of(obj).replace("result = part.part", "result = part.part / 0"))
+    wait_for(lambda: obj.blendsolid_error != "")
+    monkeypatch.setattr(ops_extrude, "pick_region", lambda context, o, d: (obj, drawn, (7.0, 2.0), 0))
+    from blendsolid import ops_draw
+    monkeypatch.setattr(ops_draw, "_mouse_ray", lambda context, event: (None, None))
+    reports = []
+    op = types.SimpleNamespace(report=lambda kind, text: reports.append(text))
+    context = types.SimpleNamespace(area=types.SimpleNamespace(type="VIEW_3D"), region_data=object())
+    assert ops_extrude.BLENDSOLID_OT_revolve.invoke(op, context, None) == {"CANCELLED"}
+    assert reports and "fails" in reports[0]

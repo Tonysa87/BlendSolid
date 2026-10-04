@@ -324,6 +324,10 @@ class BLENDSOLID_OT_revolve(bpy.types.Operator):
         if found is None:
             return {"PASS_THROUGH"}
         obj, sketch, uv, _ = found
+        blocked = part.blocking_error(obj)
+        if blocked:  # now, not after the axis click
+            self.report({"ERROR"}, blocked)
+            return {"CANCELLED"}
         if not sketching.line_entities(sketch):
             self.report({"WARNING"}, "Draw a line in the sketch first: the area turns about it")
             return {"CANCELLED"}
