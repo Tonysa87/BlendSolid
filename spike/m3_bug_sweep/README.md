@@ -8,6 +8,10 @@ kept so the next sessions can rerun them after a fix. Scripts run with Blender's
   the sweep, independent 2D-band volume `exp`, volume at the sweep) or the 895 tapers that passed at the sweep
   (`taper_cases.json.gz`) against the current worker; writes `changed_<kind>.json` and prints a summary. A "same
   volume" or "exact" case is fine; anything else is a regression or a fix to check against `exp`.
+- `groove_check/oracle.py` (session 15) — independent groove/rib volume: point membership from the path's lines,
+  arcs and corner pieces + Monte Carlo; `oracle.py cases.json` with rerun.py's `changed_grooves.json` format.
+- `sweep_mesh/check.py` honours `BS_ROOT` (another checkout) for before/after comparisons; drive.py:
+  `BS_ROOT=<tree> taskset -c 4,5 $PY sweep_mesh/drive.py cases.json out.jsonl` (cases from `gen.py 1 1501`).
 - `sweep_grooves/` — the groove/rib fuzzer (`fuzz.py`, `harness.py`, `analyze.py`; `final.txt` holds the
   ledger's G repros).
 - `sweep_regions/` — the regions/extrude/revolve fuzzer (`fuzz.py`, `child.py`, `drive.py`; `final.py` the R

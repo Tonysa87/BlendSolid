@@ -236,3 +236,18 @@ tools/test.sh           # unit tests (Blender's Python) + Blender tests (blender
   section (BRepCheck and `BOPAlgo_ArgumentAnalyzer` don't tell). `BRepOffsetAPI_MakeOffset.Perform` **segfaults**
   on some faces (never call it in the worker without a reason to risk the process) and applies sub-shape
   locations twice.
+
+## Known pitfalls (session 15, 2026-10-04)
+
+- **OCCT's fuse of heavily overlapping solids can return a valid but wrong solid** (BRepCheck passes, volume off
+  by up to 99%): sweep pieces are fused only through `sketches._fused`, which verifies the union (`_union_ok`).
+  Likewise a one-go `MakePipeShell` sweep whose band overlaps itself passes BRepCheck with a wrong volume.
+- Check groove volumes with `spike/m3_bug_sweep/groove_check/oracle.py` (point membership + Monte Carlo,
+  independent of OCCT's sweeps), not only BRepCheck; look at meshes with `tools/mesh_shot.py` (shaded + wireframe).
+- `pkill -f <pattern>` kills the calling shell when the pattern appears in its own command line (exit 144): use
+  `pgrep -f "[r]erun.py"`-style patterns and never relaunch in the same command.
+- OCCT/numpy children use many cores each (~900% CPU): pin batch runs with `taskset -c` (rerun.py does).
+- build123d `Shape.intersect()` may return a `ShapeList` (use `.solids()`); `shape.edges()` builds new objects on
+  every call (identity tests like `e is run.edges()[-1]` are always False).
+- On multi-metre parts float32 welding joins the ends of OCCT's micro-edges (6e-5 mm): `tessellate._drop_repeats`.
+- BRepMesh can leave a face without triangulation: the display falls back to the lenient recovery, never fails.
